@@ -34,10 +34,11 @@ cli.q(args: 1, argName: 'minimum quality [phred]',
                 'applied only to CDR3 region [default=30 for -a or 25, out of 40]')
 cli.p(args: 1, 'number of threads to use [default = all available processors]')
 cli.N(args: 1, 'number of reads to take')
+cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
 cli._(longOpt: 'debug', 'Prints out alignment details, stores all temporary alignment files.')
-
 cli._(args: 1, longOpt: 'cdr3-fastq-file', 'Store reads with CDR3 extracted with CDR3 data in header. ' +
         'Needed for \'migec.post.GroupByCdr\' script.')
+
 def opt = cli.parse(args)
 
 if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.C) {
@@ -45,31 +46,45 @@ if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.C) {
     System.exit(0)
 }
 
-def scriptName = getClass().canonicalName
+// System
+def DEBUG = opt.'debug',
+    THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors(),
+    SCRIPT_NAME = getClass().canonicalName,
+    SCRIPT_PATH = new File(getClass().protectionDomain.codeSource.location.path).parent.replaceAll("%20", " "),
+    TMP_FOLDER = SCRIPT_PATH + "/cdrblast-" + UUID.randomUUID().toString()
+
+def TMP_FOLDER_FILE = new File(TMP_FOLDER)
+TMP_FOLDER_FILE.mkdirs()
+if (!DEBUG)
+    TMP_FOLDER_FILE.deleteOnExit()
+
+def timestamp = {
+    "[${new Date()} $SCRIPT_NAME]"
+}
 
 // Parameters
-boolean DEBUG = opt.'debug'
-def cdr3FastqFile = opt.'cdr3-fastq-file'
-def assembledInput = opt.a
-def qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25)
-String readsFileName = opt.arguments()[0],
-       outputFileName = opt.arguments()[1]
-def chain = opt.C, species = opt.S ?: "HomoSapiens"
-def nReads = Integer.parseInt(opt.N ?: "-1")
-def THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
-def scriptPath = new File(getClass().protectionDomain.codeSource.location.path).parent.replaceAll("%20", " ")
+def cdr3FastqFile = opt.'cdr3-fastq-file',
+    allSegments = opt.'all-segments',
+    assembledInput = opt.a,
+    qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
+    chain = opt.C, species = opt.S ?: "HomoSapiens",
+    nReads = Integer.parseInt(opt.N ?: "-1")
+
+def readsFileName = opt.arguments()[0],
+    outputFileName = opt.arguments()[1],
+    segmentsFileName = allSegments ? "segments_all.txt" : "segments.txt"
 
 // BLAST
-int ALLELE_TAIL_INNER = 10, ALLELE_TAIL_OUTER = 6
-int ALLELE_TAIL_V_MAX = 40, ALLELE_TAIL_J_MAX = 20
-int GAP_OPEN = 5, GAP_EXTEND = 2, WORD_SIZE = 7, REWARD = 2, PENALTY = -3
+int ALLELE_TAIL_INNER = 10, ALLELE_TAIL_OUTER = 6,
+    ALLELE_TAIL_V_MAX = 40, ALLELE_TAIL_J_MAX = 20,
+    GAP_OPEN = 5, GAP_EXTEND = 2, WORD_SIZE = 7, REWARD = 2, PENALTY = -3
 
 String BLAST_FLAGS = "-lcase_masking"
 
-int TOP_SEQS = 1
-
-int MIN_SEGMENT_IDENT = 7
-int MIN_CDR_LEN = 7, // at least 1 nt + conserved AAs
+// BLAST results filtering
+int TOP_SEQS = 1,
+    MIN_SEGMENT_IDENT = 7,
+    MIN_CDR_LEN = 7, // at least 1 nt + conserved AAs
     MAX_CDR_LEN = 70
 
 /////////////////
@@ -91,16 +106,23 @@ def char2qual(char c) {
 def revCompl = { String seq ->
     def chars = seq.reverse().toCharArray()
     for (int i = 0; i < chars.length; i++) {
-        if (chars[i] == (char) 'A')
-            chars[i] = (char) 'T'
-        else if (chars[i] == (char) 'T')
-            chars[i] = (char) 'A'
-        else if (chars[i] == (char) 'G')
-            chars[i] = (char) 'C'
-        else if (chars[i] == (char) 'C')
-            chars[i] = (char) 'G'
-        else
-            chars[i] = (char) 'N'
+        switch (chars[i]) {
+            case ((char) 'A'):
+                chars[i] = (char) 'T'
+                break
+            case ((char) 'T'):
+                chars[i] = (char) 'A'
+                break
+            case ((char) 'G'):
+                chars[i] = (char) 'C'
+                break
+            case ((char) 'C'):
+                chars[i] = (char) 'G'
+                break
+            default:
+                chars[i] = (char) 'N'
+                break
+        }
     }
     return new String(chars)
 }
@@ -108,7 +130,7 @@ def revCompl = { String seq ->
 ////////////////////////////////////////////
 // Stage 0: Pre-load segment information //
 //////////////////////////////////////////
-println "[${new Date()} $scriptName] Loading ${chain} Variable and Joining segment data"
+println "${timestamp()} Loading ${chain} Variable and Joining segment data"
 
 class Allele {
     String alleleId, segmentId, seq, type
@@ -124,7 +146,7 @@ def segments = new HashMap<String, Segment>(), alleles = new HashMap<String, All
 def vAlleles = new ArrayList<Allele>(), jAlleles = new ArrayList<Allele>()
 def collapseAlleleMap = new HashMap<String, Allele>()
 
-def resFile = new InputStreamReader(this.class.classLoader.getResourceAsStream("segments.txt"))
+def resFile = new InputStreamReader(this.class.classLoader.getResourceAsStream(segmentsFileName))
 
 resFile.splitEachLine("\t") {
     if (species == it[0] && chain == it[1]) { // Take only alleles of a given chain and species
@@ -183,31 +205,31 @@ collapseAlleleMap.values().each {
 
 // Make blast db
 ["V", "J"].each { seg ->
-    println "[${new Date()} $scriptName] Generating BLAST database for $chain $seg"
-    new File("$scriptPath/${chain}_${seg}.fa").withPrintWriter { pw ->
+    println "${timestamp()} Generating BLAST database for $chain $seg"
+    new File("$TMP_FOLDER/${chain}_${seg}.fa").withPrintWriter { pw ->
         alleles.each { allele ->
             if (allele.value.type == seg)
                 pw.println(">$allele.key\n$allele.value.seq")
         }
     }
-    ("convert2blastmask -in $scriptPath/${chain}_${seg}.fa -out $scriptPath/${chain}_${seg}.msk " +
+    ("convert2blastmask -in $TMP_FOLDER/${chain}_${seg}.fa -out $TMP_FOLDER/${chain}_${seg}.msk " +
             "-masking_algorithm 'CDRBLAST' -masking_options 'NA'").execute().waitFor()
-    ("makeblastdb -in $scriptPath/${chain}_${seg}.fa -mask_data $scriptPath/${chain}_${seg}.msk " +
-            "-dbtype nucl -out $scriptPath/${chain}_${seg}").execute().waitFor()
+    ("makeblastdb -in $TMP_FOLDER/${chain}_${seg}.fa -mask_data $TMP_FOLDER/${chain}_${seg}.msk " +
+            "-dbtype nucl -out $TMP_FOLDER/${chain}_${seg}").execute().waitFor()
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Stage I: blast for unique sequences. Here we ONLY determine V and J segment presence and their IDs //
 // seqSet (unique sequences) -> blast mapping data (unique sequence + V and J mapping)               //
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-println "[${new Date()} $scriptName] Reading $readsFileName and generating list of unique sequences to map V and J genes"
+println "${timestamp()} Reading $readsFileName and generating list of unique sequences to map V and J genes"
 def reader = getReader(readsFileName)
 def seqMap = new HashMap<String, Integer>(), seqList = new ArrayList<String>()
 int counter = 0, uniqueCounter = 0
 String header
 while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
     if (assembledInput && !header.contains("UMI:")) {
-        println "[${new Date()} $scriptName] ERROR: Assembled input specified, but no UMI field in header"
+        println "[${new Date()} $SCRIPT_NAME] ERROR: Assembled input specified, but no UMI field in header"
         System.exit(-1)
     }
 
@@ -222,12 +244,12 @@ while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads
     reader.readLine()
 
     if (counter % 1000000 == 0)
-        println "[${new Date()} $scriptName] $counter reads processed, $uniqueCounter unique"
+        println "${timestamp()} $counter reads processed, $uniqueCounter unique"
 }
 
 def cf = new File(readsFileName)
 def queryFilePrefix = cf.absoluteFile.parent + "/tmp_" + cf.name.split(".fastq")[0]
-println "[${new Date()} $scriptName] Making a temporary FASTA file for BLAST queries"
+println "[${new Date()} $SCRIPT_NAME] Making a temporary FASTA file for BLAST queries"
 int chunk_sz = seqList.size() / THREADS
 for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
     def file = new File(queryFilePrefix + "_${p}.fa")
@@ -241,7 +263,7 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
 }
 
 // Fixed
-def blastShell = new File("$scriptPath/runblast.sh")
+def blastShell = new File("$TMP_FOLDER/runblast.sh")
 blastShell.withPrintWriter { pw ->
     pw.println("blastn -query \$1 $BLAST_FLAGS -gapopen $GAP_OPEN -gapextend $GAP_EXTEND " +
             "-word_size $WORD_SIZE -reward $REWARD -penalty $PENALTY -db \$2 " +
@@ -252,16 +274,16 @@ if (!DEBUG)
 
 
 ["V", "J"].each { seg -> // run blast for v and j segments separately
-    println "[${new Date()} $scriptName] Pre-aligning $chain $seg segment with BLAST <$THREADS threads>"
+    println "${timestamp()} Pre-aligning $chain $seg segment with BLAST <$THREADS threads>"
     (0..(THREADS - 1)).collect { p ->
         def blastOutFname = "${queryFilePrefix}_${chain}_${seg}_${p}.blast" // temp
         if (!DEBUG)
             new File(blastOutFname).deleteOnExit()
 
-        "bash $scriptPath/runblast.sh ${queryFilePrefix}_${p}.fa $scriptPath/${chain}_${seg} $blastOutFname".execute()
+        "bash $TMP_FOLDER/runblast.sh ${queryFilePrefix}_${p}.fa $TMP_FOLDER/${chain}_${seg} $blastOutFname".execute()
     }.each { it.waitFor() }  // This is the only way to parallelize blast
 
-    println "[${new Date()} $scriptName] Done"
+    println "[${new Date()} $SCRIPT_NAME] Done"
 }
 
 //////////////////////////////////////////////////
@@ -294,7 +316,7 @@ class BlastResult {
 def vMappingData = new HashMap<Integer, BlastResult>(),
     jMappingData = new HashMap<Integer, BlastResult>()
 
-println "[${new Date()} $scriptName] Reading in BLAST results"
+println "${timestamp()} Reading in BLAST results"
 ["V", "J"].eachWithIndex { segment, ind -> // parse blast output
     (0..(THREADS - 1)).each { p ->
         new File("${queryFilePrefix}_${chain}_${segment}_${p}.blast").splitEachLine("\t") { line ->
@@ -317,7 +339,7 @@ println "[${new Date()} $scriptName] Reading in BLAST results"
         }
     }
 }
-println "[${new Date()} $scriptName] Done ${vMappingData.size()} V and ${jMappingData.size()} J mapped, " +
+println "${timestamp()} Done ${vMappingData.size()} V and ${jMappingData.size()} J mapped, " +
         "out of total ${seqMap.size()} sequence variants"
 
 class ClonotypeData {
@@ -475,7 +497,7 @@ class ClonotypeData {
 
 def readId2ClonotypeData = new HashMap<Integer, ClonotypeData>()
 def uniqueClonotypes = new HashMap<ClonotypeData, ClonotypeData>() // util
-println "[${new Date()} $scriptName] Extracting CDRs"
+println "${timestamp()} Extracting CDRs"
 
 int vRefNotInAlign = 0, jRefNotInAlign = 0, reverseFound = 0, badOrientation = 0,
     cdrStartOut = 0, cdrEndOut = 0, shortCdr = 0, longCdr = 0
@@ -615,7 +637,7 @@ seqMap.each {
         }
     }
 }
-println "[${new Date()} $scriptName] Done. ${readId2ClonotypeData.size()} CDRs mapped, " +
+println "${timestamp()} Done. ${readId2ClonotypeData.size()} CDRs mapped, " +
         "out of total ${seqMap.size()} sequence variants"
 
 if (DEBUG) {
@@ -634,7 +656,7 @@ if (DEBUG) {
 ////////////////////////////////
 counter = 0
 int goodReads = 0, goodEvents = 0, mappedReads = 0, mappedEvents = 0, totalReads = 0, totalEvents = 0
-println "[${new Date()} $scriptName] Appending read data"
+println "${timestamp()} Appending read data"
 reader = getReader(readsFileName)
 def writer = cdr3FastqFile ? getWriter(cdr3FastqFile) : null
 new File(outputFileName + ".bad").withPrintWriter { pw ->
@@ -685,7 +707,7 @@ new File(outputFileName + ".bad").withPrintWriter { pw ->
         counter++
 
         if (counter % 1000000 == 0)
-            println "[${new Date()} $scriptName] $counter reads processed"
+            println "[${new Date()} $SCRIPT_NAME] $counter reads processed"
     }
 }
 if (cdr3FastqFile)
@@ -694,7 +716,7 @@ if (cdr3FastqFile)
 if (!DEBUG)
     new File(outputFileName + ".bad").delete()
 
-println "[${new Date()} $scriptName] Done"
+println "${timestamp()} Done"
 println "EVENTS (good mapped total):\t$goodEvents\t$mappedEvents\t$totalEvents\t|\t" +
         "${(int) (100 * (double) goodEvents / (double) totalEvents)}%\t" +
         "${(int) (100 * (double) mappedEvents / (double) totalEvents)}%\t100%"
@@ -740,8 +762,10 @@ uniqueClonotypes.keySet().each {
     }
 }
 
-println "[${new Date()} $scriptName] Writing output"
-new File(outputFileName).withPrintWriter { pw ->
+println "${timestamp()} Writing output"
+def outputFile = new File(outputFileName)
+outputFile.mkdirs()
+outputFile.withPrintWriter { pw ->
     pw.println("Count\tPercentage\t" +
             "CDR3 nucleotide sequence\tCDR3 amino acid sequence\t" +
             "V segments\tJ segments\tD segments\t" +
@@ -757,3 +781,8 @@ new File(outputFileName).withPrintWriter { pw ->
                     "\t" + it.value.collect().join("\t"))
     }
 }
+
+
+// Those were created by blast and have to be removed manually
+if (!DEBUG)
+    TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }

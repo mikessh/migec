@@ -21,8 +21,8 @@ def cli = new CliBuilder(usage:
         'groovy FilterCdrBlastResults [options] inputAssembledResult inputRawResult outputResult')
 cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
-cli.s("Filter clonotypes that are represented by single events (have only one associated MIG)")
-cli.n("Filter non-functional CDR3s")
+cli.s("Include clonotypes that are represented by single events (have only one associated MIG)")
+cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
 
 def opt = cli.parse(args)
@@ -33,8 +33,10 @@ if (opt == null || opt.arguments().size() < 3) {
 
 def scriptName = getClass().canonicalName
 def readAccumulationThreshold = Double.parseDouble(opt.r ?: R_A_T)
-def filterUnits = opt.s, filterNonFunctional = opt.n, includeNonCanonical = opt.c
+def filterUnits = !opt.s, filterNonFunctional = !opt.n, includeNonCanonical = opt.c
 def inputUmiFile = opt.arguments()[0], inputRawFile = opt.arguments()[1], outputFile = opt.arguments()[2]
+
+new File(outputFile).mkdirs()
 
 int NT_SEQ_COL = 2, AA_SEQ_COL = 3,
     READ_COUNT_COL = 13, READ_TOTAL_COL = 14, EVENT_COUNT_COL = 11, EVENT_TOTAL_COL = 12,

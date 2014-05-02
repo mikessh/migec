@@ -127,8 +127,14 @@ Standard usage:
 
 >$java -cp migec-v1.0.2.jar FilterCdrBlastResults -s ./cdr3blast/S1_asm.cdr3blast.txt ./cdr3blast/S1_raw.cdr3blast.txt ./final/S1.cdr3blast.txt
 
-The ```-s``` option tells to filter CDR3s represented by single MIGs, as for deep profiling (with our protocol) they could be associated with reverse transcription errors and experimental artifacts. Now the file S1.cdr3blast.txt contains a filtered CDR3/V/J clonotype table. Note that translated CDR3 sequences are obtained by simultaneously translating codons in two directions: from V and J segments to the middle of CDR3. If a frameshift is detected, the incomplete codon is added in lower case, with missing nucleotides marked as "?"; stop codons are marked by "*". CDR3 that contain either frameshift or stop codon are non-functional and could be filtered using ```-n``` option. You could additionally build a graph of hypermutations for the sample using
+The ```-s``` option tells to include CDR3s represented by single MIGs. Those are filtered by default as for deep profiling (with our protocol) they could be associated with reverse transcription errors and experimental artifacts.
+
+Now the file S1.cdr3blast.txt contains a filtered and sorted CDR3/V/J clonotype table.
+
+You could additionally build a graph of hypermutations for the sample using
 
 >$java -cp migec-v1.0.2.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
 
 which will generate files that allow fast network construction using Cytoscape's network from table and import table routines.
+
+Note that translated CDR3 sequences are obtained by simultaneously translating codons in two directions: from V and J segments to the middle of CDR3. If a frameshift is detected, the incomplete codon is added in lower case, with missing nucleotides marked as "?"; stop codons are marked by "*". CDR3 that contain either frameshift or stop codon are non-functional and are filtered by default. To include them into your output use ```-n``` option.

@@ -31,6 +31,8 @@ if (opt == null || opt.arguments().size() < 2) {
 def inputFileName = opt.arguments()[0],
     outputFileName = opt.arguments()[1]
 
+new File(outputFileName).mkdirs()
+
 //========================
 //      MISC UTILS
 //========================

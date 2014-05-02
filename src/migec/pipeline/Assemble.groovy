@@ -65,6 +65,10 @@ def fastq1 = opt.arguments()[0],
     outputFilePrefix = opt.arguments()[2]
 def logFileName = opt.arguments().size() > 3 ? opt.arguments()[3] : null
 
+new File(outputFilePrefix).mkdirs()
+new File(alignmentFilePrefix).mkdir()
+new File(logFileName).mkdirs()
+
 // Assembly
 def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
     maxMMs = Integer.parseInt(opt.'assembly-mismatches' ?: '5'),
@@ -475,8 +479,8 @@ if (logFileName != null) {
     }
     new File(logFileName).withWriterAppend { writer ->
         writer.println([outputFilePrefix, minCount,
-                nMigs.get(), nReadsInMigs.get(),
-                nGoodMigs[2].get(), nReadsInGoodMigs[2].get()].collect().join("\t"))
+                        nMigs.get(), nReadsInMigs.get(),
+                        nGoodMigs[2].get(), nReadsInGoodMigs[2].get()].collect().join("\t"))
     }
 }
 println "[${new Date()} $scriptName] Finished"

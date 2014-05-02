@@ -62,6 +62,8 @@ def getUmi = { String header ->
 def fileNameList = new File(opt.arguments()[0]).readLines().collect { it.split("\t")[0] },
     outputFilePrefix = opt.arguments()[1]
 
+new File(outputFilePrefix).mkdirs()
+
 // Load UMIs  if (!(new File(logFileName).exists())) {
 boolean oHeader = !new File("${outputFilePrefix}.overseq.txt").exists(),
         ouHeader = !new File("${outputFilePrefix}.overseq-units.txt").exists(),
