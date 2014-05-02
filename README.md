@@ -18,7 +18,7 @@ To run the steps of the pipeline either download the scripts and install Java + 
 
 or simply download a standalone jar and execute
 
->$java -cp migec-v1.0.2.jar Checkout
+>$java -cp migec.jar Checkout
 
 
 STANDARD PIPELINE
@@ -29,10 +29,10 @@ STANDARD PIPELINE
 Description: A script to perform de-multiplexing and UMI tag extraction
 
 Standard usage: 
->$java -cp migec-v1.0.2.jar Checkout -cu barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
+>$java -cp migec.jar Checkout -cu barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
 
 For unpaired library:
->$java -cp migec-v1.0.2.jar Checkout -cu barcodes.txt R.fastq.gz - ./checkout/
+>$java -cp migec.jar Checkout -cu barcodes.txt R.fastq.gz - ./checkout/
 
 barcodes.txt format is the following, 
 >SAMPLE-ID (tab) MASTER-ADAPTER-SEQUENCE (tab) SLAVE-ADAPTER-SEQUENCE
@@ -60,7 +60,7 @@ Additional parameters:
 Description: A script to generate over-sequencing statistics
 
 Standard usage:
->$java -cp migec-v1.0.2.jar Histogram ./checkout/checkout.filelist.txt ./checkout/histogram
+>$java -cp migec.jar Histogram ./checkout/checkout.filelist.txt ./checkout/histogram
 
 Will generate several files, the one important for basic data processing is ./checkout/histogram.overseq.txt. The header contains MIG sizes, while each row for a sample is the number of reads in MIGs of a given size. Plot of MIG size (log coordinates) vs number of reads in MIG should display a clear peak. This plot should be used to set a MIG size cutoff in Assemble. 
 
@@ -73,11 +73,11 @@ Description: A script to perform UMI-guided assembly
 
 Standard usage:
 
->$java -cp migec-v1.0.2.jar Assemble -c ./checkout/S1_R1.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/S1 ./assembly/assembly.log
+>$java -cp migec.jar Assemble -c ./checkout/S1_R1.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/S1 ./assembly/assembly.log
 
 For unpaired library:
 
->$java -cp migec-v1.0.2.jar Assemble -c ./checkout/S1_R1.fastq - ./assembly/S1 ./assembly/assembly.log
+>$java -cp migec.jar Assemble -c ./checkout/S1_R1.fastq - ./assembly/S1 ./assembly/assembly.log
 
 
 All reads are grouped by their UMI and then read groups (aka molecular identifier groups, MIGs) with >10 reads (default value, see Histogram.groovy for details on setting it) are assembled. Multiple alignment is performed and consensus sequence is generated.
@@ -103,11 +103,11 @@ Standard usage (assuming library contains T-cell Receptor Alpha Chain sequences)
 
 For assembled data:
 
->$java -cp migec-v1.0.2.jar CdrBlast -a -C TRA ./assembly/S1_R2.fastq.gz ./cdr3blast/S1_asm.cdr3blast.txt 
+>$java -cp migec.jar CdrBlast -a -C TRA ./assembly/S1_R2.fastq.gz ./cdr3blast/S1_asm.cdr3blast.txt 
 
 For raw data:
 
->$java -cp migec-v1.0.2.jar CdrBlast -C TRA ./checkout/S1_R2.fastq.gz ./cdr3blast/S1_raw.cdr3blast.txt
+>$java -cp migec.jar CdrBlast -C TRA ./checkout/S1_R2.fastq.gz ./cdr3blast/S1_raw.cdr3blast.txt
 
 
 NOTE:
@@ -125,7 +125,7 @@ Description: A script to filter erroneous CDR3 sequences produced due to hot-spo
 
 Standard usage: 
 
->$java -cp migec-v1.0.2.jar FilterCdrBlastResults -s ./cdr3blast/S1_asm.cdr3blast.txt ./cdr3blast/S1_raw.cdr3blast.txt ./final/S1.cdr3blast.txt
+>$java -cp migec.jar FilterCdrBlastResults -s ./cdr3blast/S1_asm.cdr3blast.txt ./cdr3blast/S1_raw.cdr3blast.txt ./final/S1.cdr3blast.txt
 
 The ```-s``` option tells to include CDR3s represented by single MIGs. Those are filtered by default as for deep profiling (with our protocol) they could be associated with reverse transcription errors and experimental artifacts.
 
@@ -133,7 +133,7 @@ Now the file S1.cdr3blast.txt contains a filtered and sorted CDR3/V/J clonotype 
 
 You could additionally build a graph of hypermutations for the sample using
 
->$java -cp migec-v1.0.2.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
+>$java -cp migec.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
 
 which will generate files that allow fast network construction using Cytoscape's network from table and import table routines.
 
