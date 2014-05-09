@@ -74,6 +74,8 @@ def readsFileName = opt.arguments()[0],
     outputFileName = opt.arguments()[1],
     segmentsFileName = allSegments ? "segments_all.txt" : "segments.txt"
 
+new File(outputFileName).parentFile.mkdirs()
+
 // BLAST
 int ALLELE_TAIL_INNER = 10, ALLELE_TAIL_OUTER = 6,
     ALLELE_TAIL_V_MAX = 40, ALLELE_TAIL_J_MAX = 20,
@@ -764,7 +766,6 @@ uniqueClonotypes.keySet().each {
 
 println "${timestamp()} Writing output"
 def outputFile = new File(outputFileName)
-outputFile.mkdirs()
 outputFile.withPrintWriter { pw ->
     pw.println("Count\tPercentage\t" +
             "CDR3 nucleotide sequence\tCDR3 amino acid sequence\t" +
