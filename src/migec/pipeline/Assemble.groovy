@@ -66,8 +66,10 @@ def fastq1 = opt.arguments()[0],
 def logFileName = opt.arguments().size() > 3 ? opt.arguments()[3] : null
 
 new File(outputFilePrefix).mkdirs()
-new File(alignmentFilePrefix).mkdir()
-new File(logFileName).mkdirs()
+if (opt.'alignment-file-prefix')
+    new File(alignmentFilePrefix).mkdir()
+if (logFileName)
+    new File(logFileName).mkdirs()
 
 // Assembly
 def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
