@@ -74,7 +74,8 @@ def readsFileName = opt.arguments()[0],
     outputFileName = opt.arguments()[1],
     segmentsFileName = allSegments ? "segments_all.txt" : "segments.txt"
 
-new File(outputFileName).parentFile.mkdirs()
+if (new File(outputFileName).parentFile)
+    new File(outputFileName).parentFile.mkdirs()
 
 // BLAST
 int ALLELE_TAIL_INNER = 10, ALLELE_TAIL_OUTER = 6,
@@ -782,7 +783,6 @@ outputFile.withPrintWriter { pw ->
                     "\t" + it.value.collect().join("\t"))
     }
 }
-
 
 // Those were created by blast and have to be removed manually
 if (!DEBUG)

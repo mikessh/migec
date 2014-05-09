@@ -36,7 +36,8 @@ def readAccumulationThreshold = Double.parseDouble(opt.r ?: R_A_T)
 def filterUnits = !opt.s, filterNonFunctional = !opt.n, includeNonCanonical = opt.c
 def inputUmiFile = opt.arguments()[0], inputRawFile = opt.arguments()[1], outputFile = opt.arguments()[2]
 
-new File(outputFile).parentFile.mkdirs()
+if (new File(outputFile).parentFile)
+    new File(outputFile).parentFile.mkdirs()
 
 int NT_SEQ_COL = 2, AA_SEQ_COL = 3,
     READ_COUNT_COL = 13, READ_TOTAL_COL = 14, EVENT_COUNT_COL = 11, EVENT_TOTAL_COL = 12,

@@ -45,7 +45,8 @@ infiles.each { infile ->
     }
 }
 
-new File(ofile).parentFile.mkdirs()
+if (new File(ofile).parentFile)
+    new File(ofile).parentFile.mkdirs()
 
 new File(ofile).withPrintWriter { pw ->
     pw.println(qhist.collect { it.collect().join("\t") }.join("\n"))

@@ -65,10 +65,11 @@ def fastq1 = opt.arguments()[0],
     outputFilePrefix = opt.arguments()[2]
 def logFileName = opt.arguments().size() > 3 ? opt.arguments()[3] : null
 
-new File(outputFilePrefix).parentFile.mkdirs()
-if (opt.'alignment-file-prefix')
+if (new File(outputFilePrefix).parentFile)
+    new File(outputFilePrefix).parentFile.mkdirs()
+if (opt.'alignment-file-prefix' && new File(alignmentFilePrefix).parentFile)
     new File(alignmentFilePrefix).parentFile.mkdirs()
-if (logFileName)
+if (logFileName && new File(logFileName).parentFile)
     new File(logFileName).parentFile.mkdirs()
 
 // Assembly
