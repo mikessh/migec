@@ -4,8 +4,6 @@
 
 This pipeline provides several useful tools for analysis of immune repertoire sequencing data. The pipeline utilizes unique nucleotide tags (UMIs) in order to filter experimental errors from resulting sequences. Those tags are attached to molecules before sequencing library preparation and allow to backtrack the original sequence of molecule. This pipeline is applicable for Illumina MiSeq and HiSeq 2500 reads. Sequencing libraries targeting CDR3 locus of immune receptor genes with high over-sequencing, i.e. ones that have at least 10 reads (optimally 30+ reads) per each starting molecule, should be used.
 
-The data from 454 platform should be used with caution, as it contains homopolymer errors which (in present framework) result in reads dropped during consensus assembly. The 454 platform has a relatively low read yield, so additional read dropping could result in over-sequencing level below required threshold. If you still wish to give it a try, we would recommend filtering off all short reads and repairing indels with Coral (http://www.cs.helsinki.fi/u/lmsalmel/coral/), the latter should be run with options ```-mr 2 -mm 1000 -g 3```.
-
 Features:
 - Flexible de-multiplexing of NGS data and extraction of UMI sequence
 - Assembly of consensuses of original molecules
@@ -20,6 +18,7 @@ or simply download a standalone jar and execute
 
 >$java -cp migec.jar Checkout
 
+NOTE: The data from 454 platform should be used with caution, as it contains homopolymer errors which (in present framework) result in reads dropped during consensus assembly. The 454 platform has a relatively low read yield, so additional read dropping could result in over-sequencing level below required threshold. If you still wish to give it a try, we would recommend filtering off all short reads and repairing indels with Coral (http://www.cs.helsinki.fi/u/lmsalmel/coral/), the latter should be run with options ```-mr 2 -mm 1000 -g 3```.
 
 STANDARD PIPELINE
 =================
@@ -90,7 +89,11 @@ In case of library with overlapping reads, the script can try to overlap them pr
 
 which will generate ./assembly/S1_RO.fastq.gz, containing assembly results _only_ for overlapping reads.
 
-The ```--min-count``` option sets minimum number of reads in MIG.
+The ```--min-count``` option sets minimum number of reads in MIG. This should be set according to Histogram script output to separate two peaks: over-sequenced MIGs and erroneous MIGs that cluster around MIG size of 1.
+
+Those erroneous MIGs could arise as experimental artifacts, however the most common reason for their presence is an error event in UMI sequence itself. Note that the latter is only valid when number of distinct UMIs is far lower than theoretically possible UMI diversity (e.g. 4^12 for 12-letter UMI regions)!
+
+To inspect the effect of such single-mismatch erroneous UMI sub-variants see "collisions" output of Histogram script. Such collision events could interfere with real MIGs when over-sequencing is relatively low. In this case collisions could be filtered during MIG consensus assembly using ```-f``` option. The ```--collision-ratio``` could be change in order to prevent filtering of real collision occurred due to finite theoretically possible UMI diversity.
 
 
 
