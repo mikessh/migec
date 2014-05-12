@@ -1,5 +1,4 @@
 lib/
 out/
-res/
 src/*.groovy
 .idea/
