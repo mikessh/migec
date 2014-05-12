@@ -69,7 +69,7 @@ if (new File(outputFilePrefix).parentFile)
 boolean oHeader = !new File("${outputFilePrefix}.overseq.txt").exists(),
         ouHeader = !new File("${outputFilePrefix}.overseq-units.txt").exists(),
         cHeader = !new File("${outputFilePrefix}.collision1.txt").exists(),
-        cuHeader = !new File("${outputFilePrefix}.collision1.txt").exists()
+        cuHeader = !new File("${outputFilePrefix}.collision1-units.txt").exists()
 
 new File("${outputFilePrefix}.overseq.txt").withWriterAppend { oWriter ->
     if (oHeader)

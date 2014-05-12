@@ -30,21 +30,31 @@ import java.util.zip.GZIPOutputStream
 //========================
 //          CLI
 //========================
-def mode = "0:1", mc = "10"
+def mode = "0:1", mc = "10", p_c_r = "0.1"
 def cli = new CliBuilder(usage: 'groovy [options] Assemble R1.fastq[.gz] [R2.fastq[.gz] or -] output_prefix ' +
         '[assembly_log, to append]')
-cli.q(args: 1, argName: 'read quality (phred)', 'barcode region quality threshold. Default: 15')
+cli.q(args: 1, argName: 'read quality (phred)',
+        "barcode region quality threshold. Default: 15")
 cli.m(longOpt: "assembly-mode", args: 1, argName: 'assembly mode in format X:X',
         "Identifier(s) of read(s) to assemble. Default: \"$mode\". In case of \"0:0\" will try to overlap reads.")
-cli.p(args: 1, 'number of threads to use. Default: all available processors')
-cli._(args: 1, longOpt: 'alignment-file-prefix', 'File name prefix to output multiple alignments generated during assembly, ' +
-        'for \"migec.control.BacktrackSequence\"')
-cli._(longOpt: 'min-count', args: 1, "Min number of reads in MIG. " +
-        "Should be set according to 'Histogram.groovy' output. Default: $mc")
-cli._(longOpt: 'assembly-offset', args: 1, 'Assembly offset range. Default: 3')
-cli._(longOpt: 'assembly-mismatches', args: 1, 'Assembly max mismatches. Default: 5')
-cli._(longOpt: 'assembly-anchor', args: 1, 'Assembly anchor region half size. Default: 10')
-cli.c('compressed output')
+cli.p(args: 1,
+        "number of threads to use. Default: all available processors")
+cli.c("compressed output")
+
+cli._(longOpt: 'alignment-file-prefix', args: 1, argName: 'string',
+        "File name prefix to output multiple alignments generated during assembly, for \"migec.control.BacktrackSequence\"")
+cli._(longOpt: 'min-count', args: 1, argName: 'integer',
+        "Min number of reads in MIG. Should be set according to 'Histogram.groovy' output. Default: $mc")
+cli.f(longOpt: 'filter-collisions',
+        "Collision filtering. Should be set if collisions (1-mismatch erroneous UMI sequence variants) are observed in 'Histogram.groovy' output")
+cli._(longOpt: 'collision-ratio', args: 1, argName: 'double, < 1.0',
+        "Min parent-to-child MIG size ratio for collision filtering. Default value: $p_c_r")
+cli._(longOpt: 'assembly-offset', args: 1, argName: 'integer',
+        'Assembly offset range. Default: 3')
+cli._(longOpt: 'assembly-mismatches', args: 1, argName: 'integer',
+        'Assembly max mismatches. Default: 5')
+cli._(longOpt: 'assembly-anchor', args: 1, argName: 'integer',
+        'Assembly anchor region half size. Default: 10')
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
@@ -56,27 +66,24 @@ if (opt == null || opt.arguments().size() < 3) {
 //         PARAMS
 //========================
 def scriptName = getClass().canonicalName
-boolean compressed = opt.c
-def alignmentFilePrefix = opt.'alignment-file-prefix'
+
+// Parameters
+boolean compressed = opt.c, filterCollisions = opt.f
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 int umiQualThreshold = opt.q ?: 15, minCount = Integer.parseInt(opt."min-count" ?: mc)
+double collisionRatioThreshold = Double.parseDouble(opt.'collision-ratio' ?: p_c_r)
+
+// I/O
 def fastq1 = opt.arguments()[0],
     fastq2 = opt.arguments()[1],
     outputFilePrefix = opt.arguments()[2]
-def logFileName = opt.arguments().size() > 3 ? opt.arguments()[3] : null
 
-if (new File(outputFilePrefix).parentFile)
-    new File(outputFilePrefix).parentFile.mkdirs()
-if (opt.'alignment-file-prefix' && new File(alignmentFilePrefix).parentFile)
-    new File(alignmentFilePrefix).parentFile.mkdirs()
-if (logFileName && new File(logFileName).parentFile)
-    new File(logFileName).parentFile.mkdirs()
-
-// Assembly
+// Assembly parameters
 def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
     maxMMs = Integer.parseInt(opt.'assembly-mismatches' ?: '5'),
     anchorRegion = Integer.parseInt(opt.'assembly-anchor' ?: '10')
 
+// I/O parameters
 boolean paired = fastq2 != "-"
 def assemblyIndices = paired ? (opt.m ?: mode).split(":").collect { Integer.parseInt(it) > 0 } : [true, false]
 boolean overlap = false, bothReads = assemblyIndices[0] && assemblyIndices[1]
@@ -84,6 +91,17 @@ if (!assemblyIndices.any()) {
     assemblyIndices = [true, false]
     overlap = true
 }
+
+// Misc output
+String alignmentFilePrefix = opt.'alignment-file-prefix'
+String logFileName = opt.arguments().size() > 3 ? opt.arguments()[3] : null
+
+if (new File(outputFilePrefix).parentFile)
+    new File(outputFilePrefix).parentFile.mkdirs()
+if (opt.'alignment-file-prefix' && new File(alignmentFilePrefix).parentFile)
+    new File(alignmentFilePrefix).parentFile.mkdirs()
+if (logFileName && new File(logFileName).parentFile)
+    new File(logFileName).parentFile.mkdirs()
 
 //========================
 //      MISC UTILS
@@ -297,8 +315,9 @@ def writeThread = new Thread({  // Writing thread, listening to queue
 } as Runnable)
 writeThread.start()
 
-def nMigs = new AtomicInteger(), nGoodMigs = new AtomicInteger[3],
-    nReadsInMigs = new AtomicInteger(), nReadsInGoodMigs = new AtomicInteger[3]
+def nMigs = new AtomicInteger(),
+    nReadsInMigs = new AtomicInteger(), nCollisions = new AtomicInteger()
+def nGoodMigs = new AtomicInteger[3], nReadsInGoodMigs = new AtomicInteger[3]
 nGoodMigs[0] = new AtomicInteger()
 nGoodMigs[1] = new AtomicInteger()
 nGoodMigs[2] = new AtomicInteger()
@@ -316,12 +335,14 @@ GParsPool.withPool THREADS, {
         String umi = migEntry.key
         Map<String, Integer> reads1 = migEntry.value
         int count = (int) reads1.values().sum()
+
         def migsToAssemble = [reads1]
         if (bothReads) // only for 1,1
             migsToAssemble.add(migData[1].get(umi))
         def assembledReads = new String[4]
 
         int nMigsCurrent = nMigs.incrementAndGet()
+        int nCollisionsCurrent = nCollisions.get()
         int nReadsInMigsCurrent = nReadsInMigs.addAndGet(count)
         int[] nGoodMigsCurrent = new int[3], nReadsInGoodMigsCurrent = new int[3]
         nGoodMigsCurrent[0] = nGoodMigs[0].get()
@@ -331,7 +352,37 @@ GParsPool.withPool THREADS, {
         nGoodMigsCurrent[2] = nGoodMigs[2].get()
         nReadsInGoodMigsCurrent[2] = nReadsInGoodMigs[2].get()
 
-        if (count >= minCount) {
+        // Search for collisions
+        boolean noCollision = true
+        if (filterCollisions) {
+            // A standard hash-based 1-loop single-mm search..
+            char[] umiCharArray = umi.toCharArray()
+            char oldChar
+            for (int i = 0; i < umiCharArray.length; i++) {
+                oldChar = umiCharArray[i]
+                for (int j = 0; j < 4; j++) {
+                    char nt = code2nt(j)
+                    if (nt != oldChar) {
+                        umiCharArray[i] = nt
+                        String otherUmi = new String(umiCharArray)
+
+                        Map<String, Integer> otherReads1 = migData[0].get(otherUmi)
+                        if (otherReads1 != null) {
+                            int otherCount = (int) otherReads1.values().sum()
+                            if (count / (double) otherCount < collisionRatioThreshold) {
+                                noCollision = false
+                                nCollisionsCurrent = nCollisions.incrementAndGet()
+                                break
+                            }
+                        }
+                    }
+                }
+                umiCharArray[i] = oldChar
+            }
+        }
+
+        // Do assembly
+        if (noCollision && count >= minCount) {
             migsToAssemble.eachWithIndex { Map<String, Integer> mig, int ind ->
                 // Step 1: collect core regions with different offsets to determine most frequent one
                 def coreSeqMap = new HashMap<String, int[]>()
@@ -456,17 +507,19 @@ GParsPool.withPool THREADS, {
             nReadsInGoodMigsCurrent[2] = nReadsInGoodMigs[2].addAndGet(count)
         }
 
+
         if (nMigsCurrent % 10000 == 0)
-            println "[${new Date()} $scriptName] Processed $nMigsCurrent MIGs, $nReadsInMigsCurrent reads total" +
-                    ", assembled so far: " +
+            println "[${new Date()} $scriptName] Processed $nMigsCurrent MIGs, $nReadsInMigsCurrent reads total, " +
+                    "$nCollisionsCurrent collisions detected, assembled so far: " +
                     "$suffix ${nGoodMigsCurrent[0]} MIGs, ${nReadsInGoodMigsCurrent[0]} reads" +
                     (bothReads ? "; R2 ${nGoodMigsCurrent[1]} MIGs, ${nReadsInGoodMigsCurrent[1]} reads" : "") +
                     (bothReads ? "; Overall ${nGoodMigsCurrent[2]} MIGs, ${nReadsInGoodMigsCurrent[2]} reads" : "")
     }
+
 }
 
-println "[${new Date()} $scriptName] Processed ${nMigs.get()} MIGs, ${nReadsInMigs.get()} reads total" +
-        ", assembled: " +
+println "[${new Date()} $scriptName] Processed ${nMigs.get()} MIGs, ${nReadsInMigs.get()} reads total, " +
+        "${nCollisions.get()} collisions detected, assembled so far: " +
         "$suffix ${nGoodMigs[0].get()} MIGs, ${nReadsInGoodMigs[0].get()} reads" +
         (bothReads ? "; R2 ${nGoodMigs[1].get()} MIGs, ${nReadsInGoodMigs[1].get()} reads" : "") +
         (bothReads ? "; Overall ${nGoodMigs[2].get()} MIGs, ${nReadsInGoodMigs[2].get()} reads" : "")
