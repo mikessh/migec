@@ -62,6 +62,14 @@ def timestamp = {
     "[${new Date()} $SCRIPT_NAME]"
 }
 
+// Check for BLAST installation
+try {
+    ["convert2blastmask", "makeblastdb", "blastn"].each { it.execute().waitFor() }
+} catch (IOException e) {
+    println "[ERROR] Problems with BLAST installation. " + e.message
+    System.exit(-1)
+}
+
 // Parameters
 def cdr3FastqFile = opt.'cdr3-fastq-file',
     allSegments = opt.'all-segments',
@@ -215,8 +223,10 @@ collapseAlleleMap.values().each {
                 pw.println(">$allele.key\n$allele.value.seq")
         }
     }
+
     ("convert2blastmask -in $TMP_FOLDER/${chain}_${seg}.fa -out $TMP_FOLDER/${chain}_${seg}.msk " +
             "-masking_algorithm 'CDRBLAST' -masking_options 'NA'").execute().waitFor()
+
     ("makeblastdb -in $TMP_FOLDER/${chain}_${seg}.fa -mask_data $TMP_FOLDER/${chain}_${seg}.msk " +
             "-dbtype nucl -out $TMP_FOLDER/${chain}_${seg}").execute().waitFor()
 }
@@ -266,15 +276,14 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
 }
 
 // Fixed
-def blastShell = new File("$TMP_FOLDER/runblast.sh")
-blastShell.withPrintWriter { pw ->
-    pw.println("blastn -query \$1 $BLAST_FLAGS -gapopen $GAP_OPEN -gapextend $GAP_EXTEND " +
-            "-word_size $WORD_SIZE -reward $REWARD -penalty $PENALTY -db \$2 " +
-            "-outfmt \"6 qseqid sseqid qstart qend sstart send qseq sseq nident\" -max_target_seqs $TOP_SEQS -out \$3")
-}
-if (!DEBUG)
-    blastShell.deleteOnExit()
-
+//def blastShell = new File("$TMP_FOLDER/runblast.sh")
+//blastShell.withPrintWriter { pw ->
+//    pw.println("blastn -query \$1 $BLAST_FLAGS -gapopen $GAP_OPEN -gapextend $GAP_EXTEND " +
+//            "-word_size $WORD_SIZE -reward $REWARD -penalty $PENALTY -db \$2 " +
+//            "-outfmt \"6 qseqid sseqid qstart qend sstart send qseq sseq nident\" -max_target_seqs $TOP_SEQS -out \$3")
+//}
+//if (!DEBUG)
+//    blastShell.deleteOnExit()
 
 ["V", "J"].each { seg -> // run blast for v and j segments separately
     println "${timestamp()} Pre-aligning $chain $seg segment with BLAST <$THREADS threads>"
@@ -283,7 +292,18 @@ if (!DEBUG)
         if (!DEBUG)
             new File(blastOutFname).deleteOnExit()
 
-        "bash $TMP_FOLDER/runblast.sh ${queryFilePrefix}_${p}.fa $TMP_FOLDER/${chain}_${seg} $blastOutFname".execute()
+        // A trick to pass -outfmt argument correctly
+        def blastCmd = ["blastn",
+                        "-query", "${queryFilePrefix}_${p}.fa",
+                        BLAST_FLAGS.split(" "),
+                        "-gapopen", "$GAP_OPEN", "-gapextend", "$GAP_EXTEND",
+                        "-word_size", "$WORD_SIZE", "-reward", "$REWARD", "-penalty", "$PENALTY",
+                        "-db", "$TMP_FOLDER/${chain}_${seg}",
+                        "-max_target_seqs", "$TOP_SEQS", "-out", "$blastOutFname"]
+
+        blastCmd = [blastCmd, "-outfmt", "6 qseqid sseqid qstart qend sstart send qseq sseq nident"].flatten()
+        blastCmd.execute()
+        //"bash $TMP_FOLDER/runblast.sh ${queryFilePrefix}_${p}.fa $TMP_FOLDER/${chain}_${seg} $blastOutFname".execute()
     }.each { it.waitFor() }  // This is the only way to parallelize blast
 
     println "[${new Date()} $SCRIPT_NAME] Done"
