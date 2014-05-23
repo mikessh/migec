@@ -115,7 +115,7 @@ For raw data:
 
 NOTE:
 
-1) NCBI-BLAST+ package required
+1) NCBI-BLAST+ package required. Could be directly installed on Linux using a command like $sudo apt-get ncbi-blast+ or downloaded and installed from here: ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/
 
 2) Both raw and assembled data should be processed to apply the last step of filtration.
 
