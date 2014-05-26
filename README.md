@@ -1,6 +1,5 @@
-=====================================================================
-  MiGEC: Molecular Identifier Group-based Error Correction pipeline  
-=====================================================================
+ MiGEC: Molecular Identifier Group-based Error Correction pipeline  
+===================================================================
 
 This pipeline provides several useful tools for analysis of immune repertoire sequencing data. The pipeline utilizes unique nucleotide tags (UMIs) in order to filter experimental errors from resulting sequences. Those tags are attached to molecules before sequencing library preparation and allow to backtrack the original sequence of molecule. This pipeline is applicable for Illumina MiSeq and HiSeq 2500 reads. Sequencing libraries targeting CDR3 locus of immune receptor genes with high over-sequencing, i.e. ones that have at least 10 reads (optimally 30+ reads) per each starting molecule, should be used.
 
@@ -18,20 +17,20 @@ or simply download a standalone jar and execute
 
 >$java -cp migec.jar Checkout
 
-NOTE: The data from 454 platform should be used with caution, as it contains homopolymer errors which (in present framework) result in reads dropped during consensus assembly. The 454 platform has a relatively low read yield, so additional read dropping could result in over-sequencing level below required threshold. If you still wish to give it a try, we would recommend filtering off all short reads and repairing indels with Coral (http://www.cs.helsinki.fi/u/lmsalmel/coral/), the latter should be run with options ```-mr 2 -mm 1000 -g 3```.
+NOTE: The data from 454 platform should be used with caution, as it contains homopolymer errors which (in present framework) result in reads dropped during consensus assembly. The 454 platform has a relatively low read yield, so additional read dropping could result in over-sequencing level below required threshold. If you still wish to give it a try, we would recommend filtering off all short reads and repairing indels with Coral (<http://www.cs.helsinki.fi/u/lmsalmel/coral/>), the latter should be run with options ```-mr 2 -mm 1000 -g 3```.
 
 STANDARD PIPELINE
-=================
+-----------------
 
-1. Checkout
-==============================
+### 1. Checkout
+
 Description: A script to perform de-multiplexing and UMI tag extraction
 
 Standard usage: 
->$java -cp migec.jar Checkout -cu barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
+>$java -cp migec.jar Checkout -cute barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
 
 For unpaired library:
->$java -cp migec.jar Checkout -cu barcodes.txt R.fastq.gz - ./checkout/
+>$java -cp migec.jar Checkout -cute barcodes.txt R.fastq.gz - ./checkout/
 
 barcodes.txt format is the following, 
 >SAMPLE-ID (tab) MASTER-ADAPTER-SEQUENCE (tab) SLAVE-ADAPTER-SEQUENCE
@@ -45,6 +44,14 @@ will search for AAGGTT seed exact match, then for the remaining adapter sequence
 
 Additional parameters:
 
+```-c``` compressed output (gzip compression).
+
+```-t``` trim adapter sequence from output.
+
+```-e``` also remove trails of template-switching (poly-G) for the case when UMI-containing adapter is added using reverse-transcription (cDNA libraries).
+
+Barcode search parameters:
+
 ```-o``` could speed up if reads are oriented (i.e. master adapter should be in R1).
 
 ```-r``` will apply a custom RC mask. By default it assumes Illumina reads with mates on different strands, so it reverse-complements read with slave adapter so that output reads will be on master strand.
@@ -53,9 +60,8 @@ Additional parameters:
 
 
 
+### 2. Histogram
 
-2. Histogram
-==============================
 Description: A script to generate over-sequencing statistics
 
 Standard usage:
@@ -66,8 +72,8 @@ Will generate several files, the one important for basic data processing is ./ch
 
 
 
-3. Assemble
-==============================
+### 3. Assemble
+
 Description: A script to perform UMI-guided assembly
 
 Standard usage:
@@ -98,8 +104,8 @@ To inspect the effect of such single-mismatch erroneous UMI sub-variants see "co
 
 
 
-4. CdrBlast
-===============================
+### 4. CdrBlast
+
 Description: A script to extract CDR3 sequences
 
 Standard usage (assuming library contains T-cell Receptor Alpha Chain sequences)
@@ -115,15 +121,15 @@ For raw data:
 
 NOTE:
 
-1) NCBI-BLAST+ package required. Could be directly installed on Linux using a command like $sudo apt-get ncbi-blast+ or downloaded and installed from here: ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/
+1) NCBI-BLAST+ package required. Could be directly installed on Linux using a command like $sudo apt-get ncbi-blast+ or downloaded and installed directly from here: <ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/>
 
 2) Both raw and assembled data should be processed to apply the last step of filtration.
 
 
 
 
-5. FilterCdrBlastResults
-============================================
+### 5. FilterCdrBlastResults
+
 Description: A script to filter erroneous CDR3 sequences produced due to hot-spot PCR and NGS errors
 
 Standard usage: 
