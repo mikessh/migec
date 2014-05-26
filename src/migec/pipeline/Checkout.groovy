@@ -24,17 +24,20 @@ import java.util.regex.Pattern
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
-def mm = "15:0.2:0.05", rcm = "0:1"
+def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10"
 def cli = new CliBuilder(usage:
         'groovy Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or -] [path/to/out/]')
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
         'Default: scans both reads (if pair-end) for master barcode')
 cli.u('Save UMI region specified by capital N\'s in barcode sequence to the header')
+cli.t('Trim barcode sequences. Also trims boundary sequence between barcode and read start/end if it is short.')
+cli.e('Remove template-switching trace, ^T{0,3}G{3,7}. Only works in compination with -t')
+cli._(longOpt: 'max-trim-nts', 'Maximal number of nucleotides between barcode and read start/end that could be trimmed')
 cli.r(args: 1, "RC mask to apply after master-slave is determined, e.g. will RC slave read if set to 0:1. " +
         "Default: $rcm")
 cli.p(args: 1, 'Number of threads. Default: all available processors.')
 cli._(longOpt: 'rc-barcodes', 'Also search for reverse-complement barcodes.')
-cli.e(args: 1,
+cli.m(args: 1,
         argName: 'LQ:E0:E1', "Low quality threshold : Ratio of low-quality errors : Ratio of high-quality errors. " +
         "Used to calculate the maximum number of allowed mismatches when performing alignment to full barcode, " +
         "ratios are scaled to full barcode length. Default: $mm")
@@ -46,25 +49,27 @@ if (opt == null || opt.arguments().size() < 2) {
 }
 
 def scriptName = getClass().canonicalName
-boolean compressed = opt.c, oriented = opt.o, extractUMI = opt.u, addRevComplBc = opt."rc-barcodes"
+boolean compressed = opt.c, oriented = opt.o, extractUMI = opt.u, addRevComplBc = opt."rc-barcodes",
+        trimBc = opt.t, removeTS = opt.e
+int trimSizeThreshold = (opt.'max-trim-nts' ?: mtrim).toInteger()
 def rcReadMask = (opt.r ?: rcm).split(":").collect { Integer.parseInt(it) > 0 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 def bcfile = opt.arguments()[0],
     fastq1 = opt.arguments()[1],
     fastq2 = opt.arguments()[2],
     out = opt.arguments()[3] ?: "."
-def mmData = (opt.e ?: mm).split(":").collect { Double.parseDouble(it) }
+def mmData = (opt.m ?: mm).split(":").collect { Double.parseDouble(it) }
 def paired = fastq2 != '-'
 
 //========================
 //          MISC
 //========================
 def complements = ['A': 'T', 'T': 'A', 'G': 'C', 'C': 'G', 'Y': 'R', 'R': 'Y', 'S': 'S', 'W': 'W', 'K': 'M',
-        'M': 'K', 'B': 'V', 'D': 'H', 'H': 'D', 'V': 'B', 'N': 'N', 'a': 't', 't': 'a', 'g': 'c', 'c': 'g', 'y': 'r',
-        'r': 'y', 's': 's', 'w': 'w', 'k': 'm', 'm': 'k', 'b': 'v', 'd': 'h', 'h': 'd', 'v': 'b', 'n': 'n']
+                   'M': 'K', 'B': 'V', 'D': 'H', 'H': 'D', 'V': 'B', 'N': 'N', 'a': 't', 't': 'a', 'g': 'c', 'c': 'g', 'y': 'r',
+                   'r': 'y', 's': 's', 'w': 'w', 'k': 'm', 'm': 'k', 'b': 'v', 'd': 'h', 'h': 'd', 'v': 'b', 'n': 'n']
 
 def redundancy = ['A': 'A', 'T': 'T', 'G': 'G', 'C': 'C', 'N': '[ATGC]', 'R': '[AG]', 'Y': '[CT]', 'M': '[AC]',
-        'S': '[GC]', 'W': '[AT]', 'K': '[GT]', 'V': '[ACG]', 'D': '[AGT]', 'H': '[ACT]', 'B': '[CGT]']
+                  'S': '[GC]', 'W': '[AT]', 'K': '[GT]', 'V': '[ACG]', 'D': '[AGT]', 'H': '[ACT]', 'B': '[CGT]']
 
 def redundancy2 = new HashMap<Character, Set<Character>>([
         ((Character) 'A'): new HashSet<Character>([(Character) 'A']),
@@ -340,6 +345,9 @@ readThread.start()
 
 def pool = Executors.newFixedThreadPool(THREADS)
 def futures = new ArrayList<Future>()
+
+def tgPattern = /^T{0,3}G{3,7}/, gtPattern = /G{3,7}T{0,3}$/
+
 for (int k = 0; k < nProcessors; k++) {
     futures.add(pool.submit(new Runnable() { // Processors
         @Override
@@ -375,9 +383,29 @@ for (int k = 0; k < nProcessors; k++) {
                 if (from >= 0) {
                     // 1.2 Extract UMI from master
                     if (extractUMI) {
+                        def seq = readData[readIndex + 1], qual = readData[readIndex + 2]
                         umiPositions[0][sampleIndex].each { int pos ->
-                            umiData[0].append(readData[readIndex + 1].charAt(from + pos))
-                            umiData[1].append(readData[readIndex + 2].charAt(from + pos))
+                            umiData[0].append(seq.charAt(from + pos))
+                            umiData[1].append(qual.charAt(from + pos))
+                        }
+                    }
+
+                    // trim adapter
+                    if (trimBc) {
+                        int to = barcodeList[0][sampleIndex].size() + from
+                        def seq = readData[readIndex + 1], qual = readData[readIndex + 2]
+                        readData[readIndex + 1] = (from > trimSizeThreshold ? seq.substring(0, from) : "") +
+                                ((seq.length() - to > trimSizeThreshold) ? seq.substring(to) : "")
+                        readData[readIndex + 2] = (from > trimSizeThreshold ? qual.substring(0, from) : "") +
+                                ((seq.length() - to > trimSizeThreshold) ? qual.substring(to) : "")
+                        if (removeTS) {
+                            seq = readData[readIndex + 1]
+                            qual = readData[readIndex + 2]
+                            def tsHit = (seq =~ tgPattern)
+                            if (tsHit) {
+                                readData[readIndex + 1] = seq.substring(tsHit.end())
+                                readData[readIndex + 2] = qual.substring(tsHit.end())
+                            }
                         }
                     }
 
@@ -388,11 +416,37 @@ for (int k = 0; k < nProcessors; k++) {
                             // Look in other read
                             from = findMatch(barcodeList[1][sampleIndex], seeds[1][sampleIndex],
                                     readData[4 - readIndex], readData[5 - readIndex], sampleIndex, 1)
-                            if ((slaveFound = (from >= 0)) && extractUMI) {
+
+                            slaveFound = from >= 0
+
+                            if (slaveFound) {
+                                def seq = readData[4 - readIndex], qual = readData[5 - readIndex]
+
                                 // 2.1 Extract UMI from slave
-                                umiPositions[1][sampleIndex].each { int pos ->
-                                    umiData[0].append(readData[4 - readIndex].charAt(from + pos))
-                                    umiData[1].append(readData[5 - readIndex].charAt(from + pos))
+                                if (extractUMI) {
+                                    umiPositions[1][sampleIndex].each { int pos ->
+                                        umiData[0].append(seq.charAt(from + pos))
+                                        umiData[1].append(qual.charAt(from + pos))
+                                    }
+                                }
+
+                                // trim adapter
+                                if (trimBc) {
+                                    int to = barcodeList[1][sampleIndex].size() + from
+                                    readData[4 - readIndex] = (from > trimSizeThreshold ? seq.substring(0, from) : "") +
+                                            ((seq.length() - to > trimSizeThreshold) ? seq.substring(to) : "")
+                                    readData[5 - readIndex] = (from > trimSizeThreshold ? qual.substring(0, from) : "") +
+                                            ((seq.length() - to > trimSizeThreshold) ? qual.substring(to) : "")
+
+                                    if (removeTS) {
+                                        seq = readData[4 - readIndex]
+                                        qual = readData[5 - readIndex]
+                                        def tsHit = (seq =~ gtPattern)
+                                        if (tsHit) {
+                                            readData[readIndex + 1] = seq.substring(0, tsHit.start())
+                                            readData[readIndex + 2] = qual.substring(0, tsHit.start())
+                                        }
+                                    }
                                 }
                             }
                         }

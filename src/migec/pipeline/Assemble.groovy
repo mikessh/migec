@@ -230,7 +230,7 @@ def putData = { int readId, String umi, String seq ->
 }
 
 int nReads = 0, nGoodReads = 0
-println "[${new Date()} $scriptName] Pre-loading data fo $fastq1, $fastq2.."
+println "[${new Date()} $scriptName] Pre-loading data for $fastq1, $fastq2.."
 def reader1 = getReader(fastq1), reader2 = paired ? getReader(fastq2) : null
 String header1, seq1, qual1
 String seq2 = "", qual2 = ""
