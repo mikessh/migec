@@ -33,6 +33,7 @@ cli.q(args: 1, argName: 'minimum quality [phred]',
         'minimum quality of read to pass filter, will be ' +
                 'applied only to CDR3 region [default=30 for -a or 25, out of 40]')
 cli.p(args: 1, 'number of threads to use [default = all available processors]')
+cli.o('sort output [default=false]')
 cli.N(args: 1, 'number of reads to take')
 cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
 cli._(longOpt: 'debug', 'Prints out alignment details, stores all temporary alignment files.')
@@ -74,6 +75,7 @@ try {
 def cdr3FastqFile = opt.'cdr3-fastq-file',
     allSegments = opt.'all-segments',
     assembledInput = opt.a,
+    doSort = opt.o,
     qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
     chain = opt.C, species = opt.S ?: "HomoSapiens",
     nReads = Integer.parseInt(opt.N ?: "-1")
@@ -796,7 +798,7 @@ outputFile.withPrintWriter { pw ->
             "First J nucleotide position\t" +
             "Good events\tTotal events\tGood reads\tTotal reads")
 
-    cloneMap.each {
+    (doSort ? cloneMap.sort { -it.value[0] } : cloneMap).each {
         if (it.value[0] > 0)
             pw.println(it.value[0] + "\t" + (it.value[0] / goodEvents) + // percentage from good events only
                     "\t" + it.key +

@@ -52,7 +52,7 @@ new File(inputFileName).splitEachLine("\t") { line ->
 
 def hypermGraph = Collections.synchronizedMap(new HashMap())
 def count = new AtomicLong()
-println "[${new Date()} $scriptName] Finding one-mismatch pairs"
+println "[${new Date()} $scriptName] Searching one-mismatch pairs"
 GParsPool.withPool THREADS, {
     cdr3Map.eachParallel { Map.Entry<String, Double> entry ->
         def thisSeq = entry.key
