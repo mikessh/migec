@@ -20,7 +20,7 @@ The pipeline is written in Groovy (a Java scripting language) and distributed as
 $java -cp migec.jar com.milaboratory.migec.Checkout [arguments]
 ```
 
-alternatively you can download the repository and compile it from source using [Maven](http://maven.apache.org/)
+alternatively you can download the repository and compile it from source using [Maven](http://maven.apache.org/) (requires Maven version 3.0)
 
 ```
 $git clone https://github.com/mikessh/migec.git
