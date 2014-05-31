@@ -65,16 +65,26 @@ For overlapping paired reads:
 $java -cp migec.jar com.milaboratory.migec.Checkout -cute --overlap barcodes.txt R1.fastq.gz R2.fastq.gz - ./checkout/
 ```
 
-accepted *barcodes.txt* format is the following tab-delimited table, 
+accepted *barcodes.txt* format is a tab-delimited table with the following structure: 
 
->SAMPLE-ID (tab) MASTER-ADAPTER-SEQUENCE (tab) SLAVE-ADAPTER-SEQUENCE
+SAMPLE-ID | MASTER-ADAPTER-SEQUENCE     | SLAVE-ADAPTER-SEQUENCE
+----------|-----------------------------|-----------------------
+S0        | acgtacgtAGGTTAcadkgag       |
+S2        | acgtacgtGGTTAAcadkgag       | ctgkGTTCaat
+S1        | acgtacgtAAGGTTcadkgagNNNNNN |
+S2        | acgtacgtTAAGGTcadkgagNNNNNN | NNNNNNctgkGTTCaat
 
-A sequencing read is scanned for master adapter and then, if found, its mate is scanned for slave adapter (could be omitted). R2.fastq.gz and slave adapter sequence could be omitted.
-Adaptor sequnce is accepted with any IUPAC DNA letters. Upper and lower case letters mark seed and fuzzy-search region parts respectively. 'N' characters mark UMI region to be extracted. An example is provided below,
+A sequencing read is scanned for master adapter and then, if found, its mate is reverse-complemented to get on the same strand as master read and scanned for slave adapter.
 
->S1 (tab) acgtacgtAAGGTTcadkgagNNNNNN
+* Slave adapter sequence could be omitted.
 
-in this case **Checkout** will search for AAGGTT seed exact match, then for the remaining adapter sequence with two mismatches allowed and output the NNNNNN region to header.
+* Adaptor sequence could contain any IUPAC DNA letters.
+
+* Upper and lower case letters mark seed and fuzzy-search region parts respectively.
+
+* *N* characters mark UMI region to be extracted.
+
+For example, in case of `S1` **Checkout** will search for *AAGGTT* seed exact match, then for the remaining adapter sequence with two mismatches allowed and output the *NNNNNN* region to header. In case of `S2` in addition the slave read is scanned for *GTTC* seed, fuzzy match to the rest of barcode is performed and *NNNNNN* region is extracted and concatenated with UMI region of master read.
 
 **Parameters**
 
@@ -88,7 +98,7 @@ General:
 
 Barcode search:
 
-```-o``` could speed up if reads are oriented (i.e. master adapter should be in R1).
+```-o``` speed up by assuming that reads are oriented, i.e. master adapter should be in R1
 
 ```-r``` will apply a custom RC mask. By default it assumes Illumina reads with mates on different strands, so it reverse-complements read with slave adapter so that output reads will be on master strand.
 
