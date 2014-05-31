@@ -67,12 +67,12 @@ $java -cp migec.jar com.milaboratory.migec.Checkout -cute --overlap barcodes.txt
 
 accepted *barcodes.txt* format is a tab-delimited table with the following structure: 
 
-SAMPLE-ID | MASTER-ADAPTER-SEQUENCE     | SLAVE-ADAPTER-SEQUENCE
+Sample ID | Master barcode sequence     | Slave barcode sequence
 ----------|-----------------------------|-----------------------
 S0        | acgtacgtAGGTTAcadkgag       |
-S2        | acgtacgtGGTTAAcadkgag       | ctgkGTTCaat
-S1        | acgtacgtAAGGTTcadkgagNNNNNN |
-S2        | acgtacgtTAAGGTcadkgagNNNNNN | NNNNNNctgkGTTCaat
+S1        | acgtacgtGGTTAAcadkgag       | ctgkGTTCaat
+S2        | acgtacgtAAGGTTcadkgagNNNNNN |
+S3        | acgtacgtTAAGGTcadkgagNNNNNN | NNNNNNctgkGTTCaat
 
 A sequencing read is scanned for master adapter and then, if found, its mate is reverse-complemented to get on the same strand as master read and scanned for slave adapter.
 
@@ -84,7 +84,7 @@ A sequencing read is scanned for master adapter and then, if found, its mate is 
 
 * *N* characters mark UMI region to be extracted.
 
-For example, in case of `S1` **Checkout** will search for *AAGGTT* seed exact match, then for the remaining adapter sequence with two mismatches allowed and output the *NNNNNN* region to header. In case of `S2` in addition the slave read is scanned for *GTTC* seed, fuzzy match to the rest of barcode is performed and *NNNNNN* region is extracted and concatenated with UMI region of master read.
+For example, in case *S2* **Checkout** will search for *AAGGTT* seed exact match, then for the remaining adapter sequence with two mismatches allowed and output the *NNNNNN* region to header. In case *S3* in addition the slave read is scanned for *GTTC* seed, fuzzy match to the rest of barcode is performed and *NNNNNN* region is extracted and concatenated with UMI region of master read.
 
 **Parameters**
 
