@@ -96,6 +96,8 @@ General:
 
 ```-e``` also remove trails of template-switching (poly-G) for the case when UMI-containing adapter is added using reverse-transcription (cDNA libraries).
 
+```--overlap``` will try to overlap reads (paired-end data only), non-overlapping and overlapping reads will be placed to *_R1/_R2* and *_R12* FASTQ files respectively.
+
 Barcode search:
 
 ```-o``` speed up by assuming that reads are oriented, i.e. master adapter should be in R1
@@ -114,7 +116,7 @@ A script to generate over-sequencing statistics
 **Usage**
 
 ```
-$java -cp migec.jar com.milaboratory.migec.Histogram ./checkout/checkout.filelist.txt ./checkout/histogram
+$java -cp migec.jar com.milaboratory.migec.Histogram ./checkout/checkout.filelist.txt ./histogram/run
 ```
 
 Will generate several files, the one important for basic data processing is *./checkout/histogram.overseq.txt*. The header contains MIG sizes (in log2 scale), while each row for a sample contains the number of reads in MIGs of a given size (cumulative abundance). 
