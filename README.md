@@ -169,7 +169,7 @@ A script to filter erroneous CDR3 sequences produced due to hot-spot PCR and NGS
 **Usage** 
 
 ```
-$java -cp migec.jar FilterCdrBlastResults -s ./cdrblast/S1_asm.cdrblast.txt ./cdrblast/S1_raw.cdrblast.txt ./final/S1.cdrblast.txt
+$java -cp migec.jar com.antigenomics.migec.FilterCdrBlastResults -s ./cdrblast/S1_asm.cdrblast.txt ./cdrblast/S1_raw.cdrblast.txt ./final/S1.cdrblast.txt
 ```
 
 The ```-s``` option tells to include CDR3s represented by single MIGs. Those are filtered by default as for deep profiling (with our protocol) they could be associated with reverse transcription errors and experimental artifacts.
@@ -179,7 +179,7 @@ Now the file *S1.cdrblast.txt* contains a filtered and sorted CDR3/V/J clonotype
 You could additionally build a graph of hypermutations for the sample using
 
 ```
-$java -cp migec.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
+$java -cp migec.jar com.antigenomics.migec.CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
 ```
 
 which will generate files that allow fast network construction using Cytoscape's network from table and import table routines for further data exploration.
