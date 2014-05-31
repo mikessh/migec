@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -36,6 +36,7 @@ cli._(longOpt: 'max-trim-nts', 'Maximal number of nucleotides between barcode an
 cli.r(args: 1, "RC mask to apply after master-slave is determined, e.g. will RC slave read if set to 0:1. " +
         "Default: $rcm")
 cli.p(args: 1, 'Number of threads. Default: all available processors.')
+cli._(args: 1, longOpt: 'first', 'Number of reads to try. If <0 will process all reads. [default = -1]')
 cli._(longOpt: 'overlap', 'Will try to overlap paired reads.')
 cli._(longOpt: 'rc-barcodes', 'Also search for reverse-complement barcodes.')
 cli.m(args: 1,
@@ -46,13 +47,14 @@ cli.c('Compressed output')
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     cli.usage()
-    return
+    System.exit(-1)
 }
 
 def scriptName = getClass().canonicalName
 boolean compressed = opt.c, oriented = opt.o, extractUMI = opt.u, addRevComplBc = opt."rc-barcodes",
         trimBc = opt.t, removeTS = opt.e, overlap = opt.'overlap'
 int trimSizeThreshold = (opt.'max-trim-nts' ?: mtrim).toInteger()
+int firstReadsToTake = (opt.'first' ?: "-1").toInteger()
 def rcReadMask = (opt.r ?: rcm).split(":").collect { Integer.parseInt(it) > 0 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 def bcfile = opt.arguments()[0],
@@ -367,7 +369,9 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
                 overlapCounter.incrementAndGet()
                 readData[1] = overlapResult[0]
                 readData[2] = overlapResult[1]
-                readData[3] = null // collapsed to single read
+                readData[7] = "yes"
+
+                counters.get(sampleId)[2].incrementAndGet()
             }
         }
     } else {
@@ -388,8 +392,8 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
 //========================
 //          BODY
 //========================
-def readQueue = new LinkedBlockingQueue<String[]>(4096)  // h1 r1 q1 h2 r2 q2 ''
-def writeQueue = new LinkedBlockingQueue<String[]>(4096) // h1 r1 q1 h2 r2 q2 sampleId
+def readQueue = new LinkedBlockingQueue<String[]>(4096)  // SINGLE: h1 r1 q1 ''       PAIRED: h1 r1 q1 h2 r2 q2 ''       ''
+def writeQueue = new LinkedBlockingQueue<String[]>(4096) // SINGLE: h1 r1 q1 sampleId PAIRED: h1 r1 q1 h2 r2 q2 sampleId overlapped
 
 def reader1 = getReader(fastq1), reader2 = (fastq2 == '-') ? null : getReader(fastq2)
 def writers = new HashMap<String, BufferedWriter[]>()
@@ -407,7 +411,6 @@ new File(out).mkdir()
 
     writers.put(sampleId, writerTrio)
 
-
     def counterTrio = new AtomicLong[3]
 
     counterTrio[0] = new AtomicLong()
@@ -421,7 +424,8 @@ new File(out).mkdir()
 }
 
 int nProcessors = 2 * THREADS
-def rDataSize = paired ? 7 : 4 // last one - assigned sample id
+def rDataSize = paired ? 8 : 4
+int readsTaken = 0
 def readThread = new Thread({  // Reading thread
     String header1
     while ((header1 = reader1.readLine()) != null) {
@@ -438,6 +442,9 @@ def readThread = new Thread({  // Reading thread
             readData[5] = reader2.readLine()
         }
         readQueue.put(readData)
+
+        if (firstReadsToTake >= 0 && ++readsTaken > firstReadsToTake)
+            break
     }
     for (int k = 0; k < nProcessors; k++)
         readQueue.put(new String[0]) // empty read - finish. tell ALL processors to stop
@@ -589,7 +596,7 @@ def writeThread = new Thread({  // Writing thread
         if (!paired)
             writerTrio[0].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
         else {
-            if (!result[3] && overlap) {
+            if (result[7]) {
                 writerTrio[2].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
             } else {
                 writerTrio[0].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
@@ -620,11 +627,11 @@ writers.values().each { // don't forget to flush
 new File("$out/checkout.filelist.txt").withPrintWriter { pw ->
     new HashSet(sampleIds).each { String sampleId -> // only unique
         pw.println(sampleId + (paired ? "\tpaired\t" : "\tunpaired\t") +
-                new File("$out/${sampleId}_R1.fastq.gz").absolutePath) + "\t" +
-                (paired ? new File("$out/${sampleId}_R2.fastq.gz").absolutePath : "-")
+                new File("$out/${sampleId}_R1.fastq.gz").absolutePath + "\t" +
+                (paired ? new File("$out/${sampleId}_R2.fastq.gz").absolutePath : "-"))
         if (overlap)
             pw.println(sampleId + "\toverlapped\t" +
-                    new File("$out/${sampleId}_R0.fastq.gz").absolutePath) + "\t-"
+                    new File("$out/${sampleId}_R12.fastq.gz").absolutePath) + "\t-"
     }
 }
 

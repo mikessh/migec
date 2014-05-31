@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 def R_A_T = "1.0"
 def cli = new CliBuilder(usage:
@@ -28,7 +28,7 @@ cli.c("Include CDR3s that do not begin with a conserved C or end with a conserve
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
     cli.usage()
-    return
+    System.exit(-1)
 }
 
 def scriptName = getClass().canonicalName

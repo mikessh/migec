@@ -14,13 +14,13 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import java.util.zip.GZIPInputStream
 
 if (args.length < 5) {
     println "Usage: HistQ inputFastqFile output from(e.g. 0) to(e.g. read length, 100)"
-    System.exit(0)
+    System.exit(-1)
 }
 
 def infiles = args[0].split(","), ofile = args[1]

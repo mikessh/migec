@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import groovyx.gpars.GParsPool
 
@@ -27,7 +27,7 @@ cli.t(args: 1, "Clonotype size ratio threshold to record a hypermutation. Defaul
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     cli.usage()
-    return
+    System.exit(-1)
 }
 
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()

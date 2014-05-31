@@ -14,38 +14,35 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import groovyx.gpars.GParsPool
 
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
-
 
 //========================
 //          CLI
 //========================
-def mode = "0:1", mc = "10", p_c_r = "0.1"
+def DEFAULT_MODE = "0:1", DEFAULT_MIN_COUNT = "10", DEFAULT_PARENT_CHILD_RATIO = "0.1"
 def cli = new CliBuilder(usage: 'Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or -] output_prefix ' +
         '[assembly_log, to append]')
 cli.q(args: 1, argName: 'read quality (phred)',
-        "barcode region quality threshold. Default: 15")
+        "barcode region quality threshold. Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli.m(longOpt: "assembly-mode", args: 1, argName: 'assembly mode in format X:X',
-        "Identifier(s) of read(s) to assemble. Default: \"$mode\".")
+        "Identifier(s) of read(s) to assemble. Default: \"$DEFAULT_MODE\".")
 cli.p(args: 1,
         "number of threads to use. Default: all available processors")
 cli.c("compressed output")
 
 cli._(longOpt: 'alignment-file-prefix', args: 1, argName: 'string',
-        "File name prefix to output multiple alignments generated during assembly, for \"migec.control.BacktrackSequence\"")
+        "File name prefix to output multiple alignments generated during assembly, for \"com.milaboratory.migec.control.BacktrackSequence\"")
 cli._(longOpt: 'min-count', args: 1, argName: 'integer',
-        "Min number of reads in MIG. Should be set according to 'Histogram.groovy' output. Default: $mc")
+        "Min number of reads in MIG. Should be set according to 'Histogram.groovy' output. Default: $DEFAULT_MIN_COUNT")
 cli.f(longOpt: 'filter-collisions',
         "Collision filtering. Should be set if collisions (1-mismatch erroneous UMI sequence variants) are observed in 'Histogram.groovy' output")
 cli._(longOpt: 'collision-ratio', args: 1, argName: 'double, < 1.0',
-        "Min parent-to-child MIG size ratio for collision filtering. Default value: $p_c_r")
+        "Min parent-to-child MIG size ratio for collision filtering. Default value: $DEFAULT_PARENT_CHILD_RATIO")
 cli._(longOpt: 'assembly-offset', args: 1, argName: 'integer',
         'Assembly offset range. Default: 3')
 cli._(longOpt: 'assembly-mismatches', args: 1, argName: 'integer',
@@ -56,7 +53,7 @@ cli._(longOpt: 'assembly-anchor', args: 1, argName: 'integer',
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
     cli.usage()
-    return
+    System.exit(-1)
 }
 
 //========================
@@ -67,8 +64,9 @@ def scriptName = getClass().canonicalName
 // Parameters
 boolean compressed = opt.c, filterCollisions = opt.f
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
-int umiQualThreshold = opt.q ?: 15, minCount = Integer.parseInt(opt."min-count" ?: mc)
-double collisionRatioThreshold = Double.parseDouble(opt.'collision-ratio' ?: p_c_r)
+byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
+int minCount = Integer.parseInt(opt."min-count" ?: DEFAULT_MIN_COUNT)
+double collisionRatioThreshold = Double.parseDouble(opt.'collision-ratio' ?: DEFAULT_PARENT_CHILD_RATIO)
 
 // I/O
 def fastq1 = opt.arguments()[0],
@@ -82,7 +80,7 @@ def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
 
 // I/O parameters
 boolean paired = fastq2 != "-"
-def assemblyIndices = paired ? (opt.m ?: mode).split(":").collect { Integer.parseInt(it) > 0 } : [true, false]
+def assemblyIndices = paired ? (opt.m ?: DEFAULT_MODE).split(":").collect { Integer.parseInt(it) > 0 } : [true, false]
 boolean bothReads = assemblyIndices[0] && assemblyIndices[1]
 if (!assemblyIndices.any()) {
     println "ERROR Bad assembly mode (${assemblyIndices.join(":")}). At least one FASTQ should be specified for assembly"
@@ -100,71 +98,6 @@ if (opt.'alignment-file-prefix' && new File(alignmentFilePrefix).parentFile)
 if (logFileName && new File(logFileName).parentFile)
     new File(logFileName).parentFile.mkdirs()
 
-//========================
-//      MISC UTILS
-//========================
-def qualFromSymbol = { char symbol ->
-    (int) symbol - 33
-}
-
-def symbolFromQual = { int qual ->
-    qual = qual < 2 ? 2 : qual
-    qual = qual > 40 ? 40 : qual
-    (char) (qual + 33)
-}
-
-def code2nt = { int code ->
-    switch (code) {
-        case 0:
-            return 'A'
-        case 1:
-            return 'T'
-        case 2:
-            return 'G'
-        case 3:
-            return 'C'
-    }
-}
-
-def nt2code = { char symbol ->
-    switch (symbol) {
-        case 'A':
-            return 0
-        case 'T':
-            return 1
-        case 'G':
-            return 2
-        case 'C':
-            return 3
-    }
-}
-
-def getReader = { String fname ->
-    new BufferedReader(new InputStreamReader(fname.endsWith(".gz") ? new GZIPInputStream(new FileInputStream(fname)) :
-            new FileInputStream(fname)))
-}
-
-def getWriter = { String outfile ->
-    if (compressed)
-        outfile += ".gz"
-    new BufferedWriter(new OutputStreamWriter(compressed ?
-            new GZIPOutputStream(new FileOutputStream(outfile)) : new FileOutputStream(outfile)))
-}
-
-def getUmi = { String header ->
-    def splitHeader = header.split(" ")
-    def umiEntry = splitHeader.find { it.startsWith("UMI:") }
-    if (umiEntry == null) {
-        println "[${new Date()} $scriptName] Error: no UMI header in input. Terminating"
-        System.exit(-1)
-    }
-    String umi = umiEntry.split(":")[1]
-    for (int i = umiEntry.length() - umi.length(); i < umiEntry.length(); i++)
-        if (qualFromSymbol(umiEntry.charAt(i)) < umiQualThreshold)   // quality can contain :
-            return null
-    umi
-}
-
 //=================================
 //   PRE-LOAD DATA FOR ASSEMBLY
 //=================================
@@ -181,7 +114,7 @@ def putData = { int readId, String umi, String seq ->
 
 int nReads = 0, nGoodReads = 0
 println "[${new Date()} $scriptName] Pre-loading data for $fastq1, $fastq2.."
-def reader1 = getReader(fastq1), reader2 = paired ? getReader(fastq2) : null
+def reader1 = Util.getReader(fastq1), reader2 = paired ? Util.getReader(fastq2) : null
 String header1, seq1
 String seq2 = ""
 int MIN_READ_SZ = 2 * anchorRegion + 1 + offsetRange
@@ -198,7 +131,7 @@ while ((header1 = reader1.readLine()) != null) {
     }
 
     if (seq1.length() > MIN_READ_SZ && (!paired || seq2.length() > MIN_READ_SZ)) {
-        def umi = getUmi(header1)
+        def umi = Util.getUmi(header1, umiQualThreshold)
 
         if (umi != null && seq1.length() > 0) {
             if (assemblyIndices[0])
@@ -222,10 +155,10 @@ println "[${new Date()} $scriptName] Processed $nReads reads, " +
 //=================================
 def writeQueue = new LinkedBlockingQueue<String[]>(2048)
 def suffix = assemblyIndices[0] ? "R1" : "R2"
-def writer1 = getWriter("${outputFilePrefix}_${suffix}.fastq"),
-    writer2 = bothReads ? getWriter("${outputFilePrefix}_R2.fastq") : null
-def detailsWriter1 = alignmentFilePrefix ? getWriter("${alignmentFilePrefix}_${suffix}.asm") : null,
-    detailsWriter2 = bothReads && alignmentFilePrefix ? getWriter("${alignmentFilePrefix}_${suffix}.asm") : null
+def writer1 = Util.getWriter("${outputFilePrefix}_${suffix}.fastq", compressed),
+    writer2 = bothReads ? Util.getWriter("${outputFilePrefix}_R2.fastq", compressed) : null
+def detailsWriter1 = alignmentFilePrefix ? Util.getWriter("${alignmentFilePrefix}_${suffix}.asm", compressed) : null,
+    detailsWriter2 = bothReads && alignmentFilePrefix ? Util.getWriter("${alignmentFilePrefix}_${suffix}.asm", compressed) : null
 
 println "[${new Date()} $scriptName] Starting assembly.."
 def writeThread = new Thread({  // Writing thread, listening to queue
@@ -307,7 +240,7 @@ GParsPool.withPool THREADS, {
             for (int i = 0; i < umiCharArray.length; i++) {
                 oldChar = umiCharArray[i]
                 for (int j = 0; j < 4; j++) {
-                    char nt = code2nt(j)
+                    char nt = Util.code2nt(j)
                     if (nt != oldChar) {
                         umiCharArray[i] = nt
                         String otherUmi = new String(umiCharArray)
@@ -414,7 +347,7 @@ GParsPool.withPool THREADS, {
                                 for (int j = 0; j < 4; j++)
                                     pwm[i][j] += redundancyCount / 4
                             else
-                                pwm[i][nt2code(seqRegion.charAt(i))] += redundancyCount
+                                pwm[i][Util.nt2code(seqRegion.charAt(i))] += redundancyCount
                         }
 
                         if (alignmentFilePrefix) // detailes - aligned read
@@ -431,8 +364,8 @@ GParsPool.withPool THREADS, {
                                 mostFreqLetter = j
                             }
                         }
-                        consensus.append(code2nt(mostFreqLetter))
-                        qual.append(symbolFromQual(Math.max(2, (int) ((maxLetterFreq / count - 0.25) / 0.75 * 40.0))))
+                        consensus.append(Util.code2nt(mostFreqLetter))
+                        qual.append(Util.symbolFromQual(Math.max(2, (int) ((maxLetterFreq / count - 0.25) / 0.75 * 40.0))))
                     }
                     assembledReads[ind] = "@MIG UMI:$umi:$count\n${consensus.toString()}\n+\n${qual.toString()}".toString()
 

@@ -14,13 +14,13 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 def cli = new CliBuilder(usage: 'SplitSpikeClonotypes file_with_spikes file_with_cdrs output_prefix')
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
     cli.usage()
-    return
+    System.exit(-1)
 }
 def spikeFileName = opt.arguments()[0], inputFileName = opt.arguments()[1], outputFilePrefix = opt.arguments()[2]
 

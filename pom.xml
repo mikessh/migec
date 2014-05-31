@@ -2,7 +2,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.antigenomics</groupId>
+    <groupId>com.milaboratory</groupId>
     <artifactId>migec</artifactId>
     <version>1.1.0</version>
     <packaging>jar</packaging>
@@ -32,7 +32,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>com.antigenomics.migec.Migec</mainClass>
+                            <mainClass>com.milaboratory.migec.Migec</mainClass>
                             <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                         </manifest>
                     </archive>

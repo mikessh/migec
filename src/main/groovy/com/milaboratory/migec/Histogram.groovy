@@ -14,12 +14,12 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import groovyx.gpars.GParsPool
 
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.zip.GZIPInputStream
+import java.util.concurrent.atomic.AtomicIntegerArray
 
 def cli = new CliBuilder(usage: 'Histogram [options] checkout.filelist.txt output_prefix')
 cli.q(args: 1, argName: 'read quality (phred)', 'barcode region quality threshold. Default: 15')
@@ -27,34 +27,16 @@ cli.p(args: 1, 'number of threads to use')
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     cli.usage()
-    return
+    System.exit(-1)
 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
-int umiQualThreshold = opt.q ?: 15
+byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
 
 def scriptName = getClass().canonicalName
 int nBins = 17
-def nts = ['A', 'T', 'G', 'C']
-def getReader = { String fname ->
-    new BufferedReader(new InputStreamReader(fname.endsWith(".gz") ? new GZIPInputStream(new FileInputStream(fname)) :
-            new FileInputStream(fname)))
-}
+
 def scale = { Integer value ->
     (int) (Math.min(Math.log((double) value) / Math.log(2.0), nBins - 1))
-}
-def qualFromSymbol = { char symbol ->
-    (int) symbol - 33
-}
-def getUmi = { String header ->
-    def splitHeader = header.split(" ")
-
-    def umiEntry = splitHeader.find { it.startsWith("UMI:") }
-
-    String umi = umiEntry.split(":")[1]
-    for (int i = umiEntry.length() - umi.length(); i < umiEntry.length(); i++)
-        if (qualFromSymbol(umiEntry.charAt(i)) < umiQualThreshold)   // quality can contain :
-            return null
-    umi
 }
 
 def samples = new File(opt.arguments()[0]).readLines().collect {
@@ -66,91 +48,91 @@ def outputFilePrefix = opt.arguments()[1]
 if (new File(outputFilePrefix).parentFile)
     new File(outputFilePrefix).parentFile.mkdirs()
 
-// Load UMIs  if (!(new File(logFileName).exists())) {
-boolean oHeader = !new File("${outputFilePrefix}.overseq.txt").exists(),
-        ouHeader = !new File("${outputFilePrefix}.overseq-units.txt").exists(),
-        cHeader = !new File("${outputFilePrefix}.collision1.txt").exists(),
-        cuHeader = !new File("${outputFilePrefix}.collision1-units.txt").exists()
+def HEADER = "SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t")
 
-new File("${outputFilePrefix}.overseq.txt").withWriterAppend { oWriter ->
-    if (oHeader)
-        oWriter.println("SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
-    new File("${outputFilePrefix}.overseq-units.txt").withWriterAppend { ouWriter ->
-        if (ouHeader)
-            ouWriter.println("SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
+new File("${outputFilePrefix}.overseq.txt").withPrintWriter { oWriter ->
+    oWriter.println(HEADER)
 
-        new File("${outputFilePrefix}.collision1.txt").withWriterAppend { cWriter ->
-            if (cHeader)
-                cWriter.println("SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
+    new File("${outputFilePrefix}.overseq-units.txt").withPrintWriter { ouWriter ->
+        ouWriter.println(HEADER)
 
-            new File("${outputFilePrefix}.collision1-units.txt").withWriterAppend { cuWriter ->
-                if (cuHeader)
-                    cuWriter.println("SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
+        new File("${outputFilePrefix}.collision1.txt").withPrintWriter { cWriter ->
+            cWriter.println(HEADER)
+
+            new File("${outputFilePrefix}.collision1-units.txt").withPrintWriter { cuWriter ->
+                cuWriter.println(HEADER)
+
                 samples.each { sampleEntry ->
                     println "[${new Date()} $scriptName] Processing ${sampleEntry[0]} (${sampleEntry[1]})"
 
                     // Accumulate UMIs
                     def umiCountMap = new HashMap<String, Integer>()
-                    def reader = getReader(sampleEntry[2])
+                    def reader = Util.getReader(sampleEntry[2])
+
                     String header
+
                     int nReads = 0
                     while ((header = reader.readLine()) != null) {
-                        def umi = getUmi(header)
+                        def umi = Util.getUmi(header, umiQualThreshold)
+
                         if (umi != null)
                             umiCountMap.put(umi, (umiCountMap.get(umi) ?: 0) + 1)
+
                         reader.readLine()
                         reader.readLine()
                         reader.readLine()
+
                         if (++nReads % 1000000 == 0)
                             println "[${new Date()} $scriptName] Processed $nReads, ${umiCountMap.size()} UMIs so far"
                     }
+
                     println "[${new Date()} $scriptName] Processed $nReads, ${umiCountMap.size()} UMIs total"
 
-                    def overseqHist = new AtomicInteger[nBins], overseqHistUnits = new AtomicInteger[nBins],
-                        collisionHist = new AtomicInteger[nBins], collisionHistUnits = new AtomicInteger[nBins]
-                    for (int i = 0; i < nBins; i++) {
-                        overseqHist[i] = new AtomicInteger()
-                        collisionHist[i] = new AtomicInteger()
-                        overseqHistUnits[i] = new AtomicInteger()
-                        collisionHistUnits[i] = new AtomicInteger()
-                    }
+                    def overseqHist = new AtomicIntegerArray(nBins), overseqHistUnits = new AtomicIntegerArray(nBins),
+                        collisionHist = new AtomicIntegerArray(nBins), collisionHistUnits = new AtomicIntegerArray(nBins)
+
                     def nUmis = new AtomicInteger()
+
                     GParsPool.withPool THREADS, {
                         umiCountMap.eachParallel { Map.Entry<String, Integer> umiEntry ->
-                            int thisCount = umiEntry.value
+                            int thisCount = umiEntry.value, bin = scale(thisCount)
 
                             // Append to cumulative overseq
-                            overseqHist[scale(thisCount)].addAndGet(thisCount)
-                            overseqHistUnits[scale(thisCount)].incrementAndGet()
+                            overseqHist.addAndGet(bin, thisCount)
+                            overseqHistUnits.incrementAndGet(bin)
 
                             // Calculate 1-mm collisions
                             char[] umi = umiEntry.key.toCharArray()
+
                             for (int i = 0; i < umi.length; i++) {
                                 for (int j = 0; j < 4; j++) {
-                                    char prevChar, nt = nts[j]
+                                    char prevChar, nt = Util.NTS[j]
                                     if (umi[i] != nt) {
                                         prevChar = umi[i]
                                         umi[i] = nt
                                         def otherCount = umiCountMap.get(new String(umi))
                                         if (otherCount != null && thisCount < otherCount) {
-                                            collisionHist[scale(thisCount)].addAndGet(thisCount)
-                                            collisionHistUnits[scale(thisCount)].incrementAndGet()
+                                            collisionHist.addAndGet(bin, thisCount)
+                                            collisionHistUnits.incrementAndGet(bin)
                                         }
                                         umi[i] = prevChar
                                     }
                                 }
                             }
+
                             nUmisCurrent = nUmis.incrementAndGet()
+
                             if (nUmisCurrent % 10000 == 0)
                                 println "[${new Date()} $scriptName] Collecting stats, $nUmisCurrent UMIs processed"
                         }
                     }
 
                     def row = sampleEntry[0..1].join("\t")
-                    oWriter.println(row + "\t" + overseqHist.collect().join("\t"))
-                    cWriter.println(row + "\t" + collisionHist.collect().join("\t"))
-                    ouWriter.println(row + "\t" + overseqHistUnits.collect().join("\t"))
-                    cuWriter.println(row + "\t" + collisionHistUnits.collect().join("\t"))
+
+                    oWriter.println(row + "\t" + Util.toString(overseqHist))
+                    cWriter.println(row + "\t" + Util.toString(collisionHist))
+                    ouWriter.println(row + "\t" + Util.toString(overseqHistUnits))
+                    cuWriter.println(row + "\t" + Util.toString(collisionHistUnits))
                 }
             }
         }

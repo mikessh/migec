@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import java.util.jar.JarFile
 
@@ -23,21 +23,21 @@ def version = (getClass().classLoader.findResource(JarFile.MANIFEST_NAME).text =
 
 println " MiGEC Pipeline V$version "
 println ""
-println "Run as \$java -cp migec-${version}.jar SCRIPT_NAME arguments"
+println "Run as \$java -cp com.milaboratory.migec-${version}.jar SCRIPT_NAME arguments"
 println ""
 println "where SCRIPT_NAME is one of the following:"
 println ""
 println "[Main pipeline]"
-println "com.antigenomics.migec.Checkout"
-println "com.antigenomics.migec.Histogram"
-println "com.antigenomics.migec.Assemble"
-println "com.antigenomics.migec.CdrBlast"
-println "com.antigenomics.migec.FilterCdrBlastResults"
-println "com.antigenomics.migec.CreateCdrHypermGraph"
+println "com.milaboratory.com.milaboratory.migec.Checkout"
+println "com.milaboratory.com.milaboratory.migec.Histogram"
+println "com.milaboratory.com.milaboratory.migec.Assemble"
+println "com.milaboratory.com.milaboratory.migec.CdrBlast"
+println "com.milaboratory.com.milaboratory.migec.FilterCdrBlastResults"
+println "com.milaboratory.com.milaboratory.migec.CreateCdrHypermGraph"
 println ""
 println "[Miscellaneous]"
-println "com.antigenomics.migec.GroupByCdr"
-println "com.antigenomics.migec.SplitSpikeClonotypes"
-println "com.antigenomics.migec.BacktrackSequence"
-println "com.antigenomics.migec.HistQ"
-println "com.antigenomics.migec.UmiFrequencyTable"
+println "com.milaboratory.com.milaboratory.migec.GroupByCdr"
+println "com.milaboratory.com.milaboratory.migec.SplitSpikeClonotypes"
+println "com.milaboratory.com.milaboratory.migec.BacktrackSequence"
+println "com.milaboratory.com.milaboratory.migec.HistQ"
+println "com.milaboratory.com.milaboratory.migec.UmiFrequencyTable"

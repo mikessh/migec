@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import java.util.zip.GZIPInputStream
 
@@ -29,7 +29,7 @@ cli._(longOpt: 'window-size', args: 1, "Size of sliding window. Default: $W_S")
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
     cli.usage()
-    return
+    System.exit(-1)
 }
 
 boolean qualFilter = opt.f

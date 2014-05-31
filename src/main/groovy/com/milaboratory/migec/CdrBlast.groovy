@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
@@ -38,13 +38,13 @@ cli.N(args: 1, 'number of reads to take')
 cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
 cli._(longOpt: 'debug', 'Prints out alignment details, stores all temporary alignment files.')
 cli._(args: 1, longOpt: 'cdr3-fastq-file', 'Store reads with CDR3 extracted with CDR3 data in header. ' +
-        'Needed for \'migec.post.GroupByCdr\' script.')
+        'Needed for \'com.milaboratory.migec.post.GroupByCdr\' script.')
 
 def opt = cli.parse(args)
 
 if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.C) {
     cli.usage()
-    System.exit(0)
+    System.exit(-1)
 }
 
 // System

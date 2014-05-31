@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package com.antigenomics.migec
+package com.milaboratory.migec
 
 import java.util.zip.GZIPInputStream
 
@@ -26,7 +26,7 @@ def scriptName = getClass().canonicalName
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     cli.usage()
-    System.exit(0)
+    System.exit(-1)
 }
 def inputFileName = opt.arguments()[0],
     outputFileName = opt.arguments()[1]
