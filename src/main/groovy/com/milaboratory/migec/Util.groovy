@@ -102,4 +102,9 @@ class Util {
     static String toString(AtomicIntegerArray arr) {
         (0..<arr.length()).collect { arr.get(it) }.join("\t")
     }
+
+    static void run(Script script, String args) {
+        script.binding.setVariable("args", args.split(" "))
+        script.run()
+    }
 }
