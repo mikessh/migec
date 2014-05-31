@@ -1,5 +1,5 @@
 /**
- Copyright 2013 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,15 +14,12 @@
  limitations under the License.
  */
 
-package migec.pipeline
-
-@Grab(group = 'org.codehaus.gpars', module = 'gpars', version = '1.0.0')
+package com.antigenomics.migec
 
 import groovyx.gpars.GParsPool
 
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.regex.Pattern
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
@@ -31,12 +28,12 @@ import java.util.zip.GZIPOutputStream
 //          CLI
 //========================
 def mode = "0:1", mc = "10", p_c_r = "0.1"
-def cli = new CliBuilder(usage: 'groovy [options] Assemble R1.fastq[.gz] [R2.fastq[.gz] or -] output_prefix ' +
+def cli = new CliBuilder(usage: 'Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or -] output_prefix ' +
         '[assembly_log, to append]')
 cli.q(args: 1, argName: 'read quality (phred)',
         "barcode region quality threshold. Default: 15")
 cli.m(longOpt: "assembly-mode", args: 1, argName: 'assembly mode in format X:X',
-        "Identifier(s) of read(s) to assemble. Default: \"$mode\". In case of \"0:0\" will try to overlap reads.")
+        "Identifier(s) of read(s) to assemble. Default: \"$mode\".")
 cli.p(args: 1,
         "number of threads to use. Default: all available processors")
 cli.c("compressed output")
@@ -86,10 +83,10 @@ def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
 // I/O parameters
 boolean paired = fastq2 != "-"
 def assemblyIndices = paired ? (opt.m ?: mode).split(":").collect { Integer.parseInt(it) > 0 } : [true, false]
-boolean overlap = false, bothReads = assemblyIndices[0] && assemblyIndices[1]
+boolean bothReads = assemblyIndices[0] && assemblyIndices[1]
 if (!assemblyIndices.any()) {
-    assemblyIndices = [true, false]
-    overlap = true
+    println "ERROR Bad assembly mode (${assemblyIndices.join(":")}). At least one FASTQ should be specified for assembly"
+    System.exit(-1)
 }
 
 // Misc output
@@ -168,53 +165,6 @@ def getUmi = { String header ->
     umi
 }
 
-// Overlap, select top quality nts for overlap zone
-int maxOffset = 5, mmOverlapSz = 10
-int k = 5
-def overlapReads = { String r1, String r2, String q1, String q2 ->
-    for (int i = 0; i < maxOffset; i++) {
-        def kmer = r2.substring(i, i + k)
-        def pattern = Pattern.compile(kmer)
-        def matcher = pattern.matcher(r1)
-        // Find last match
-        int position
-        while (matcher.find()) {
-            position = matcher.start()
-            if (position >= 0) {
-                // Start fuzzy align
-                int nmm = 0
-                for (int j = 0; j < mmOverlapSz; j++) {
-                    def posInR1 = position + k + j, posInR2 = i + k + j
-                    if (posInR1 + 1 > r1.length())
-                        break  // went to end of r1, all fine
-                    if (r1.charAt(posInR1) != r2.charAt(posInR2)) {
-                        if (++nmm > 1)
-                            break  // two consequent mismatches
-                    } else {
-                        nmm = 0 // zero counter
-                    }
-                }
-                if (nmm < 2) {
-                    // take best qual nts
-                    def seq = new StringBuilder(r1.substring(0, position))
-                    int pos2 = i - 1
-                    for (int j = position; j < r1.length(); j++) {
-                        pos2++
-                        if (pos2 == r2.length())
-                            break // should not happen
-                        seq.append(qualFromSymbol(q1.charAt(j)) > qualFromSymbol(q2.charAt(pos2)) ?
-                                r1.charAt(j) : r2.charAt(pos2))
-                    }
-                    for (int j = pos2 + 1; j < r2.length(); j++)
-                        seq.append(r2.charAt(j)) // fill the remainder
-                    return seq.toString() // passed test
-                }
-            }
-        }
-    }
-    return "" // failed
-}
-
 //=================================
 //   PRE-LOAD DATA FOR ASSEMBLY
 //=================================
@@ -232,25 +182,23 @@ def putData = { int readId, String umi, String seq ->
 int nReads = 0, nGoodReads = 0
 println "[${new Date()} $scriptName] Pre-loading data for $fastq1, $fastq2.."
 def reader1 = getReader(fastq1), reader2 = paired ? getReader(fastq2) : null
-String header1, seq1, qual1
-String seq2 = "", qual2 = ""
-int MIN_READ_SZ = Math.max(k, 2 * anchorRegion + 1 + offsetRange)
+String header1, seq1
+String seq2 = ""
+int MIN_READ_SZ = 2 * anchorRegion + 1 + offsetRange
 while ((header1 = reader1.readLine()) != null) {
     seq1 = reader1.readLine()
     reader1.readLine()
-    qual1 = reader1.readLine()
+    reader1.readLine()
 
     if (paired) {
         reader2.readLine() // Skip header of read 2
         seq2 = reader2.readLine()
         reader2.readLine()
-        qual2 = reader2.readLine()
+        reader2.readLine()
     }
 
     if (seq1.length() > MIN_READ_SZ && (!paired || seq2.length() > MIN_READ_SZ)) {
         def umi = getUmi(header1)
-        if (overlap)
-            seq1 = overlapReads(seq1, seq2, qual1, qual2)
 
         if (umi != null && seq1.length() > 0) {
             if (assemblyIndices[0])
@@ -263,19 +211,17 @@ while ((header1 = reader1.readLine()) != null) {
         }
         if (++nReads % 500000 == 0)
             println "[${new Date()} $scriptName] Processed $nReads reads, " +
-                    (overlap ? "successfully overlapped and " : "") + "found good UMI header for $nGoodReads reads, " +
                     "unique UMIs so far ${migData[0].size()}"
     }
 }
 println "[${new Date()} $scriptName] Processed $nReads reads, " +
-        (overlap ? "successfully overlapped and " : "") + "found good UMI header for $nGoodReads reads, " +
         "unique UMIs ${migData[0].size()}"
 
 //=================================
 //   PERFORM ASSEMBLY
 //=================================
 def writeQueue = new LinkedBlockingQueue<String[]>(2048)
-def suffix = overlap ? "RO" : (assemblyIndices[0] ? "R1" : "R2")
+def suffix = assemblyIndices[0] ? "R1" : "R2"
 def writer1 = getWriter("${outputFilePrefix}_${suffix}.fastq"),
     writer2 = bothReads ? getWriter("${outputFilePrefix}_R2.fastq") : null
 def detailsWriter1 = alignmentFilePrefix ? getWriter("${alignmentFilePrefix}_${suffix}.asm") : null,

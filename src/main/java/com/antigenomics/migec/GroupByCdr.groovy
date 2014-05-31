@@ -1,5 +1,5 @@
 /**
- Copyright 2014 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  limitations under the License.
  */
 
-package migec.post
+package com.antigenomics.migec
 
 import java.util.zip.GZIPInputStream
 
 
 def W_S = "5", W_M_Q = "15"
-def cli = new CliBuilder(usage: 'groovy GroupByCdr [options] input.fastq.gz ' +
+def cli = new CliBuilder(usage: 'GroupByCdr [options] input.fastq.gz ' +
         '(with CDR3 field in header, generatedby CdrBlast with --cdr3-fastq-file set) ' +
         '[cdr3_filter_table from FilterCdrBlastResults or -] output')
 cli.f('Quality filter reads with sliding window')

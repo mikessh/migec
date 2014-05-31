@@ -1,5 +1,5 @@
 /**
- Copyright 2013 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,16 +14,14 @@
  limitations under the License.
  */
 
-package migec.control
-
-@Grab(group = 'org.codehaus.gpars', module = 'gpars', version = '1.0.0')
+package com.antigenomics.migec
 
 import groovyx.gpars.GParsPool
 
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPInputStream
 
-def cli = new CliBuilder(usage: 'groovy Histogram [options] checkout.filelist.txt output_prefix')
+def cli = new CliBuilder(usage: 'Histogram [options] checkout.filelist.txt output_prefix')
 cli.q(args: 1, argName: 'read quality (phred)', 'barcode region quality threshold. Default: 15')
 cli.p(args: 1, 'number of threads to use')
 def opt = cli.parse(args)
@@ -59,8 +57,11 @@ def getUmi = { String header ->
     umi
 }
 
-def fileNameList = new File(opt.arguments()[0]).readLines().collect { it.split("\t")[0] },
-    outputFilePrefix = opt.arguments()[1]
+def samples = new File(opt.arguments()[0]).readLines().collect {
+    it.split("\t")
+}
+
+def outputFilePrefix = opt.arguments()[1]
 
 if (new File(outputFilePrefix).parentFile)
     new File(outputFilePrefix).parentFile.mkdirs()
@@ -73,24 +74,24 @@ boolean oHeader = !new File("${outputFilePrefix}.overseq.txt").exists(),
 
 new File("${outputFilePrefix}.overseq.txt").withWriterAppend { oWriter ->
     if (oHeader)
-        oWriter.println("SAMPLE_ID\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
+        oWriter.println("SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
     new File("${outputFilePrefix}.overseq-units.txt").withWriterAppend { ouWriter ->
         if (ouHeader)
-            ouWriter.println("SAMPLE_ID\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
+            ouWriter.println("SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
 
         new File("${outputFilePrefix}.collision1.txt").withWriterAppend { cWriter ->
             if (cHeader)
-                cWriter.println("SAMPLE_ID\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
+                cWriter.println("SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
 
             new File("${outputFilePrefix}.collision1-units.txt").withWriterAppend { cuWriter ->
                 if (cuHeader)
-                    cuWriter.println("SAMPLE_ID\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
-                fileNameList.each { fileName ->
-                    println "[${new Date()} $scriptName] Processing $fileName"
+                    cuWriter.println("SAMPLE_ID\tFILE_TYPE\t" + (0..<nBins).collect { (int) Math.pow(2, it) }.join("\t"))
+                samples.each { sampleEntry ->
+                    println "[${new Date()} $scriptName] Processing ${sampleEntry[0]} (${sampleEntry[1]})"
 
                     // Accumulate UMIs
                     def umiCountMap = new HashMap<String, Integer>()
-                    def reader = getReader(fileName)
+                    def reader = getReader(sampleEntry[2])
                     String header
                     int nReads = 0
                     while ((header = reader.readLine()) != null) {
@@ -145,10 +146,11 @@ new File("${outputFilePrefix}.overseq.txt").withWriterAppend { oWriter ->
                         }
                     }
 
-                    oWriter.println(fileName + "\t" + overseqHist.collect().join("\t"))
-                    cWriter.println(fileName + "\t" + collisionHist.collect().join("\t"))
-                    ouWriter.println(fileName + "\t" + overseqHistUnits.collect().join("\t"))
-                    cuWriter.println(fileName + "\t" + collisionHistUnits.collect().join("\t"))
+                    def row = sampleEntry[0..1].join("\t")
+                    oWriter.println(row + "\t" + overseqHist.collect().join("\t"))
+                    cWriter.println(row + "\t" + collisionHist.collect().join("\t"))
+                    ouWriter.println(row + "\t" + overseqHistUnits.collect().join("\t"))
+                    cuWriter.println(row + "\t" + collisionHistUnits.collect().join("\t"))
                 }
             }
         }

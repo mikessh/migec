@@ -1,5 +1,5 @@
 /**
- Copyright 2014 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,16 +14,14 @@
  limitations under the License.
  */
 
-package migec.post
-
-@Grab(group = 'org.codehaus.gpars', module = 'gpars', version = '1.0.0')
+package com.antigenomics.migec
 
 import groovyx.gpars.GParsPool
 
 import java.util.concurrent.atomic.AtomicLong
 
 def T = "10000"
-def cli = new CliBuilder(usage: 'groovy CreateCdrHypermGraph file_with_cdrs path/to/output/dir')
+def cli = new CliBuilder(usage: 'CreateCdrHypermGraph file_with_cdrs path/to/output/dir')
 cli.p(args: 1, 'Number of threads. Default: all available processors.')
 cli.t(args: 1, "Clonotype size ratio threshold to record a hypermutation. Default: $T.")
 def opt = cli.parse(args)

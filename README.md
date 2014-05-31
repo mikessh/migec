@@ -1,48 +1,84 @@
- MiGEC: Molecular Identifier Group-based Error Correction pipeline  
-===================================================================
+# MiGEC: Molecular Identifier Group-based Error Correction pipeline  
 
 This pipeline provides several useful tools for analysis of immune repertoire sequencing data. The pipeline utilizes unique nucleotide tags (UMIs) in order to filter experimental errors from resulting sequences. Those tags are attached to molecules before sequencing library preparation and allow to backtrack the original sequence of molecule. This pipeline is applicable for Illumina MiSeq and HiSeq 2500 reads. Sequencing libraries targeting CDR3 locus of immune receptor genes with high over-sequencing, i.e. ones that have at least 10 reads (optimally 30+ reads) per each starting molecule, should be used.
 
-Features:
+### FEATURES
+
 - Flexible de-multiplexing of NGS data and extraction of UMI sequence
+
 - Assembly of consensuses of original molecules
+
 - Extraction of CDR3 regions and determination of V/J genes for human and mouse immune receptors (TRA/TRB/TRG/TRD and IGH/IGL/IGK)
+
 - Additional filtering of hot-spot errors
 
-To run the steps of the pipeline either download the scripts and install Java + Groovy and run as (e.g. for the first step of pipeline, "Checkout") 
+### INSTALLATION AND RUNNING
 
->$groovy Checkout.groovy
+The pipeline is written in Groovy (a Java scripting language) and distributed as an executable JAR. To install it get the latest [JRE](http://www.oracle.com/technetwork/java/javase/downloads/index.html) and download the executable from [releases section](https://github.com/mikessh/migec/releases). Then to ran a specific script from the pipeline, say **Checkout**, execute
 
-or simply download a standalone jar and execute
+```
+$java -cp migec.jar com.antigenomics.migec.Checkout [arguments]
+```
 
->$java -cp migec.jar Checkout
+alternatively you can download the repository and compile it from source using [Maven](http://maven.apache.org/)
 
-NOTE: The data from 454 platform should be used with caution, as it contains homopolymer errors which (in present framework) result in reads dropped during consensus assembly. The 454 platform has a relatively low read yield, so additional read dropping could result in over-sequencing level below required threshold. If you still wish to give it a try, we would recommend filtering off all short reads and repairing indels with Coral (<http://www.cs.helsinki.fi/u/lmsalmel/coral/>), the latter should be run with options ```-mr 2 -mm 1000 -g 3```.
+```
+$git clone https://github.com/mikessh/migec.git
+$cd migec/
+$mvn clean install
+```
 
-STANDARD PIPELINE
------------------
+### NOTE
+
+The data from 454 platform should be used with caution, as it contains homopolymer errors which (in present framework) result in reads dropped during consensus assembly. The 454 platform has a relatively low read yield, so additional read dropping could result in over-sequencing level below required threshold. If you still wish to give it a try, we would recommend filtering off all short reads and repairing indels with [Coral](http://www.cs.helsinki.fi/u/lmsalmel/coral/), the latter should be run with options ```-mr 2 -mm 1000 -g 3```.
+
+### IMPORTANT
+
+NCBI-BLAST+ package is required. Could be directly installed on Linux using a command like $sudo apt-get ncbi-blast+ or downloaded and installed directly from here: <ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/>
+
+
+## STANDARD PIPELINE
 
 ### 1. Checkout
 
-Description: A script to perform de-multiplexing and UMI tag extraction
+**Description**
 
-Standard usage: 
->$java -cp migec.jar Checkout -cute barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
+A script to perform de-multiplexing and UMI tag extraction
+
+**Usage**
+
+For paired-end data:
+
+```
+$java -cp migec.jar com.antigenomics.migec.Checkout -cute barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
+```
 
 For unpaired library:
->$java -cp migec.jar Checkout -cute barcodes.txt R.fastq.gz - ./checkout/
 
-barcodes.txt format is the following, 
+```
+$java -cp migec.jar com.antigenomics.migec.Checkout -cute barcodes.txt R.fastq.gz - ./checkout/
+```
+
+For overlapping paired reads:
+
+```
+$java -cp migec.jar com.antigenomics.migec.Checkout -cute --overlap barcodes.txt R1.fastq.gz R2.fastq.gz - ./checkout/
+```
+
+accepted *barcodes.txt* format is the following tab-delimited table, 
+
 >SAMPLE-ID (tab) MASTER-ADAPTER-SEQUENCE (tab) SLAVE-ADAPTER-SEQUENCE
 
-A sequencing read is scanned for master adapter and then, if found, its mate is scanned for slave adapter. R2.fastq.gz and slave adapter sequence could be omitted.
-Adaptor sequnce is accepted with any IUPAC DNA letters. Upper and lower case letters mark seed and fuzzy-search region parts respectively. 'N' characters mark UMI region to be extracted.
-E.g. 
+A sequencing read is scanned for master adapter and then, if found, its mate is scanned for slave adapter (could be omitted). R2.fastq.gz and slave adapter sequence could be omitted.
+Adaptor sequnce is accepted with any IUPAC DNA letters. Upper and lower case letters mark seed and fuzzy-search region parts respectively. 'N' characters mark UMI region to be extracted. An example is provided below,
+
 >S1 (tab) acgtacgtAAGGTTcadkgagNNNNNN
 
-will search for AAGGTT seed exact match, then for the remaining adapter sequence with two mismatches allowed and output the NNNNNN region to header.
+in this case **Checkout** will search for AAGGTT seed exact match, then for the remaining adapter sequence with two mismatches allowed and output the NNNNNN region to header.
 
-Additional parameters:
+**Parameters**
+
+General:
 
 ```-c``` compressed output (gzip compression).
 
@@ -50,7 +86,7 @@ Additional parameters:
 
 ```-e``` also remove trails of template-switching (poly-G) for the case when UMI-containing adapter is added using reverse-transcription (cDNA libraries).
 
-Barcode search parameters:
+Barcode search:
 
 ```-o``` could speed up if reads are oriented (i.e. master adapter should be in R1).
 
@@ -59,91 +95,93 @@ Barcode search parameters:
 ```--rc-barcodes``` also searches for both adapter sequences in reverse complement. Use it if unsure of your library structure.
 
 
-
 ### 2. Histogram
 
-Description: A script to generate over-sequencing statistics
+**Description**
 
-Standard usage:
->$java -cp migec.jar Histogram ./checkout/checkout.filelist.txt ./checkout/histogram
+A script to generate over-sequencing statistics
 
-Will generate several files, the one important for basic data processing is ./checkout/histogram.overseq.txt. The header contains MIG sizes, while each row for a sample is the number of reads in MIGs of a given size. Plot of MIG size (log coordinates) vs number of reads in MIG should display a clear peak. This plot should be used to set a MIG size cutoff in Assemble. 
+**Usage**
 
+```
+$java -cp migec.jar com.antigenomics.migec.Histogram ./checkout/checkout.filelist.txt ./checkout/histogram
+```
 
+Will generate several files, the one important for basic data processing is *./checkout/histogram.overseq.txt*. The header contains MIG sizes (in log2 scale), while each row for a sample contains the number of reads in MIGs of a given size (cumulative abundance). 
+
+For a decent dataset the plot of cumulative abundance display a small peak at MIG size of 1 that could be attributed to erroneous MIGs and has an exponential decline, and a clear peak at MIG size of 10+ containing amplified MIGs. Those erroneous MIGs could arise as experimental artifacts, however the most common reason for their presence is an error event in UMI sequence itself. Note that the latter is only valid when number of distinct UMIs is far lower than theoretically possible UMI diversity (e.g. 4^12 for 12-letter UMI regions)!
+ 
+MIG size cutoff in **Assemble** should be set to dissect erroneous MIGs while retaining amplified ones. If peaks overlap collision filtering should be considered.
 
 
 ### 3. Assemble
 
-Description: A script to perform UMI-guided assembly
+**Description**
 
-Standard usage:
+A script to perform UMI-guided assembly
 
->$java -cp migec.jar Assemble -c ./checkout/S1_R1.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/S1 ./assembly/assembly.log
+**Usage**
 
-For unpaired library:
-
->$java -cp migec.jar Assemble -c ./checkout/S1_R1.fastq - ./assembly/S1 ./assembly/assembly.log
-
+```
+$java -cp migec.jar com.antigenomics.migec.Assemble -c ./checkout/S1_R1.fastq.gz ./assembly/S1 ./assembly/assembly.log
+```
 
 All reads are grouped by their UMI and then read groups (aka molecular identifier groups, MIGs) with >10 reads (default value, see Histogram.groovy for details on setting it) are assembled. Multiple alignment is performed and consensus sequence is generated.
 
-By default both only ./assembly/S1_R2.fastq.gz is assembled. To assemble both reads, use ```-m``` option, execute 
->$groovy Assemble -c -m 1:1 ./checkout/S1_R2.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/S1
-
-In case of library with overlapping reads, the script can try to overlap them prior to assembly to generate a single output: 
->$groovy Assemble -c -m 0:0 ./checkout/S1_R2.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/S1
-
-which will generate ./assembly/S1_RO.fastq.gz, containing assembly results _only_ for overlapping reads.
+**Settings**
 
 The ```--min-count``` option sets minimum number of reads in MIG. This should be set according to Histogram script output to separate two peaks: over-sequenced MIGs and erroneous MIGs that cluster around MIG size of 1.
-
-Those erroneous MIGs could arise as experimental artifacts, however the most common reason for their presence is an error event in UMI sequence itself. Note that the latter is only valid when number of distinct UMIs is far lower than theoretically possible UMI diversity (e.g. 4^12 for 12-letter UMI regions)!
 
 To inspect the effect of such single-mismatch erroneous UMI sub-variants see "collisions" output of Histogram script. Such collision events could interfere with real MIGs when over-sequencing is relatively low. In this case collisions could be filtered during MIG consensus assembly using ```-f``` option. The ```--collision-ratio``` could be change in order to prevent filtering of real collision occurred due to finite theoretically possible UMI diversity.
 
 
-
-
 ### 4. CdrBlast
 
-Description: A script to extract CDR3 sequences
+**Description** 
 
-Standard usage (assuming library contains T-cell Receptor Alpha Chain sequences)
+A script to extract CDR3 sequences
 
-For assembled data:
+**Usage**
 
->$java -cp migec.jar CdrBlast -a -C TRA ./assembly/S1_R2.fastq.gz ./cdr3blast/S1_asm.cdr3blast.txt 
+Standard, assuming library contains T-cell Receptor Alpha Chain sequences
 
-For raw data:
+in case of MIG-assembled data:
 
->$java -cp migec.jar CdrBlast -C TRA ./checkout/S1_R2.fastq.gz ./cdr3blast/S1_raw.cdr3blast.txt
+```
+$java -cp migec.jar com.antigenomics.migec.CdrBlast -a -C TRA ./assembly/S1_R2.fastq.gz ./cdrblast/S1_asm.cdrblast.txt 
+```
+      
+for raw data:
 
+```
+$java -cp migec.jar com.antigenomics.migec.CdrBlast -C TRA ./checkout/S1_R2.fastq.gz ./cdrblast/S1_raw.cdrblast.txt
+```
 
-NOTE:
-
-1) NCBI-BLAST+ package required. Could be directly installed on Linux using a command like $sudo apt-get ncbi-blast+ or downloaded and installed directly from here: <ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/>
-
-2) Both raw and assembled data should be processed to apply the last step of filtration.
-
-
+To get a sorted output use ```-o``` option, otherwise sorting will be performed at **FilterCdrBlastResults** step. Note that both raw and assembled data should be processed to apply the last step of filtration.
 
 
 ### 5. FilterCdrBlastResults
 
-Description: A script to filter erroneous CDR3 sequences produced due to hot-spot PCR and NGS errors
+**Description**
 
-Standard usage: 
+A script to filter erroneous CDR3 sequences produced due to hot-spot PCR and NGS errors
 
->$java -cp migec.jar FilterCdrBlastResults -s ./cdr3blast/S1_asm.cdr3blast.txt ./cdr3blast/S1_raw.cdr3blast.txt ./final/S1.cdr3blast.txt
+**Usage** 
+
+```
+$java -cp migec.jar FilterCdrBlastResults -s ./cdrblast/S1_asm.cdrblast.txt ./cdrblast/S1_raw.cdrblast.txt ./final/S1.cdrblast.txt
+```
 
 The ```-s``` option tells to include CDR3s represented by single MIGs. Those are filtered by default as for deep profiling (with our protocol) they could be associated with reverse transcription errors and experimental artifacts.
 
-Now the file S1.cdr3blast.txt contains a filtered and sorted CDR3/V/J clonotype table.
+Now the file *S1.cdrblast.txt* contains a filtered and sorted CDR3/V/J clonotype table.
 
 You could additionally build a graph of hypermutations for the sample using
 
->$java -cp migec.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
+```
+$java -cp migec.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
+```
 
-which will generate files that allow fast network construction using Cytoscape's network from table and import table routines.
+which will generate files that allow fast network construction using Cytoscape's network from table and import table routines for further data exploration.
 
-Note that translated CDR3 sequences are obtained by simultaneously translating codons in two directions: from V and J segments to the middle of CDR3. If a frameshift is detected, the incomplete codon is added in lower case, with missing nucleotides marked as "?"; stop codons are marked by "*". CDR3 that contain either frameshift or stop codon are non-functional and are filtered by default. To include them into your output use ```-n``` option.
+Note that translated CDR3 sequences are obtained by simultaneously translating codons in two directions: from V and J segments to the middle of CDR3. If a frameshift is detected, the incomplete codon is added in lower case, with missing nucleotides marked as ```?```; stop codons are marked by ```*```. CDR3 that contain either frameshift or stop codon are non-functional and are filtered by default. To include them into your output use ```-n``` option.

@@ -1,5 +1,5 @@
 /**
- Copyright 2014 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  limitations under the License.
  */
 
-package migec.post
+package com.antigenomics.migec
 
-def cli = new CliBuilder(usage: 'groovy SplitSpikeClonotypes file_with_spikes file_with_cdrs output_prefix')
+def cli = new CliBuilder(usage: 'SplitSpikeClonotypes file_with_spikes file_with_cdrs output_prefix')
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
     cli.usage()

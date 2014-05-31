@@ -1,5 +1,5 @@
 /**
- Copyright 2014 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  limitations under the License.
  */
 
-package migec.control
+package com.antigenomics.migec
 
 import java.util.zip.GZIPInputStream
 
 //========================
 //          CLI
 //========================
-def cli = new CliBuilder(usage: 'groovy UMIFrequencyTable [options] input.fastq[.gz] output')
+def cli = new CliBuilder(usage: 'UMIFrequencyTable [options] input.fastq[.gz] output')
 def scriptName = getClass().canonicalName
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
@@ -80,4 +80,3 @@ while ((header = reader.readLine()) != null) {
 new File(outputFileName).withPrintWriter { pw ->
     umiMap.entrySet().collect().sort { -it.value }.each { pw.println(it.key + "\t" + it.value) }
 }
-

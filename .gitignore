@@ -1,4 +1,3 @@
-lib/
-out/
-src/*.groovy
+target/
+*.iml
 .idea/

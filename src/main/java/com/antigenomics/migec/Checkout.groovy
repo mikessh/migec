@@ -1,5 +1,5 @@
 /**
- Copyright 2013 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package migec.pipeline
+package com.antigenomics.migec
 
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -26,7 +26,7 @@ import java.util.zip.GZIPOutputStream
 
 def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10"
 def cli = new CliBuilder(usage:
-        'groovy Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or -] [path/to/out/]')
+        'Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or -] [path/to/out/]')
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
         'Default: scans both reads (if pair-end) for master barcode')
 cli.u('Save UMI region specified by capital N\'s in barcode sequence to the header')
@@ -36,6 +36,7 @@ cli._(longOpt: 'max-trim-nts', 'Maximal number of nucleotides between barcode an
 cli.r(args: 1, "RC mask to apply after master-slave is determined, e.g. will RC slave read if set to 0:1. " +
         "Default: $rcm")
 cli.p(args: 1, 'Number of threads. Default: all available processors.')
+cli._(longOpt: 'overlap', 'Will try to overlap paired reads.')
 cli._(longOpt: 'rc-barcodes', 'Also search for reverse-complement barcodes.')
 cli.m(args: 1,
         argName: 'LQ:E0:E1', "Low quality threshold : Ratio of low-quality errors : Ratio of high-quality errors. " +
@@ -50,7 +51,7 @@ if (opt == null || opt.arguments().size() < 2) {
 
 def scriptName = getClass().canonicalName
 boolean compressed = opt.c, oriented = opt.o, extractUMI = opt.u, addRevComplBc = opt."rc-barcodes",
-        trimBc = opt.t, removeTS = opt.e
+        trimBc = opt.t, removeTS = opt.e, overlap = opt.'overlap'
 int trimSizeThreshold = (opt.'max-trim-nts' ?: mtrim).toInteger()
 def rcReadMask = (opt.r ?: rcm).split(":").collect { Integer.parseInt(it) > 0 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
@@ -60,6 +61,11 @@ def bcfile = opt.arguments()[0],
     out = opt.arguments()[3] ?: "."
 def mmData = (opt.m ?: mm).split(":").collect { Double.parseDouble(it) }
 def paired = fastq2 != '-'
+
+if (overlap && !paired) {
+    println "ERROR Overlap requested for unpaired reads"
+    System.exit(-1)
+}
 
 //========================
 //          MISC
@@ -243,6 +249,72 @@ def findMatch = { String barcode, Pattern seed, String seq, String qual, int bcI
 //========================
 //  READ PROCESSING UTILS
 //========================
+// Overlap, select top quality nts for overlap zone
+int maxOffset = 5, mmOverlapSz = 10
+int K = 5
+def overlapReads = { String r1, String r2, String q1, String q2 ->
+    String[] result = null
+
+    for (int i = 0; i < maxOffset; i++) {
+        def kmer = r2.substring(i, i + K)
+        def pattern = Pattern.compile(kmer)
+        def matcher = pattern.matcher(r1)
+        // Find last match
+        int position
+        while (matcher.find()) {
+            position = matcher.start()
+            if (position >= 0) {
+                // Start fuzzy align
+                int nmm = 0
+                for (int j = 0; j < mmOverlapSz; j++) {
+                    def posInR1 = position + K + j, posInR2 = i + K + j
+                    if (posInR1 + 1 > r1.length())
+                        break  // went to end of r1, all fine
+                    if (r1.charAt(posInR1) != r2.charAt(posInR2)) {
+                        if (++nmm > 1)
+                            break  // two consequent mismatches
+                    } else {
+                        nmm = 0 // zero counter
+                    }
+                }
+                if (nmm < 2) {
+                    // take best qual nts
+                    def seq = new StringBuilder(r1.substring(0, position)),
+                        qual = new StringBuilder(q1.substring(0, position))
+
+                    int pos2 = i - 1
+                    for (int j = position; j < r1.length(); j++) {
+                        pos2++
+                        if (pos2 == r2.length())
+                            break // should not happen
+
+                        seq.append(qualFromSymbol(q1.charAt(j)) > qualFromSymbol(q2.charAt(pos2)) ?
+                                r1.charAt(j) : r2.charAt(pos2))
+
+                        qual.append(qualFromSymbol(q1.charAt(j)) > qualFromSymbol(q2.charAt(pos2)) ?
+                                q1.charAt(j) : q2.charAt(pos2))
+                    }
+                    for (int j = pos2 + 1; j < r2.length(); j++) {
+                        // fill the remainder
+                        seq.append(r2.charAt(j))
+
+                        qual.append(q2.charAt(j))
+                    }
+
+                    // report overlap
+                    result = new String[2]
+                    result[0] = seq.toString()
+                    result[1] = qual.toString()
+
+                    return result
+                }
+            }
+        }
+    }
+
+    result // failed
+}
+
 def flip = { String[] x, int i, int j ->
     String tmp
     tmp = x[i]
@@ -251,6 +323,7 @@ def flip = { String[] x, int i, int j ->
 }
 def counters = new HashMap<String, AtomicLong[]>()
 def readCounter = new AtomicLong(), goodReadCounter = new AtomicLong(), masterFirstCounter = new AtomicLong()
+def overlapCounter = new AtomicLong()
 def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, String sampleId, String masterSampleId,
                  boolean good ->
     String umiHeader = umiData[0].size() > 0 ? " UMI:${umiData[0].toString()}:${umiData[1].toString()}" : ""
@@ -277,22 +350,37 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
         readData[2] = readData[2].reverse()
     }
 
-    // Record stats
-    int nReads = readCounter.incrementAndGet()
-    int nGoodReads = good ? goodReadCounter.incrementAndGet() : goodReadCounter.get()
-    int nMasterFirst = (good && (readIndex > 0)) ? masterFirstCounter.incrementAndGet() : masterFirstCounter.get()
+    // Record stats and try overlap
+    long nReads = readCounter.incrementAndGet(),
+         nGoodReads = good ? goodReadCounter.incrementAndGet() : goodReadCounter.get(),
+         nMasterFirst = (good && (readIndex > 0)) ? masterFirstCounter.incrementAndGet() : masterFirstCounter.get(),
+         overlapCount = overlapCounter.get()
+
     if (good) {
         counters.get(sampleId)[0].incrementAndGet()
-        counters.get(sampleId)[1].incrementAndGet()
+        if (paired) {
+            counters.get(sampleId)[1].incrementAndGet()
+
+            def overlapResult = overlapReads(readData[1], readData[4], readData[2], readData[5])
+
+            if (overlapResult) {
+                overlapCounter.incrementAndGet()
+                readData[1] = overlapResult[0]
+                readData[2] = overlapResult[1]
+                readData[3] = null // collapsed to single read
+            }
+        }
     } else {
         counters.get(masterSampleId)[0].incrementAndGet() // where master was found
-        counters.get(sampleId)[1].incrementAndGet()
+        if (paired)
+            counters.get(sampleId)[1].incrementAndGet()
     }
 
     if (nReads % 25000 == 0)
         println "[${new Date()} $scriptName] Processed $nReads, " +
-                "identified $nGoodReads (${(int) (100 * (double) nGoodReads / (double) nReads)}%), " +
-                "assymetry (master first): $nMasterFirst (${(int) (100 * (double) nMasterFirst / (double) nGoodReads)}%)"
+                "identified $nGoodReads (${((int) (10000 * (double) nGoodReads / (double) nReads)) / 100}%), " +
+                (overlap ? "overlapped ${((int) (10000 * (double) overlapCount / (double) nGoodReads)) / 100}% of them, " : "") +
+                "assymetry (master first): $nMasterFirst (${((int) (10000 * (double) nMasterFirst / (double) nGoodReads)) / 100}%)"
 
     readData
 }
@@ -308,15 +396,28 @@ def writers = new HashMap<String, BufferedWriter[]>()
 println "[${new Date()} $scriptName] Started processing for $fastq1, $fastq2"
 new File(out).mkdir()
 [sampleIds, 'undef-s', 'undef-m'].flatten().each { String sampleId ->
-    def writerPair = new BufferedWriter[2]
-    writerPair[0] = getWriter("$out/${sampleId}_R1.fastq")
-    if (paired)
-        writerPair[1] = getWriter("$out/${sampleId}_R2.fastq")
-    writers.put(sampleId, writerPair)
-    def counterPair = new AtomicLong[2]
-    counterPair[0] = new AtomicLong()
-    counterPair[1] = new AtomicLong()
-    counters.put(sampleId, counterPair)
+    def writerTrio = new BufferedWriter[3]
+
+    writerTrio[0] = getWriter("$out/${sampleId}_R1.fastq")
+    if (paired) {
+        writerTrio[1] = getWriter("$out/${sampleId}_R2.fastq")
+        if (overlap)
+            writerTrio[2] = getWriter("$out/${sampleId}_R12.fastq")
+    }
+
+    writers.put(sampleId, writerTrio)
+
+
+    def counterTrio = new AtomicLong[3]
+
+    counterTrio[0] = new AtomicLong()
+    if (paired) {
+        counterTrio[1] = new AtomicLong()
+        if (overlap)
+            counterTrio[2] = new AtomicLong()
+    }
+
+    counters.put(sampleId, counterTrio)
 }
 
 int nProcessors = 2 * THREADS
@@ -473,7 +574,6 @@ for (int k = 0; k < nProcessors; k++) {
     } as Runnable))
 }
 
-
 def writeThread = new Thread({  // Writing thread
     String[] result
     while (true) {
@@ -482,16 +582,20 @@ def writeThread = new Thread({  // Writing thread
         if (result.length == 0)
             break
 
-        def writerPair = paired ? writers.get(result[6]) : writers.get(result[3])
-        writerPair[0].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
-        if (paired)
-            writerPair[1].writeLine(result[3] + "\n" + result[4] + "\n+\n" + result[5])
-    }
+        def sampleId = paired ? result[6] : result[3]
 
-    writers.values().each {
-        it[0].close()
-        if (paired)
-            it[1].close()
+        def writerTrio = writers.get(sampleId)
+
+        if (!paired)
+            writerTrio[0].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
+        else {
+            if (!result[3] && overlap) {
+                writerTrio[2].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
+            } else {
+                writerTrio[0].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
+                writerTrio[1].writeLine(result[3] + "\n" + result[4] + "\n+\n" + result[5])
+            }
+        }
     }
 } as Runnable)
 writeThread.start()
@@ -502,18 +606,35 @@ futures.each { it.get() } // wait for processing to finish
 writeQueue.put(new String[0]) // tell writers this is last one
 pool.shutdown()
 
-writeThread.join() // wait for write to finish
+writeThread.join()  // wait for write to finish
+
+writers.values().each { // don't forget to flush
+    it[0].close()
+    if (paired) {
+        it[1].close()
+        if (overlap)
+            it[2].close()
+    }
+}
 
 new File("$out/checkout.filelist.txt").withPrintWriter { pw ->
     new HashSet(sampleIds).each { String sampleId -> // only unique
-        pw.println(new File("$out/${sampleId}_R1.fastq.gz").absolutePath + "\t" + (paired ?
-                new File("$out/${sampleId}_R2.fastq.gz").absolutePath : "-"))
+        pw.println(sampleId + (paired ? "\tpaired\t" : "\tunpaired\t") +
+                new File("$out/${sampleId}_R1.fastq.gz").absolutePath) + "\t" +
+                (paired ? new File("$out/${sampleId}_R2.fastq.gz").absolutePath : "-")
+        if (overlap)
+            pw.println(sampleId + "\toverlapped\t" +
+                    new File("$out/${sampleId}_R0.fastq.gz").absolutePath) + "\t-"
     }
 }
 
 new File("$out/checkout.log.txt").withPrintWriter { pw ->
     pw.println("\t" + counters.collect { it.key }.join("\t"))
     pw.println("Master\t" + counters.collect { it.value[0] }.join("\t"))
-    pw.println("Master+slave\t" + counters.collect { it.value[1] }.join("\t"))
+    if (paired) {
+        pw.println("Master+slave\t" + counters.collect { it.value[1] }.join("\t"))
+        if (overlap)
+            pw.println("Overlapped\t" + counters.collect { it.value[2] }.join("\t"))
+    }
 }
 println "[${new Date()} $scriptName] Finished"

@@ -1,5 +1,5 @@
 /**
- Copyright 2013 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  limitations under the License.
  */
 
-package migec.pipeline
+package com.antigenomics.migec
 
 def R_A_T = "1.0"
 def cli = new CliBuilder(usage:
-        'groovy FilterCdrBlastResults [options] inputAssembledResult inputRawResult outputResult')
+        'FilterCdrBlastResults [options] inputAssembledResult inputRawResult outputResult')
 cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
 cli.s("Include clonotypes that are represented by single events (have only one associated MIG)")

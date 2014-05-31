@@ -1,5 +1,5 @@
 /**
- Copyright 2013 Mikhail Shugay (mikhail.shugay@gmail.com)
+ Copyright 2013-2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  limitations under the License.
  */
 
-package migec.pipeline
+package com.antigenomics.migec
 
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
@@ -22,7 +22,7 @@ import java.util.zip.GZIPOutputStream
 //////////////
 //   CLI   //
 ////////////
-def cli = new CliBuilder(usage: 'groovy CdrBlast [options] reads.fastq[.gz] output_file\n' +
+def cli = new CliBuilder(usage: 'CdrBlast [options] reads.fastq[.gz] output_file\n' +
         'NOTE: NCBI-BLAST+ package required, try \'$sudo apt-get install ncbi-blast+\'')
 cli.h('usage')
 cli.C(args: 1, argName: '\'TRA\', \'TRB\', \'TRG\', \'TRD\',  \'IGL\', \'IGK\' or \'IGH\'', 'Receptor chain [required]')
