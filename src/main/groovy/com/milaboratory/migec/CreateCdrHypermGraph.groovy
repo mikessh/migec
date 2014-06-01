@@ -26,6 +26,7 @@ cli.p(args: 1, 'Number of threads. Default: all available processors.')
 cli.t(args: 1, "Clonotype size ratio threshold to record a hypermutation. Default: $T.")
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }

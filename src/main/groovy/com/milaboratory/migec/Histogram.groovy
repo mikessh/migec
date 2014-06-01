@@ -27,6 +27,7 @@ cli.q(args: 1, argName: 'read quality (phred)', "barcode region quality threshol
 cli.p(args: 1, 'number of threads to use')
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }

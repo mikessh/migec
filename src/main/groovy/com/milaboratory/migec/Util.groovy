@@ -89,7 +89,7 @@ class Util {
         def splitHeader = header.split(" ")
         def umiEntry = splitHeader.find { it.startsWith("UMI:") }
         if (umiEntry == null) {
-            println "ERROR: no UMI header in input. Terminating"
+            println "[ERROR] no UMI header in input. Terminating"
             System.exit(-1)
         }
         String umi = umiEntry.split(":")[1] // quality can contain :

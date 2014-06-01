@@ -28,12 +28,13 @@ def scriptName = getClass().canonicalName
 def opt = cli.parse(args)
 
 if (opt == null || opt.arguments().size() < 3) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }
 
 def filelistFileName = opt.arguments()[0], estimatesFileName = opt.arguments()[1],
-    outputPath = opt.arguments()[2], logFile = outputPath + '/assembly.log.txt'
+    outputPath = opt.arguments()[2], logFile = outputPath + '/assemble.log.txt'
 
 // Some messy argument passing to Assemble
 def assemblyModePaired = opt.'assembly-mode' ?: DEFAULT_MODE

@@ -19,6 +19,7 @@ package com.milaboratory.migec
 def cli = new CliBuilder(usage: 'SplitSpikeClonotypes file_with_spikes file_with_cdrs output_prefix')
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }

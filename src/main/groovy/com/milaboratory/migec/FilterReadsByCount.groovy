@@ -27,6 +27,7 @@ def scriptName = getClass().canonicalName
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }

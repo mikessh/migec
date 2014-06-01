@@ -27,6 +27,7 @@ cli.c("Include CDR3s that do not begin with a conserved C or end with a conserve
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }

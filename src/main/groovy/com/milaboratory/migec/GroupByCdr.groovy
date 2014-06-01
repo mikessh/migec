@@ -28,6 +28,7 @@ cli._(longOpt: 'window-min-qual', args: 1, "Min average quality in window. Defau
 cli._(longOpt: 'window-size', args: 1, "Size of sliding window. Default: $W_S")
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }

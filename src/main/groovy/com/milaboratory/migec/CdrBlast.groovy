@@ -43,6 +43,7 @@ cli._(args: 1, longOpt: 'cdr3-fastq-file', 'Store reads with CDR3 extracted with
 def opt = cli.parse(args)
 
 if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.C) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }

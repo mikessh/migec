@@ -54,6 +54,7 @@ cli._(longOpt: 'assembly-anchor', args: 1, argName: 'integer',
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
+    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }

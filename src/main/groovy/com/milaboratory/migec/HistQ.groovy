@@ -19,6 +19,7 @@ package com.milaboratory.migec
 import java.util.zip.GZIPInputStream
 
 if (args.length < 5) {
+    println "[ERROR] Too few arguments provided"
     println "Usage: HistQ inputFastqFile output from(e.g. 0) to(e.g. read length, 100)"
     System.exit(-1)
 }
