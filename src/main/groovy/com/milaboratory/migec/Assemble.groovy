@@ -414,12 +414,14 @@ writeThread.join()
 if (logFileName != null) {
     if (!(new File(logFileName).exists())) {
         new File(logFileName).withPrintWriter { pw ->
-            pw.println("#SAMPLE_ID\tASSEMBLY_OUTPUT_1\tASSEMBLY_OUTPUT_2\t" +
+            pw.println("#SAMPLE_ID\tSAMPLE_TYPE\tASSEMBLE_FASTQ1\tASSEMBLE_FASTQ2\tPAIRED_MASK\t" +
                     "MIG_COUNT_THRESHOLD\tMIGS_TOTAL\tREADS_TOTAL\tMIGS_GOOD\tREADS_GOOD")
         }
     }
     new File(logFileName).withWriterAppend { writer ->
-        writer.println([outputFilePrefix =~ /[^\/]*$/, outputFileName1, outputFileName2,
+        writer.println([outputFilePrefix =~ /[^\/]*$/, paired ? "paired" : (overlapped ? "overlapped" : "unpaired"),
+                        outputFileName1, outputFileName2,
+                        assemblyIndices.collect { it ? 0 : 1 }.join(":"),
                         minCount, nMigs.get(), nReadsInMigs.get(),
                         nGoodMigs[2].get(), nReadsInGoodMigs[2].get()].join("\t"))
     }

@@ -55,8 +55,8 @@ if (new File(outputFilePrefix).parentFile)
 
 def bins = (0..<nBins).collect { (int) Math.pow(2, it) }
 
-def HEADER = "#SAMPLE_ID\tFILE_TYPE\t" + bins.join("\t"),
-    ESTIMATES_HEADER = "#SAMPLE_ID\tFILE_TYPE\t" +
+def BASE_HEADER = "#SAMPLE_ID\tSAMPLE_TYPE", HEADER = BASE_HEADER + "\t" + bins.join("\t"),
+    ESTIMATES_HEADER = BASE_HEADER + "\t" +
             "TOTAL_READS\tTOTAL_MIGS\t" +
             "OVERSEQ_THRESHOLD\tCOLLISION_THRESHOLD\t" +
             "UMI_QUAL_THRESHOLD\tUMI_LEN"
@@ -157,7 +157,7 @@ new File("${outputFilePrefix}.overseq.txt").withPrintWriter { oWriter ->
                         int overseqPeak = (0..<nBins).max { overseqHist.get(it) }
 
                         int collThreshold = 0, overseqThreshold = 0,
-                                overseqThresholdEmp = (int) Math.pow(2.0, overseqPeak / 2.0)
+                            overseqThresholdEmp = (int) Math.pow(2.0, overseqPeak / 2.0)
 
                         if (overseqPeak <= overseqPeakLow) {
                             // empirical

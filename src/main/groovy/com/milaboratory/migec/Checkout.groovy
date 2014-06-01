@@ -625,6 +625,7 @@ writers.values().each { // don't forget to flush
 }
 
 new File("$out/checkout.filelist.txt").withPrintWriter { pw ->
+    pw.println("\tSAMPLE_ID\tSAMPLE_TYPE\tCHECKOUT_FASTQ1\tCHECKOUT_FASTQ2")
     new HashSet(sampleIds).each { String sampleId -> // only unique
         pw.println(sampleId + (paired ? "\tpaired\t" : "\tunpaired\t") +
                 new File("$out/${sampleId}_R1.fastq.gz").absolutePath + "\t" +
