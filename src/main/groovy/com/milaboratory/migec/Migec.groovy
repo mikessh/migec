@@ -21,23 +21,85 @@ import java.util.jar.JarFile
 def version = (getClass().classLoader.findResource(JarFile.MANIFEST_NAME).text =~
         /Implementation-Version: (.+)/)[0][1]
 
-println " MiGEC Pipeline V$version "
-println ""
-println "Run as \$java -cp com.milaboratory.migec-${version}.jar SCRIPT_NAME arguments"
-println ""
-println "where SCRIPT_NAME is one of the following:"
-println ""
-println "[Main pipeline]"
-println "com.milaboratory.migec.Checkout"
-println "com.milaboratory.migec.Histogram"
-println "com.milaboratory.migec.Assemble"
-println "com.milaboratory.migec.CdrBlast"
-println "com.milaboratory.migec.FilterCdrBlastResults"
-println "com.milaboratory.migec.CreateCdrHypermGraph"
-println ""
-println "[Miscellaneous]"
-println "com.milaboratory.migec.GroupByCdr"
-println "com.milaboratory.migec.SplitSpikeClonotypes"
-println "com.milaboratory.migec.BacktrackSequence"
-println "com.milaboratory.migec.HistQ"
-println "com.milaboratory.migec.UmiFrequencyTable"
+def printHelp = {
+    println " MiGEC Pipeline V$version "
+    println ""
+    println "[Main pipeline]"
+    println "Run as \$java -jar migec-${version}.jar SCRIPT_NAME arguments"
+    println ""
+    println "where SCRIPT_NAME is one of the following:"
+    println "Checkout"
+    println "Histogram"
+    println "Assemble"
+    println "CdrBlast"
+    println "FilterCdrBlastResults"
+    println "CreateCdrHypermGraph"
+    println ""
+    println ""
+    println "[Miscellaneous]"
+    println "Executed via classpath"
+    println "Run as \$java -cp migec-${version}.jar SCRIPT_NAME arguments"
+    println ""
+    println "where SCRIPT_NAME is one of the following:"
+    println "com.milaboratory.migec.GroupByCdr"
+    println "com.milaboratory.migec.SplitSpikeClonotypes"
+    println "com.milaboratory.migec.BacktrackSequence"
+    println "com.milaboratory.migec.HistQ"
+    println "com.milaboratory.migec.UmiFrequencyTable"
+}
+
+def getScript = { String scriptName ->
+    switch (scriptName.toUpperCase()) {
+        case "CHECKOUT":
+            return new Checkout()
+        case "HISTOGRAM":
+            return new Histogram()
+        case "ASSEMBLE":
+            return new Assemble()
+        case "CDRBLAST":
+            return new CdrBlast()
+        case "FILTERCDRBLASTRESULTS":
+            return new FilterCdrBlastResults()
+        case "CREATECDRHYPERMGRAPH":
+            return new CreateCdrHypermGraph()
+        case "-H":
+        case "H":
+        case "-HELP":
+        case "HELP":
+            printHelp()
+            println ""
+            System.exit(-1)
+            break
+
+        default:
+            printHelp()
+            println ""
+            println "Unknown MAIN PIPELINE script $scriptName"
+            System.exit(-1)
+    }
+}
+
+if (args.length == 0)
+    printHelp()
+else {
+    def script = getScript(args[0])
+    try {
+        Util.run(script, args.length > 1 ? args[1..-1].join(" ") : "")
+    } catch (Exception e) {
+        println "[ERROR] $e.message, see _migec_error.log for details"
+        new File("_migec_error.log").withWriterAppend { writer ->
+            writer.println("[${new Date()}]")
+            writer.println("[Script]")
+            writer.println(args[0])
+            writer.println("[CommandLine]")
+            writer.println("executing migec-${version}.jar ${args.join(" ")}")
+            writer.println("[Message]")
+            writer.println(e.message)
+            writer.println("[StackTrace-Short]")
+            writer.println(e.stackTrace.findAll { it.toString().contains("com.milaboratory.migec") }.join("\n"))
+            writer.println("[StackTrace-Full]")
+            writer.println(e.stackTrace.join("\n"))
+        }
+        System.exit(-1)
+    }
+}

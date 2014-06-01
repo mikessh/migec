@@ -14,10 +14,18 @@ This pipeline provides several useful tools for analysis of immune repertoire se
 
 ### INSTALLATION AND RUNNING
 
-The pipeline is written in Groovy (a Java scripting language) and distributed as an executable JAR. To install it get the latest [JRE](http://www.oracle.com/technetwork/java/javase/downloads/index.html) and download the executable from [releases section](https://github.com/mikessh/migec/releases). Then to ran a specific script from the pipeline, say **Checkout**, execute
+The pipeline is written in Groovy (a Java scripting language) and distributed as an executable JAR. To install it get the latest [JRE](http://www.oracle.com/technetwork/java/javase/downloads/index.html) and download the executable from [releases section](https://github.com/mikessh/migec/releases). 
+
+To ran a specific script from the pipeline, say **Checkout**, execute
 
 ```
-$java -cp migec.jar com.milaboratory.migec.Checkout [arguments]
+$java -jar migec.jar Checkout [arguments]
+```
+
+To view the list of available scripts execute:
+
+```
+$java -jar migec.jar help
 ```
 
 alternatively you can download the repository and compile it from source using [Maven](http://maven.apache.org/) (requires Maven version 3.0)
@@ -36,6 +44,13 @@ The data from 454 platform should be used with caution, as it contains homopolym
 
 NCBI-BLAST+ package is required. Could be directly installed on Linux using a command like $sudo apt-get ncbi-blast+ or downloaded and installed directly from here: <ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/>
 
+Consider providing sufficient memory for the pipeline, i.e. 8Gb for MiSeq or 36Gb for HiSeq sample, depending on sample sequence diversity and current script (CdrBlast requires has the highest memory requirements). To do so, execute the script with ```-Xmx``` argument:
+
+```
+$java -Xmx8G -jar migec.jar CdrBlast [arguments]
+```
+
+If insufficient amount memory is allocated, the Java Virtual Machine could drop with a *Java Heap Space Out of Memory* error. 
 
 ## STANDARD PIPELINE
 
@@ -50,19 +65,19 @@ A script to perform de-multiplexing and UMI tag extraction
 For paired-end data:
 
 ```
-$java -cp migec.jar com.milaboratory.migec.Checkout -cute barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
+$java -jar migec.jar Checkout -cute barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
 ```
 
 For unpaired library:
 
 ```
-$java -cp migec.jar com.milaboratory.migec.Checkout -cute barcodes.txt R.fastq.gz - ./checkout/
+$java -jar migec.jar Checkout -cute barcodes.txt R.fastq.gz - ./checkout/
 ```
 
 For overlapping paired reads:
 
 ```
-$java -cp migec.jar com.milaboratory.migec.Checkout -cute --overlap barcodes.txt R1.fastq.gz R2.fastq.gz - ./checkout/
+$java -jar migec.jar Checkout -cute --overlap barcodes.txt R1.fastq.gz R2.fastq.gz - ./checkout/
 ```
 
 accepted *barcodes.txt* format is a tab-delimited table with the following structure: 
@@ -116,7 +131,7 @@ A script to generate over-sequencing statistics
 **Usage**
 
 ```
-$java -cp migec.jar com.milaboratory.migec.Histogram ./checkout/checkout.filelist.txt ./histogram/run
+$java -jar migec.jar Histogram ./checkout/checkout.filelist.txt ./histogram/run
 ```
 
 Will generate several files, the one important for basic data processing is *./checkout/histogram.overseq.txt*. The header contains MIG sizes (in log2 scale), while each row for a sample contains the number of reads in MIGs of a given size (cumulative abundance). 
@@ -135,7 +150,7 @@ A script to perform UMI-guided assembly
 **Usage**
 
 ```
-$java -cp migec.jar com.milaboratory.migec.Assemble -c ./checkout/S1_R1.fastq.gz ./assembly/S1 ./assembly/assembly.log
+$java -jar migec.jar Assemble -c ./checkout/S1_R1.fastq.gz ./assembly/S1 ./assembly/assembly.log
 ```
 
 All reads are grouped by their UMI and then read groups (aka molecular identifier groups, MIGs) with >10 reads (default value, see Histogram.groovy for details on setting it) are assembled. Multiple alignment is performed and consensus sequence is generated.
@@ -160,13 +175,13 @@ Standard, assuming library contains T-cell Receptor Alpha Chain sequences
 in case of MIG-assembled data:
 
 ```
-$java -cp migec.jar com.milaboratory.migec.CdrBlast -a -C TRA ./assembly/S1_R2.fastq.gz ./cdrblast/S1_asm.cdrblast.txt 
+$java -jar migec.jar CdrBlast -a -C TRA ./assembly/S1_R2.fastq.gz ./cdrblast/S1_asm.cdrblast.txt 
 ```
       
 for raw data:
 
 ```
-$java -cp migec.jar com.milaboratory.migec.CdrBlast -C TRA ./checkout/S1_R2.fastq.gz ./cdrblast/S1_raw.cdrblast.txt
+$java -jar migec.jar CdrBlast -C TRA ./checkout/S1_R2.fastq.gz ./cdrblast/S1_raw.cdrblast.txt
 ```
 
 To get a sorted output use ```-o``` option, otherwise sorting will be performed at **FilterCdrBlastResults** step. Note that both raw and assembled data should be processed to apply the last step of filtration.
@@ -181,7 +196,7 @@ A script to filter erroneous CDR3 sequences produced due to hot-spot PCR and NGS
 **Usage** 
 
 ```
-$java -cp migec.jar com.milaboratory.migec.FilterCdrBlastResults -s ./cdrblast/S1_asm.cdrblast.txt ./cdrblast/S1_raw.cdrblast.txt ./final/S1.cdrblast.txt
+$java -jar migec.jar FilterCdrBlastResults -s ./cdrblast/S1_asm.cdrblast.txt ./cdrblast/S1_raw.cdrblast.txt ./final/S1.cdrblast.txt
 ```
 
 The ```-s``` option tells to include CDR3s represented by single MIGs. Those are filtered by default as for deep profiling (with our protocol) they could be associated with reverse transcription errors and experimental artifacts.
@@ -191,7 +206,7 @@ Now the file *S1.cdrblast.txt* contains a filtered and sorted CDR3/V/J clonotype
 You could additionally build a graph of hypermutations for the sample using
 
 ```
-$java -cp migec.jar com.milaboratory.migec.CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
+$java -jar migec.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
 ```
 
 which will generate files that allow fast network construction using Cytoscape's network from table and import table routines for further data exploration.
