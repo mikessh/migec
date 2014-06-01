@@ -84,7 +84,7 @@ def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
 boolean paired = fastq2 != "-"
 def assemblyIndices = paired ? (opt.'assembly-mode' ?: DEFAULT_MODE).split(":").collect { Integer.parseInt(it) > 0 } :
         [true, false]
-boolean bothReads = assemblyIndices[0] && assemblyIndices[1], overlapped
+boolean bothReads = assemblyIndices[0] && assemblyIndices[1], overlapped = false
 if (!assemblyIndices.any()) {
     assemblyIndices[0] = true
     overlapped = true
@@ -158,8 +158,10 @@ println "[${new Date()} $scriptName] Processed $nReads reads, " +
 //=================================
 def writeQueue = new LinkedBlockingQueue<String[]>(2048)
 def suffix = assemblyIndices[0] ? (overlapped ? "R12" : "R1") : "R2"
-def writer1 = Util.getWriter("${outputFilePrefix}_${suffix}.fastq", compressed),
-    writer2 = bothReads ? Util.getWriter("${outputFilePrefix}_R2.fastq", compressed) : null
+def outputFileName1 = "${outputFilePrefix}_${suffix}.fastq",
+    outputFileName2 = bothReads ? "${outputFilePrefix}_R2.fastq" : "-"
+def writer1 = Util.getWriter(outputFileName1, compressed),
+    writer2 = bothReads ? Util.getWriter(outputFileName2, compressed) : null
 def detailsWriter1 = alignmentFilePrefix ? Util.getWriter("${alignmentFilePrefix}_${suffix}.asm", compressed) : null,
     detailsWriter2 = bothReads && alignmentFilePrefix ? Util.getWriter("${alignmentFilePrefix}_${suffix}.asm", compressed) : null
 
@@ -412,13 +414,14 @@ writeThread.join()
 if (logFileName != null) {
     if (!(new File(logFileName).exists())) {
         new File(logFileName).withPrintWriter { pw ->
-            pw.println("SAMPLE_ID\tMIG_COUNT_THRESHOLD\tMIGS_TOTAL\tREADS_TOTAL\tMIGS_GOOD\tREADS_GOOD")
+            pw.println("#SAMPLE_ID\tASSEMBLY_OUTPUT_1\tASSEMBLY_OUTPUT_2\t" +
+                    "MIG_COUNT_THRESHOLD\tMIGS_TOTAL\tREADS_TOTAL\tMIGS_GOOD\tREADS_GOOD")
         }
     }
     new File(logFileName).withWriterAppend { writer ->
-        writer.println([outputFilePrefix, minCount,
-                        nMigs.get(), nReadsInMigs.get(),
-                        nGoodMigs[2].get(), nReadsInGoodMigs[2].get()].collect().join("\t"))
+        writer.println([outputFilePrefix =~ /[^\/]*$/, outputFileName1, outputFileName2,
+                        minCount, nMigs.get(), nReadsInMigs.get(),
+                        nGoodMigs[2].get(), nReadsInGoodMigs[2].get()].join("\t"))
     }
 }
 println "[${new Date()} $scriptName] Finished"
