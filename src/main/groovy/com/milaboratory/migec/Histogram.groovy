@@ -21,21 +21,21 @@ import groovyx.gpars.GParsPool
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
 
-def DEFAULT_COLL_PERC = 0.9, DEFAULT_OVERSEQ_PERC = 0.1
 def cli = new CliBuilder(usage: 'Histogram [options] checkout.filelist.txt output_prefix')
-cli.q(args: 1, argName: "read quality (phred)', 'barcode region quality threshold. Default: ${Util.DEFAULT_UMI_QUAL_THRESHOLD}")
+cli.q(args: 1, argName: 'read quality (phred)', "barcode region quality threshold. " +
+        "Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli.p(args: 1, 'number of threads to use')
-cli._(longOpt: 'coll-perc', args: 1, "MIG size percentile for collisions histogram. [default=$DEFAULT_COLL_PERC]")
-cli._(longOpt: 'overseq-perc', args: 1, "MIG size percentile for overseq histogram. [default=$DEFAULT_OVERSEQ_PERC]")
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     cli.usage()
     System.exit(-1)
 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
-double collPerc = opt.'coll-perc' ? opt.'coll-perc'.toDouble() : DEFAULT_COLL_PERC,
-       overseqPerc = opt.'overseq-perc' ? opt.'overseq-perc'.toDouble() : DEFAULT_OVERSEQ_PERC
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
+
+double percLowOverseq = 0.25, percHighOverseq = 0.10
+int overseqPeakLow = 4, // 16
+    overseqPeakHigh = 7 // 256
 
 def scriptName = getClass().canonicalName
 int nBins = 17
@@ -92,14 +92,15 @@ new File("${outputFilePrefix}.overseq.txt").withPrintWriter { oWriter ->
                         while ((header = reader.readLine()) != null) {
                             def umi = Util.getUmi(header, umiQualThreshold)
 
-                            if (umi != null)
+                            if (umi != null) {
                                 umiCountMap.put(umi, (umiCountMap.get(umi) ?: 0) + 1)
 
-                            if (umiSz < 0)
-                                umiSz = umi.length()
-                            else if (umiSz != umi.length()) {
-                                println "ERROR UMIs of various sizes are not supported in the same sample"
-                                System.exit(-1)
+                                if (umiSz < 0)
+                                    umiSz = umi.length()
+                                else if (umiSz != umi.length()) {
+                                    println "ERROR UMIs of various sizes are not supported in the same sample"
+                                    System.exit(-1)
+                                }
                             }
 
                             reader.readLine()
@@ -144,7 +145,7 @@ new File("${outputFilePrefix}.overseq.txt").withPrintWriter { oWriter ->
                                     }
                                 }
 
-                                nUmisCurrent = nUmis.incrementAndGet()
+                                int nUmisCurrent = nUmis.incrementAndGet()
 
                                 if (nUmisCurrent % 10000 == 0)
                                     println "[${new Date()} $scriptName] Collecting stats, $nUmisCurrent UMIs processed"
@@ -153,24 +154,41 @@ new File("${outputFilePrefix}.overseq.txt").withPrintWriter { oWriter ->
 
                         def row = sampleEntry[0..1].join("\t")
 
-                        int collThreshold = 0, overseqThreshold = 0
-                        int cumulativeCollisionReads = collisionHist.get(0),
-                            cumulativeOverseqReads = overseqHist.get(0)
-                        for (int i = 1; i < nBins; i++) {
-                            cumulativeCollisionReads += collisionHist.get(i)
+                        int overseqPeak = (0..<nBins).max { overseqHist.get(it) }
 
-                            if (cumulativeCollisionReads / nReads >= collPerc) {
-                                collThreshold = i - 1
-                                break
-                            }
-                        }
-                        for (int i = 1; i < nBins; i++) {
-                            cumulativeOverseqReads += overseqHist.get(i)
+                        int collThreshold = 0, overseqThreshold = 0,
+                                overseqThresholdEmp = (int) Math.pow(2.0, overseqPeak / 2.0)
 
-                            if (cumulativeOverseqReads / nReads >= overseqPerc) {
-                                overseqThreshold = i - 1
-                                break
+                        if (overseqPeak <= overseqPeakLow) {
+                            // empirical
+                            overseqThreshold = overseqThresholdEmp
+                            collThreshold = overseqThresholdEmp
+                        } else {
+                            // by percentile
+                            double p = (overseqPeak <= overseqPeakHigh) ? percLowOverseq : percHighOverseq
+
+                            int cumulativeCollisionReads = collisionHist.get(0),
+                                cumulativeOverseqReads = overseqHist.get(0)
+
+                            for (int i = 1; i < nBins; i++) {
+                                cumulativeCollisionReads += collisionHist.get(i)
+
+                                if (cumulativeCollisionReads / (double) nReads >= 1 - p) {
+                                    collThreshold = i - 1
+                                    break
+                                }
                             }
+                            collThreshold = (int) Math.pow(2.0, collThreshold)
+
+                            for (int i = 1; i < nBins; i++) {
+                                cumulativeOverseqReads += overseqHist.get(i)
+
+                                if (cumulativeOverseqReads / (double) nReads >= p) {
+                                    overseqThreshold = i - 1
+                                    break
+                                }
+                            }
+                            overseqThreshold = (int) Math.pow(2.0, overseqThreshold)
                         }
 
                         oWriter.println(row + "\t" + Util.toString(overseqHist))

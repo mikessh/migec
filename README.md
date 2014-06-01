@@ -142,9 +142,9 @@ All reads are grouped by their UMI and then read groups (aka molecular identifie
 
 **Settings**
 
-The ```--min-count``` option sets minimum number of reads in MIG. This should be set according to Histogram script output to separate two peaks: over-sequenced MIGs and erroneous MIGs that cluster around MIG size of 1.
+The ```-m``` option sets minimum number of reads in MIG. This should be set according to Histogram script output to separate two peaks: over-sequenced MIGs and erroneous MIGs that cluster around MIG size of 1.
 
-To inspect the effect of such single-mismatch erroneous UMI sub-variants see "collisions" output of Histogram script. Such collision events could interfere with real MIGs when over-sequencing is relatively low. In this case collisions could be filtered during MIG consensus assembly using ```-f``` option. The ```--collision-ratio``` could be change in order to prevent filtering of real collision occurred due to finite theoretically possible UMI diversity.
+To inspect the effect of such single-mismatch erroneous UMI sub-variants see "collisions" output of Histogram script. Such collision events could interfere with real MIGs when over-sequencing is relatively low. In this case collisions could be filtered during MIG consensus assembly using ```--filter-collisions``` option.
 
 
 ### 4. CdrBlast

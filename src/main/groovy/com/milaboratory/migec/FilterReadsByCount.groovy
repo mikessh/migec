@@ -21,6 +21,9 @@ def DEFAULT_THRESHOLD = "10"
 def cli = new CliBuilder(usage:
         'FilterReadsByCount [options] input.fastq[.gz] output.fastq[.gz]\n[for benchmarking purposes]')
 cli.t(args: 1, "Count threshold. $DEFAULT_THRESHOLD")
+cli.g("Grouped output: reads collapsed, quality average, count in header.")
+
+def scriptName = getClass().canonicalName
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
@@ -28,7 +31,8 @@ if (opt == null || opt.arguments().size() < 2) {
     System.exit(-1)
 }
 
-def threshold = (opt.t ?: DEFAULT_THRESHOLD).toInteger()
+int threshold = (opt.t ?: DEFAULT_THRESHOLD).toInteger()
+boolean group = opt.g ? true : false
 def inputFileName = opt.arguments()[0], outputFileName = opt.arguments()[1]
 
 def reader = Util.getReader(inputFileName)
@@ -41,10 +45,12 @@ class ReadData {
         this.qualArr = new long[seq.length()]
     }
 
-    void append(String qual) {
+    void append(String qual, boolean group) {
         count++
-        for (int i = 0; i < qual.length(); i++)
-            qualArr[i] += Util.qualFromSymbol(qual.charAt(i))
+
+        if (group)
+            for (int i = 0; i < qual.length(); i++)
+                qualArr[i] += Util.qualFromSymbol(qual.charAt(i))
     }
 
     String finalizeQual() {
@@ -59,6 +65,8 @@ class ReadData {
 
 def readDataMap = new HashMap<String, ReadData>()
 
+int nReads = 0
+
 while (reader.readLine() != null) {
     def seq = reader.readLine()
     reader.readLine()
@@ -69,14 +77,54 @@ while (reader.readLine() != null) {
     if (readData == null)
         readDataMap.put(seq, readData = new ReadData(seq))
 
-    readData.append(qual)
+    readData.append(qual, group)
+
+    if (++nReads % 500000 == 0)
+        println "[${new Date()} $scriptName] Loaded $nReads reads"
 }
+
+nReads = 0
+int nPassedReads = 0
 
 def writer = Util.getWriter(outputFileName)
 
-readDataMap.each {
-    if (it.value.count >= threshold)
-        writer.writeLine("@GroupedRead Count:$it.value.count\n" + it.key + "\n+\n" + it.value.finalizeQual())
+if (group) {
+    int nReadGroups = 0
+    readDataMap.each {
+        int count = it.value.count
+        if (count >= threshold) {
+            writer.writeLine("@GroupedRead Count:$it.value.count\n" + it.key + "\n+\n" + it.value.finalizeQual())
+            nPassedReads += count
+        }
+
+        nReads += it.value.count
+
+        if (++nReadGroups % (500000 / threshold) == 0)
+            println "[${new Date()} $scriptName] Scanned $nReads reads, $nPassedReads reads passed"
+    }
+} else {
+    reader = Util.getReader(inputFileName)
+
+    def header
+
+    while ((header = reader.readLine()) != null) {
+        def seq = reader.readLine()
+
+        int count = readDataMap[seq].count
+
+        if (count >= threshold) {
+            reader.readLine()
+            def qual = reader.readLine()
+            writer.writeLine(header + "\n" + seq + "\n+\n" + qual)
+            nPassedReads++
+        } else {
+            reader.readLine()
+            reader.readLine()
+        }
+
+        if (++nReads % 500000 == 0)
+            println "[${new Date()} $scriptName] Scanned $nReads reads, $nPassedReads reads passed"
+    }
 }
 
 writer.close()

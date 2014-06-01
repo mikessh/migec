@@ -24,23 +24,25 @@ import java.util.concurrent.atomic.AtomicInteger
 //========================
 //          CLI
 //========================
-def DEFAULT_MODE = "0:1", DEFAULT_MIN_COUNT = "10", DEFAULT_PARENT_CHILD_RATIO = "0.1"
+def DEFAULT_MODE = "1:1", DEFAULT_MIN_COUNT = "10", DEFAULT_PARENT_CHILD_RATIO = "0.1"
 def cli = new CliBuilder(usage: 'Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or -] output_prefix ' +
         '[assembly_log, to append]')
 cli.q(args: 1, argName: 'read quality (phred)',
         "barcode region quality threshold. Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
-cli.m(longOpt: "assembly-mode", args: 1, argName: 'assembly mode in format X:X',
-        "Identifier(s) of read(s) to assemble. Default: \"$DEFAULT_MODE\".")
+cli._(longOpt: 'assembly-mode', args: 1, argName: 'X:Y, X=0/1, Y=0/1',
+        "Mask for read(s) in pair that should be assembled. " +
+                "0:0 indicates single read from overlapped paired-end. Default: \"$DEFAULT_MODE\".")
 cli.p(args: 1,
         "number of threads to use. Default: all available processors")
 cli.c("compressed output")
 
 cli._(longOpt: 'alignment-file-prefix', args: 1, argName: 'string',
         "File name prefix to output multiple alignments generated during assembly, for \"com.milaboratory.migec.control.BacktrackSequence\"")
-cli._(longOpt: 'min-count', args: 1, argName: 'integer',
+cli.m(longOpt: 'min-count', args: 1, argName: 'integer',
         "Min number of reads in MIG. Should be set according to 'Histogram.groovy' output. Default: $DEFAULT_MIN_COUNT")
-cli.f(longOpt: 'filter-collisions',
-        "Collision filtering. Should be set if collisions (1-mismatch erroneous UMI sequence variants) are observed in 'Histogram.groovy' output")
+cli._(longOpt: 'filter-collisions',
+        "Collision filtering. Should be set if collisions (1-mismatch erroneous UMI sequence variants) " +
+                "are observed in 'Histogram.groovy' output")
 cli._(longOpt: 'collision-ratio', args: 1, argName: 'double, < 1.0',
         "Min parent-to-child MIG size ratio for collision filtering. Default value: $DEFAULT_PARENT_CHILD_RATIO")
 cli._(longOpt: 'assembly-offset', args: 1, argName: 'integer',
@@ -62,7 +64,7 @@ if (opt == null || opt.arguments().size() < 3) {
 def scriptName = getClass().canonicalName
 
 // Parameters
-boolean compressed = opt.c, filterCollisions = opt.f
+boolean compressed = opt.c, filterCollisions = opt.'filter-collisions'
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
 int minCount = Integer.parseInt(opt."min-count" ?: DEFAULT_MIN_COUNT)
@@ -80,11 +82,12 @@ def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
 
 // I/O parameters
 boolean paired = fastq2 != "-"
-def assemblyIndices = paired ? (opt.m ?: DEFAULT_MODE).split(":").collect { Integer.parseInt(it) > 0 } : [true, false]
-boolean bothReads = assemblyIndices[0] && assemblyIndices[1]
+def assemblyIndices = paired ? (opt.'assembly-mode' ?: DEFAULT_MODE).split(":").collect { Integer.parseInt(it) > 0 } :
+        [true, false]
+boolean bothReads = assemblyIndices[0] && assemblyIndices[1], overlapped
 if (!assemblyIndices.any()) {
-    println "ERROR Bad assembly mode (${assemblyIndices.join(":")}). At least one FASTQ should be specified for assembly"
-    System.exit(-1)
+    assemblyIndices[0] = true
+    overlapped = true
 }
 
 // Misc output
@@ -154,7 +157,7 @@ println "[${new Date()} $scriptName] Processed $nReads reads, " +
 //   PERFORM ASSEMBLY
 //=================================
 def writeQueue = new LinkedBlockingQueue<String[]>(2048)
-def suffix = assemblyIndices[0] ? "R1" : "R2"
+def suffix = assemblyIndices[0] ? (overlapped ? "R12" : "R1") : "R2"
 def writer1 = Util.getWriter("${outputFilePrefix}_${suffix}.fastq", compressed),
     writer2 = bothReads ? Util.getWriter("${outputFilePrefix}_R2.fastq", compressed) : null
 def detailsWriter1 = alignmentFilePrefix ? Util.getWriter("${alignmentFilePrefix}_${suffix}.asm", compressed) : null,
