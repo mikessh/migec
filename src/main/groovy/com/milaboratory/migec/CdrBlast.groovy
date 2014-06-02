@@ -52,13 +52,7 @@ if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.C) {
 def DEBUG = opt.'debug',
     THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors(),
     SCRIPT_NAME = getClass().canonicalName,
-    SCRIPT_PATH = new File(getClass().protectionDomain.codeSource.location.path).parent.replaceAll("%20", " "),
-    TMP_FOLDER = SCRIPT_PATH + "/cdrblast-" + UUID.randomUUID().toString()
-
-def TMP_FOLDER_FILE = new File(TMP_FOLDER)
-TMP_FOLDER_FILE.mkdirs()
-if (!DEBUG)
-    TMP_FOLDER_FILE.deleteOnExit()
+    SCRIPT_PATH = new File(getClass().protectionDomain.codeSource.location.path).parent.replaceAll("%20", " ")
 
 def timestamp = {
     "[${new Date()} $SCRIPT_NAME]"
@@ -81,9 +75,16 @@ def cdr3FastqFile = opt.'cdr3-fastq-file',
     chain = opt.C, species = opt.S ?: "HomoSapiens",
     nReads = Integer.parseInt(opt.N ?: "-1")
 
-def readsFileName = opt.arguments()[0],
+def inputFileName = opt.arguments()[0],
     outputFileName = opt.arguments()[1],
     segmentsFileName = allSegments ? "segments_all.txt" : "segments.txt"
+
+def TMP_FOLDER = new File(inputFileName).absolutePath + "-cdrblast-" + UUID.randomUUID().toString()
+
+def TMP_FOLDER_FILE = new File(TMP_FOLDER)
+TMP_FOLDER_FILE.mkdirs()
+if (!DEBUG)
+    TMP_FOLDER_FILE.deleteOnExit()
 
 if (new File(outputFileName).parentFile)
     new File(outputFileName).parentFile.mkdirs()
@@ -238,8 +239,8 @@ collapseAlleleMap.values().each {
 // Stage I: blast for unique sequences. Here we ONLY determine V and J segment presence and their IDs //
 // seqSet (unique sequences) -> blast mapping data (unique sequence + V and J mapping)               //
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-println "${timestamp()} Reading $readsFileName and generating list of unique sequences to map V and J genes"
-def reader = getReader(readsFileName)
+println "${timestamp()} Reading $inputFileName and generating list of unique sequences to map V and J genes"
+def reader = getReader(inputFileName)
 def seqMap = new HashMap<String, Integer>(), seqList = new ArrayList<String>()
 int counter = 0, uniqueCounter = 0
 String header
@@ -263,7 +264,7 @@ while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads
         println "${timestamp()} $counter reads processed, $uniqueCounter unique"
 }
 
-def cf = new File(readsFileName)
+def cf = new File(inputFileName)
 def queryFilePrefix = cf.absoluteFile.parent + "/tmp_" + cf.name.split(".fastq")[0]
 println "[${new Date()} $SCRIPT_NAME] Making a temporary FASTA file for BLAST queries"
 int chunk_sz = seqList.size() / THREADS
@@ -683,7 +684,7 @@ if (DEBUG) {
 counter = 0
 int goodReads = 0, goodEvents = 0, mappedReads = 0, mappedEvents = 0, totalReads = 0, totalEvents = 0
 println "${timestamp()} Appending read data"
-reader = getReader(readsFileName)
+reader = getReader(inputFileName)
 def writer = cdr3FastqFile ? getWriter(cdr3FastqFile) : null
 new File(outputFileName + ".bad").withPrintWriter { pw ->
     while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {

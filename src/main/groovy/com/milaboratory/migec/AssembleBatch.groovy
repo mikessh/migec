@@ -16,12 +16,17 @@ package com.milaboratory.migec
  limitations under the License.
  */
 
-def DEFAULT_MODE = "0:1"
-def cli = new CliBuilder(usage: 'AssembleBatch [options] checkout.filelist.txt histogram.estimates.txt output_directory')
+def DEFAULT_ASSEMBLE_MASK = "1:1"
+def cli = new CliBuilder(usage: 'AssembleBatch [options] checkout_dir/ histogram_dir/ output_dir/')
 cli.p(args: 1, 'number of threads to use')
-cli._(longOpt: 'assembly-mode', args: 1, argName: '0:1, 1:0 or 1:1',
-        "Mask for read(s) in pair that should be assembled be assembled. Will be used for pair-end samples only." +
-                " Default: \"$DEFAULT_MODE\".")
+cli._(longOpt: 'sample-list', args: 1, argName: 'file name',
+        "A tab-delimited file indicating which samples to process and containing three columns:\n" +
+                "file_name (tab) file_type (tab) mask\n" +
+                "Allowed file types\n" +
+                "paired, unpaired, overlapped\n" +
+                "Mask column is optional and will be ignored for unpaired and overlapped reads. " +
+                "Mask indicates read(s) in pair that should be assembled. " +
+                "Allowed values are\n1:0 (R1 assembled), 0:1 (R2 assembled) and 1:1 (both reads assembled, [default])")
 cli.c("compressed output")
 
 def scriptName = getClass().canonicalName
@@ -33,16 +38,56 @@ if (opt == null || opt.arguments().size() < 3) {
     System.exit(-1)
 }
 
-def filelistFileName = opt.arguments()[0], estimatesFileName = opt.arguments()[1],
-    outputPath = opt.arguments()[2], logFile = outputPath + '/assemble.log.txt'
+def checkoutDir = opt.arguments()[0], histogramDir = opt.arguments()[1],
+    outputPath = opt.arguments()[2]
 
-// Some messy argument passing to Assemble
-def assemblyModePaired = opt.'assembly-mode' ?: DEFAULT_MODE
-def assemblyIndices = assemblyModePaired.split(':').collect { Integer.parseInt(it) > 0 }
+new File(outputPath).mkdirs()
 
-if (!assemblyIndices.any()) {
-    println "ERROR Bad assembly mode ${opt.'assembly-mode'}. At least one of reads should be indicated for assembly"
-    System.exit(-1)
+// Read filter
+Map sampleFilter = null
+String sampleFilterFileName = opt.'sample-list' ?: null
+def allowedMasksPaired = ["1:0", "0:1", "1:1"], allowedSampleTypes = ["paired", "unpaired", "overlapped"]
+
+// File names from Checkout output
+def sampleFileNamesMap = new File(checkoutDir + "/checkout.filelist.txt").readLines().findAll {
+    !it.startsWith("#")   // no headers
+}.collectEntries {
+    def splitLine = it.split('\t')
+    def sampleName = splitLine[0], sampleType = splitLine[1]
+    [("$sampleName\t$sampleType".toString()): splitLine[2..3]]
+}
+
+if (sampleFilterFileName) {
+    sampleFilter = new HashMap<String, List<Integer>>()
+
+    new File(sampleFilterFileName).splitEachLine("\t") { splitLine ->
+        if (!splitLine[0].startsWith("#")) {
+            def sampleName = splitLine[0], sampleType = splitLine[1].toLowerCase(),
+                sampleKey = "$sampleName\t$sampleType".toString()
+
+            if (!allowedSampleTypes.contains(sampleType)) {
+                println "[ERROR] Bad sample type $sampleType"
+                System.exit(-1)
+            }
+
+            if (!sampleFileNamesMap.containsKey(sampleKey)) {
+                println "[ERROR] Sample list is inconsistent between Checkout log and filter: " +
+                        "$sampleKey not present in Checkout log"
+                System.exit(-1)
+            }
+
+            def sampleMask = splitLine.size() > 2 ? splitLine[2] : DEFAULT_ASSEMBLE_MASK
+
+            if (sampleType.toUpperCase() == "paired" && !allowedMasksPaired.contains(sampleMask)) {
+                if (!allowedMasksPaired.any { it == sampleMask }) {
+                    println "[ERROR] Bad assembly mask $sampleMask for paired reads. " +
+                            "Allowed values: ${allowedMasksPaired.collect()}"
+                }
+            }
+
+            sampleFilter.put("$sampleName\t$sampleType".toString(), sampleMask)
+        }
+    }
 }
 
 def baseArgs = []
@@ -51,50 +96,59 @@ if (opt.c)
 if (opt.p)
     baseArgs.add(['-p', opt.p])
 
-// File names from Checkout output
-def sampleFileNamesMap = new File(filelistFileName).readLines().findAll {
-    !it.startsWith("#")   // no headers
-}.collectEntries {
-    def splitLine = it.split('\t')
-    [(splitLine[0..1].join('\t')): splitLine[2..3]]
-}
-
-// Remove existing assemble log
-if (new File(logFile).exists())
-    new File(logFile).delete()
-
 double collisionFactorThreshold = 0.05
 
-println "[${new Date()} $scriptName] Starting batch assembly.."
-new File(estimatesFileName).readLines().findAll { !it.startsWith("#") }.each {   // skip header
-    def splitLine = it.split('\t')
+def logFile = new File(outputPath + "/assemble.log.txt")
+if (logFile.exists())
+    logFile.delete()
 
-    // Parse threshold estimates, check if it is safe to filter collisions
-    def totalUmis = splitLine[3].toInteger(), overseqThreshold = splitLine[4].toInteger(),
-        collThreshold = splitLine[5].toInteger(), umiQualThreshold = Byte.parseByte(splitLine[6]),
-        umiLen = splitLine[7].toInteger(), filterCollisions = false
+logFile.withPrintWriter { pw ->
+    pw.println("#SAMPLE_ID\tSAMPLE_TYPE\tINPUT_FASTQ1\tINPUT_FASTQ2\tOUTPUT_ASSEMBLY1\tOUTPUT_ASSEMBLY2\t" +
+            "MIG_COUNT_THRESHOLD\t" +
+            "MIGS_GOOD_FASTQ1\tMIGS_GOOD_FASTQ2\tMIGS_GOOD_TOTAL\tMIGS_TOTAL\t" +
+            "READS_GOOD_FASTQ1\tREADS_GOOD_FASTQ2\tREADS_GOOD_TOTAL\tREADS_TOTAL")
 
-    if (collThreshold >= overseqThreshold &&
-            totalUmis < collisionFactorThreshold * Math.pow(4, umiLen - 1)) // # collisions << # starting molecules
-        filterCollisions = true
 
-    // More messy argument passing
-    def assembleArgs = [baseArgs, ['-m', collThreshold], ['-q', umiQualThreshold]]
+    println "[${new Date()} $scriptName] Starting batch assembly.."
+    new File(histogramDir + "/estimates.txt").readLines().findAll { !it.startsWith("#") }.each {   // skip header
+        def splitLine = it.split('\t')
+        def sampleName = splitLine[0], sampleType = splitLine[1], sampleKey = "$sampleName\t$sampleType".toString()
+        def mask = sampleFilter ? sampleFilter[sampleKey] : "1:1"
 
-    if (filterCollisions)
-        assembleArgs.add(['--filter-collisions'])
+        if (mask) {
+            // Parse threshold estimates, check if it is safe to filter collisions
+            def totalUmis = splitLine[3].toInteger(), overseqThreshold = splitLine[4].toInteger(),
+                    collThreshold = splitLine[5].toInteger(), umiQualThreshold = Byte.parseByte(splitLine[6]),
+                    umiLen = splitLine[7].toInteger(), filterCollisions = false
 
-    def sampleName = splitLine[0], sampleType = splitLine[1]
-    if (sampleType == 'overlapped')
-        assembleArgs.add(['--assembly-mode', '0:0'])
-    else if (sampleType == 'paired')
-        assembleArgs.add(['--assembly-mode', assemblyModePaired])
+            if (collThreshold >= overseqThreshold &&
+                    totalUmis < collisionFactorThreshold * Math.pow(4, umiLen - 1)) // # collisions << # starting molecules
+                filterCollisions = true
 
-    // Pass filenames for I/O
-    def sampleFileNames = sampleFileNamesMap["$sampleName\t$sampleType".toString()]
-    assembleArgs.add(sampleFileNames)
-    assembleArgs.add([outputPath + "/" + sampleName])
-    assembleArgs.add([logFile])
+            // More messy argument passing
+            def assembleArgs = [baseArgs,
+                                ['-m', collThreshold],
+                                ['-q', umiQualThreshold],
+                                ['--assembly-mask', mask]]
 
-    Util.run(new Assemble(), assembleArgs.flatten().join(" "))
+            if (filterCollisions)
+                assembleArgs.add(['--filter-collisions'])
+
+            // Pass filenames for I/O
+            def sampleFileNames = sampleFileNamesMap[sampleKey]
+
+            if (!sampleFileNames) {
+                println "[ERROR] Sample list is inconsistent between Checkout log and Histogram output: " +
+                        "$sampleKey not present in Checkout log"
+                System.exit(-1)
+            }
+
+            assembleArgs.add(sampleFileNames)
+            assembleArgs.add([outputPath])
+
+            String stats = Util.run(new Assemble(), assembleArgs.flatten().join(" "))
+
+            pw.println(sampleKey + "\t" + stats)
+        }
+    }
 }

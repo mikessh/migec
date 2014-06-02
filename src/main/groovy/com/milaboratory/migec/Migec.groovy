@@ -31,6 +31,7 @@ def printHelp = {
     println "Checkout"
     println "Histogram"
     println "Assemble"
+    println "AssembleBatch"
     println "CdrBlast"
     println "FilterCdrBlastResults"
     println "CreateCdrHypermGraph"
@@ -56,6 +57,8 @@ def getScript = { String scriptName ->
             return new Histogram()
         case "ASSEMBLE":
             return new Assemble()
+        case "ASSEMBLEBATCH":
+            return new AssembleBatch()
         case "CDRBLAST":
             return new CdrBlast()
         case "FILTERCDRBLASTRESULTS":

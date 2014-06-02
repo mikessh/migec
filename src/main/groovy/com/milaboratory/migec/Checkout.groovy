@@ -26,7 +26,7 @@ import java.util.zip.GZIPOutputStream
 
 def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10"
 def cli = new CliBuilder(usage:
-        'Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or -] [path/to/out/]')
+        'Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or -] output_dir/')
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
         'Default: scans both reads (if pair-end) for master barcode')
 cli.u('Save UMI region specified by capital N\'s in barcode sequence to the header')
@@ -58,12 +58,12 @@ int trimSizeThreshold = (opt.'max-trim-nts' ?: mtrim).toInteger()
 int firstReadsToTake = (opt.'first' ?: "-1").toInteger()
 def rcReadMask = (opt.r ?: rcm).split(":").collect { Integer.parseInt(it) > 0 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
-def bcfile = opt.arguments()[0],
-    fastq1 = opt.arguments()[1],
-    fastq2 = opt.arguments()[2],
-    out = opt.arguments()[3] ?: "."
+def barcodesFileName = opt.arguments()[0],
+    inputFileName1 = opt.arguments()[1],
+    inputFileName2 = opt.arguments()[2],
+    outputDir = opt.arguments()[3]
 def mmData = (opt.m ?: mm).split(":").collect { Double.parseDouble(it) }
-def paired = fastq2 != '-'
+def paired = inputFileName2 != '-'
 
 if (overlap && !paired) {
     println "ERROR Overlap requested for unpaired reads"
@@ -183,7 +183,7 @@ def addBarcode = { String barcode, int slave ->
 }
 
 // Load barcode data from file
-new File(bcfile).splitEachLine("[\t ]") { sl ->
+new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
     if (!sl[0].startsWith("#")) {
         sampleIds.add(sl[0])
         if (addRevComplBc)
@@ -396,18 +396,19 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
 def readQueue = new LinkedBlockingQueue<String[]>(4096)  // SINGLE: h1 r1 q1 ''       PAIRED: h1 r1 q1 h2 r2 q2 ''       ''
 def writeQueue = new LinkedBlockingQueue<String[]>(4096) // SINGLE: h1 r1 q1 sampleId PAIRED: h1 r1 q1 h2 r2 q2 sampleId overlapped
 
-def reader1 = getReader(fastq1), reader2 = (fastq2 == '-') ? null : getReader(fastq2)
+def reader1 = getReader(inputFileName1), reader2 = (inputFileName2 == '-') ? null : getReader(inputFileName2)
 def writers = new HashMap<String, BufferedWriter[]>()
-println "[${new Date()} $scriptName] Started processing for $fastq1, $fastq2"
-new File(out).mkdir()
+println "[${new Date()} $scriptName] Started processing for $inputFileName1, $inputFileName2"
+new File(outputDir).mkdir()
 [sampleIds, 'undef-s', 'undef-m'].flatten().each { String sampleId ->
     def writerTrio = new BufferedWriter[3]
 
-    writerTrio[0] = getWriter("$out/${sampleId}_R1.fastq")
+    writerTrio[0] = getWriter(paired ? "$outputDir/${sampleId}_R1.fastq" :
+            "$outputDir/${sampleId}_R0.fastq")
     if (paired) {
-        writerTrio[1] = getWriter("$out/${sampleId}_R2.fastq")
+        writerTrio[1] = getWriter("$outputDir/${sampleId}_R2.fastq")
         if (overlap)
-            writerTrio[2] = getWriter("$out/${sampleId}_R12.fastq")
+            writerTrio[2] = getWriter("$outputDir/${sampleId}_R12.fastq")
     }
 
     writers.put(sampleId, writerTrio)
@@ -625,20 +626,23 @@ writers.values().each { // don't forget to flush
     }
 }
 
-new File("$out/checkout.filelist.txt").withPrintWriter { pw ->
-    pw.println("\tSAMPLE_ID\tSAMPLE_TYPE\tCHECKOUT_FASTQ1\tCHECKOUT_FASTQ2")
+new File("$outputDir/checkout.filelist.txt").withPrintWriter { pw ->
+    pw.println("#SAMPLE_ID\tSAMPLE_TYPE\tCHECKOUT_FASTQ1\tCHECKOUT_FASTQ2")
     new HashSet(sampleIds).each { String sampleId -> // only unique
-        pw.println(sampleId + (paired ? "\tpaired\t" : "\tunpaired\t") +
-                new File("$out/${sampleId}_R1.fastq.gz").absolutePath + "\t" +
-                (paired ? new File("$out/${sampleId}_R2.fastq.gz").absolutePath : "-"))
+        pw.println(sampleId +
+                (paired ? "\tpaired\t" : "\tunpaired\t") +
+                (paired ? new File("$outputDir/${sampleId}_R1.fastq.gz").absolutePath :
+                        new File("$outputDir/${sampleId}_R0.fastq.gz").absolutePath)
+                + "\t" +
+                (paired ? new File("$outputDir/${sampleId}_R2.fastq.gz").absolutePath : "-"))
         if (overlap)
             pw.println(sampleId + "\toverlapped\t" +
-                    new File("$out/${sampleId}_R12.fastq.gz").absolutePath) + "\t-"
+                    new File("$outputDir/${sampleId}_R12.fastq.gz").absolutePath + "\t-")
     }
 }
 
-new File("$out/checkout.log.txt").withPrintWriter { pw ->
-    pw.println("\t" + counters.collect { it.key }.join("\t"))
+new File("$outputDir/checkout.log.txt").withPrintWriter { pw ->
+    pw.println("#MATCH_TYPE\t" + counters.collect { it.key }.join("\t"))
     pw.println("Master\t" + counters.collect { it.value[0] }.join("\t"))
     if (paired) {
         pw.println("Master+slave\t" + counters.collect { it.value[1] }.join("\t"))

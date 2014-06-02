@@ -103,8 +103,16 @@ class Util {
         (0..<arr.length()).collect { arr.get(it) }.join("\t")
     }
 
-    static void run(Script script, String args) {
+    static Object run(Script script, String args) {
         script.binding.setVariable("args", args.split(" "))
         script.run()
+    }
+
+    static String getFileName(String fullFileName) {
+        fullFileName.split("/")[-1]
+    }
+
+    static String getFastqPrefix(String fileName) {
+        fileName.split("/")[-1].replaceAll(/\.fastq(?:\.gz)?$/, "")
     }
 }

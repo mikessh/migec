@@ -149,13 +149,33 @@ A script to perform UMI-guided assembly
 
 **Usage**
 
+Unpaired and overlapped FASTQ:
+
 ```
-$java -jar migec.jar Assemble -c ./checkout/S1_R1.fastq.gz ./assembly/S1 ./assembly/assembly.log
+$java -jar migec.jar Assemble ./checkout/S1_R0.fastq.gz - ./assembly/
 ```
 
-All reads are grouped by their UMI and then read groups (aka molecular identifier groups, MIGs) with >10 reads (default value, see Histogram.groovy for details on setting it) are assembled. Multiple alignment is performed and consensus sequence is generated.
+Paired FASTQ:
+
+```
+$java -jar migec.jar Assemble ./checkout/S1_R1.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/
+```
+
+Paired FASTQ with only second read to be assembled:
+
+```
+$java -jar migec.jar Assemble --assembly-mask 0:1 ./checkout/S1_R1.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/
+```
+
+All reads are grouped by their UMI and then read groups (aka molecular identifier groups, MIGs) with >10 reads (default value, see Histogram.groovy for details on setting it) are assembled. Multiple alignment is performed and consensus sequence is generated. Note that for paired reads both consensuses should be successfully assembled, otherwise the pair is dropped.
+
+Automatic output file naming convention is used for compatibility with batch operations. Output file name will be appended with _R0 for unpaired FASTQ file, with either _R1 and _R2 for the corresponding paired FASTQ file and with _R12 for overlapped FASTQ file. Output file name will also include MIG size threshold used.
 
 **Settings**
+
+The ```--assembly-mask``` parameter indicates FASTQ files to be assembled in paired-end data. By default both reads are assembled.
+
+The ```-c``` option indicates compressed output.
 
 The ```-m``` option sets minimum number of reads in MIG. This should be set according to Histogram script output to separate two peaks: over-sequenced MIGs and erroneous MIGs that cluster around MIG size of 1.
 

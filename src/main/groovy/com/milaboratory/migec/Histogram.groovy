@@ -21,7 +21,7 @@ import groovyx.gpars.GParsPool
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
 
-def cli = new CliBuilder(usage: 'Histogram [options] checkout.filelist.txt output_prefix')
+def cli = new CliBuilder(usage: 'Histogram [options] checkout_dir/ output_dir/')
 cli.q(args: 1, argName: 'read quality (phred)', "barcode region quality threshold. " +
         "Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli.p(args: 1, 'number of threads to use')
@@ -33,6 +33,7 @@ if (opt == null || opt.arguments().size() < 2) {
 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
+def inputDir = opt.arguments()[0]
 
 double percLowOverseq = 0.25, percHighOverseq = 0.10
 int overseqPeakLow = 4, // 16
@@ -45,14 +46,12 @@ def scale = { Integer value ->
     (int) (Math.min(Math.log((double) value) / Math.log(2.0), nBins - 1))
 }
 
-def samples = new File(opt.arguments()[0]).readLines().collect {
+def samples = new File("$inputDir/checkout.filelist.txt").readLines().findAll { !it.startsWith("#") }.collect {
     it.split("\t")
 }
 
-def outputFilePrefix = opt.arguments()[1]
-
-if (new File(outputFilePrefix).parentFile)
-    new File(outputFilePrefix).parentFile.mkdirs()
+def outputDir = opt.arguments()[1]
+new File(outputDir).mkdirs()
 
 def bins = (0..<nBins).collect { (int) Math.pow(2, it) }
 
@@ -62,20 +61,20 @@ def BASE_HEADER = "#SAMPLE_ID\tSAMPLE_TYPE", HEADER = BASE_HEADER + "\t" + bins.
             "OVERSEQ_THRESHOLD\tCOLLISION_THRESHOLD\t" +
             "UMI_QUAL_THRESHOLD\tUMI_LEN"
 
-new File("${outputFilePrefix}.overseq.txt").withPrintWriter { oWriter ->
+new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
     oWriter.println(HEADER)
 
-    new File("${outputFilePrefix}.overseq-units.txt").withPrintWriter { ouWriter ->
+    new File("$outputDir/overseq-units.txt").withPrintWriter { ouWriter ->
         ouWriter.println(HEADER)
 
-        new File("${outputFilePrefix}.collision1.txt").withPrintWriter { cWriter ->
+        new File("$outputDir/collision1.txt").withPrintWriter { cWriter ->
             cWriter.println(HEADER)
 
-            new File("${outputFilePrefix}.collision1-units.txt").withPrintWriter { cuWriter ->
+            new File("$outputDir/collision1-units.txt").withPrintWriter { cuWriter ->
                 cuWriter.println(HEADER)
 
 
-                new File("${outputFilePrefix}.estimates.txt").withPrintWriter { eWriter ->
+                new File("$outputDir/estimates.txt").withPrintWriter { eWriter ->
                     eWriter.println(ESTIMATES_HEADER)
 
                     samples.each { sampleEntry ->

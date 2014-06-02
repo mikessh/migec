@@ -24,22 +24,22 @@ import java.util.concurrent.atomic.AtomicInteger
 //========================
 //          CLI
 //========================
-def DEFAULT_MODE = "1:1", DEFAULT_MIN_COUNT = "10", DEFAULT_PARENT_CHILD_RATIO = "0.1"
-def cli = new CliBuilder(usage: 'Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or -] output_prefix ' +
-        '[assembly_log, to append]')
+def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_MIN_COUNT = "10", DEFAULT_PARENT_CHILD_RATIO = "0.1"
+def cli = new CliBuilder(usage:
+        'Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or -] output_dir/')
 cli.q(args: 1, argName: 'read quality (phred)',
         "barcode region quality threshold. Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
-cli._(longOpt: 'assembly-mode', args: 1, argName: 'X:Y, X=0/1, Y=0/1',
-        "Mask for read(s) in pair that should be assembled. " +
-                "0:0 indicates single read from overlapped paired-end. Default: \"$DEFAULT_MODE\".")
+cli._(longOpt: 'assembly-mask', args: 1, argName: 'X:Y, X=0/1, Y=0/1',
+        "Mask for read(s) in pair that should be assembled. Default: \"$DEFAULT_ASSEMBLE_MASK\".")
 cli.p(args: 1,
         "number of threads to use. Default: all available processors")
 cli.c("compressed output")
-
-cli._(longOpt: 'alignment-file-prefix', args: 1, argName: 'string',
-        "File name prefix to output multiple alignments generated during assembly, for \"com.milaboratory.migec.control.BacktrackSequence\"")
+cli._(longOpt: 'alignment-details',
+        "Output multiple alignments generated during assembly as .asm files, " +
+                "for \"BacktrackSequence\"")
 cli.m(longOpt: 'min-count', args: 1, argName: 'integer',
-        "Min number of reads in MIG. Should be set according to 'Histogram.groovy' output. Default: $DEFAULT_MIN_COUNT")
+        "Minimal number of reads in MIG. Should be set according to 'Histogram.groovy' output. " +
+                "Default: $DEFAULT_MIN_COUNT")
 cli._(longOpt: 'filter-collisions',
         "Collision filtering. Should be set if collisions (1-mismatch erroneous UMI sequence variants) " +
                 "are observed in 'Histogram.groovy' output")
@@ -68,13 +68,30 @@ def scriptName = getClass().canonicalName
 boolean compressed = opt.c, filterCollisions = opt.'filter-collisions'
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
-int minCount = Integer.parseInt(opt."min-count" ?: DEFAULT_MIN_COUNT)
+int minMigSize = Integer.parseInt(opt.'min-count' ?: DEFAULT_MIN_COUNT)
 double collisionRatioThreshold = Double.parseDouble(opt.'collision-ratio' ?: DEFAULT_PARENT_CHILD_RATIO)
 
 // I/O
-def fastq1 = opt.arguments()[0],
-    fastq2 = opt.arguments()[1],
-    outputFilePrefix = opt.arguments()[2]
+def inputFileName1 = opt.arguments()[0],
+    inputFileName2 = opt.arguments()[1],
+    outputDir = opt.arguments()[2],
+    outputFilePrefix1 = '-', outputFilePrefix2 = '-'
+
+if (!(inputFileName1.endsWith(".fastq") || inputFileName1.endsWith(".fastq.gz"))) {
+    println "[ERROR] Bad file extension $inputFileName1. Either .fastq or .fastq.gz should be provided as R1 file."
+    System.exit(-1)
+} else {
+    outputFilePrefix1 = Util.getFastqPrefix(inputFileName1) + ".t" + minMigSize
+}
+
+if (inputFileName2 != "-") {
+    if (!(inputFileName2.endsWith(".fastq") || inputFileName2.endsWith(".fastq.gz"))) {
+        println "[ERROR] Bad file extension $inputFileName2. Either .fastq, .fastq.gz or \'-\' should be provided as R2 file."
+        System.exit(-1)
+    } else {
+        outputFilePrefix2 = Util.getFastqPrefix(inputFileName2) + ".t" + minMigSize
+    }
+}
 
 // Assembly parameters
 def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
@@ -82,25 +99,26 @@ def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
     anchorRegion = Integer.parseInt(opt.'assembly-anchor' ?: '10')
 
 // I/O parameters
-boolean paired = fastq2 != "-"
-def assemblyIndices = paired ? (opt.'assembly-mode' ?: DEFAULT_MODE).split(":").collect { Integer.parseInt(it) > 0 } :
-        [true, false]
-boolean bothReads = assemblyIndices[0] && assemblyIndices[1], overlapped = false
-if (!assemblyIndices.any()) {
-    assemblyIndices[0] = true
-    overlapped = true
+boolean paired = inputFileName2 != "-"
+def assemblyIndices = [true, false]
+boolean bothReads = false
+if (paired) {
+    def assemblyMask = (opt.'assembly-mask' ?: DEFAULT_ASSEMBLE_MASK).toString()
+    if (!["1:0", "0:1", "1:1"].any { it == assemblyMask }) {
+        println "[ERROR] Allowed masks for paired-end mode are 0:1, 1:0 and 1:1"
+        System.exit(-1)
+    }
+    assemblyIndices = (opt.'assembly-mask' ?: DEFAULT_ASSEMBLE_MASK).split(":").collect { Integer.parseInt(it) > 0 }
+    bothReads = assemblyIndices[0] && assemblyIndices[1]
 }
 
-// Misc output
-String alignmentFilePrefix = opt.'alignment-file-prefix'
-String logFileName = opt.arguments().size() > 3 ? opt.arguments()[3] : null
+String outputFileNameNoExt1 = (!paired || assemblyIndices[0]) ? outputFilePrefix1 : outputFilePrefix2,
+       outputFileNameNoExt2 = outputFilePrefix2
 
-if (new File(outputFilePrefix).parentFile)
-    new File(outputFilePrefix).parentFile.mkdirs()
-if (opt.'alignment-file-prefix' && new File(alignmentFilePrefix).parentFile)
-    new File(alignmentFilePrefix).parentFile.mkdirs()
-if (logFileName && new File(logFileName).parentFile)
-    new File(logFileName).parentFile.mkdirs()
+// Misc output
+boolean alignmentDetails = opt.'alignment-details'
+
+new File(outputDir).mkdirs()
 
 //=================================
 //   PRE-LOAD DATA FOR ASSEMBLY
@@ -117,8 +135,8 @@ def putData = { int readId, String umi, String seq ->
 }
 
 int nReads = 0, nGoodReads = 0
-println "[${new Date()} $scriptName] Pre-loading data for $fastq1, $fastq2.."
-def reader1 = Util.getReader(fastq1), reader2 = paired ? Util.getReader(fastq2) : null
+println "[${new Date()} $scriptName] Pre-loading data for $inputFileName1, $inputFileName2.."
+def reader1 = Util.getReader(inputFileName1), reader2 = paired ? Util.getReader(inputFileName2) : null
 String header1, seq1
 String seq2 = ""
 int MIN_READ_SZ = 2 * anchorRegion + 1 + offsetRange
@@ -143,7 +161,7 @@ while ((header1 = reader1.readLine()) != null) {
             if (bothReads)
                 putData(1, umi, seq2)
             else if (assemblyIndices[1])
-                putData(0, umi, seq2) // put all to 1st file if mode=0,1
+                putData(0, umi, seq2) // put all to 1st file if mask=0,1
             nGoodReads++
         }
         if (++nReads % 500000 == 0)
@@ -158,13 +176,11 @@ println "[${new Date()} $scriptName] Processed $nReads reads, " +
 //   PERFORM ASSEMBLY
 //=================================
 def writeQueue = new LinkedBlockingQueue<String[]>(2048)
-def suffix = assemblyIndices[0] ? (overlapped ? "R12" : "R1") : "R2"
-def outputFileName1 = "${outputFilePrefix}_${suffix}.fastq",
-    outputFileName2 = bothReads ? "${outputFilePrefix}_R2.fastq" : "-"
-def writer1 = Util.getWriter(outputFileName1, compressed),
-    writer2 = bothReads ? Util.getWriter(outputFileName2, compressed) : null
-def detailsWriter1 = alignmentFilePrefix ? Util.getWriter("${alignmentFilePrefix}_${suffix}.asm", compressed) : null,
-    detailsWriter2 = bothReads && alignmentFilePrefix ? Util.getWriter("${alignmentFilePrefix}_${suffix}.asm", compressed) : null
+
+def writer1 = Util.getWriter(outputDir + "/" + outputFileNameNoExt1 + ".fastq", compressed),
+    writer2 = bothReads ? Util.getWriter(outputDir + "/" + outputFileNameNoExt2 + ".fastq", compressed) : null
+def detailsWriter1 = alignmentDetails ? Util.getWriter(outputDir + "/" + outputFileNameNoExt1 + ".asm", compressed) : null,
+    detailsWriter2 = bothReads && alignmentDetails ? Util.getWriter(outputDir + "/" + outputFileNameNoExt2 + ".asm", compressed) : null
 
 println "[${new Date()} $scriptName] Starting assembly.."
 def writeThread = new Thread({  // Writing thread, listening to queue
@@ -180,10 +196,10 @@ def writeThread = new Thread({  // Writing thread, listening to queue
         if (bothReads)
             writer2.writeLine(result[1])
 
-        if (alignmentFilePrefix)
+        if (alignmentDetails)
             detailsWriter1.writeLine(result[2])
 
-        if (alignmentFilePrefix && bothReads)
+        if (alignmentDetails && bothReads)
             detailsWriter2.writeLine(result[3])
     }
 
@@ -192,10 +208,10 @@ def writeThread = new Thread({  // Writing thread, listening to queue
     if (bothReads)
         writer2.close()
 
-    if (alignmentFilePrefix)
+    if (alignmentDetails)
         detailsWriter1.close()
 
-    if (alignmentFilePrefix && bothReads)
+    if (alignmentDetails && bothReads)
         detailsWriter2.close()
 } as Runnable)
 writeThread.start()
@@ -267,7 +283,7 @@ GParsPool.withPool THREADS, {
         }
 
         // Do assembly
-        if (noCollision && count >= minCount) {
+        if (noCollision && count >= minMigSize) {
             migsToAssemble.eachWithIndex { Map<String, Integer> mig, int ind ->
                 // Step 1: collect core regions with different offsets to determine most frequent one
                 def coreSeqMap = new HashMap<String, int[]>()
@@ -337,7 +353,7 @@ GParsPool.withPool THREADS, {
                 }
 
                 // Still good?
-                if (count >= minCount) {
+                if (count >= minMigSize) {
                     // Step 3.1: Select region to construct PWM, append reads to PWM
                     int pwmLen = maxY + maxX
                     int[][] pwm = new int[pwmLen][4]
@@ -356,7 +372,7 @@ GParsPool.withPool THREADS, {
                                 pwm[i][Util.nt2code(seqRegion.charAt(i))] += redundancyCount
                         }
 
-                        if (alignmentFilePrefix) // detailes - aligned read
+                        if (alignmentDetails) // detailes - aligned read
                             detailInfo += seqRegion + "\t" + redundancyCount + "\n"
                     }
 
@@ -375,7 +391,7 @@ GParsPool.withPool THREADS, {
                     }
                     assembledReads[ind] = "@MIG UMI:$umi:$count\n${consensus.toString()}\n+\n${qual.toString()}".toString()
 
-                    if (alignmentFilePrefix)
+                    if (alignmentDetails)
                         assembledReads[ind + 2] = detailInfo
 
                     nGoodMigsCurrent[ind] = nGoodMigs[ind].incrementAndGet()
@@ -396,8 +412,8 @@ GParsPool.withPool THREADS, {
         if (nMigsCurrent % 10000 == 0)
             println "[${new Date()} $scriptName] Processed $nMigsCurrent MIGs, $nReadsInMigsCurrent reads total, " +
                     "$nCollisionsCurrent collisions detected, assembled so far: " +
-                    "$suffix ${nGoodMigsCurrent[0]} MIGs, ${nReadsInGoodMigsCurrent[0]} reads" +
-                    (bothReads ? "; R2 ${nGoodMigsCurrent[1]} MIGs, ${nReadsInGoodMigsCurrent[1]} reads" : "") +
+                    "$outputFileNameNoExt1 ${nGoodMigsCurrent[0]} MIGs, ${nReadsInGoodMigsCurrent[0]} reads" +
+                    (bothReads ? "; $outputFileNameNoExt2 ${nGoodMigsCurrent[1]} MIGs, ${nReadsInGoodMigsCurrent[1]} reads" : "") +
                     (bothReads ? "; Overall ${nGoodMigsCurrent[2]} MIGs, ${nReadsInGoodMigsCurrent[2]} reads" : "")
     }
 
@@ -405,26 +421,24 @@ GParsPool.withPool THREADS, {
 
 println "[${new Date()} $scriptName] Processed ${nMigs.get()} MIGs, ${nReadsInMigs.get()} reads total, " +
         "${nCollisions.get()} collisions detected, assembled so far: " +
-        "$suffix ${nGoodMigs[0].get()} MIGs, ${nReadsInGoodMigs[0].get()} reads" +
-        (bothReads ? "; R2 ${nGoodMigs[1].get()} MIGs, ${nReadsInGoodMigs[1].get()} reads" : "") +
+        "$outputFileNameNoExt1 ${nGoodMigs[0].get()} MIGs, ${nReadsInGoodMigs[0].get()} reads" +
+        (bothReads ? "; $outputFileNameNoExt2 ${nGoodMigs[1].get()} MIGs, ${nReadsInGoodMigs[1].get()} reads" : "") +
         (bothReads ? "; Overall ${nGoodMigs[2].get()} MIGs, ${nReadsInGoodMigs[2].get()} reads" : "")
 
 writeQueue.put(new String[0])
 writeThread.join()
 
-if (logFileName != null) {
-    if (!(new File(logFileName).exists())) {
-        new File(logFileName).withPrintWriter { pw ->
-            pw.println("#SAMPLE_ID\tSAMPLE_TYPE\tASSEMBLE_FASTQ1\tASSEMBLE_FASTQ2\tPAIRED_MASK\t" +
-                    "MIG_COUNT_THRESHOLD\tMIGS_TOTAL\tREADS_TOTAL\tMIGS_GOOD\tREADS_GOOD")
-        }
-    }
-    new File(logFileName).withWriterAppend { writer ->
-        writer.println([outputFilePrefix =~ /[^\/]*$/, paired ? "paired" : (overlapped ? "overlapped" : "unpaired"),
-                        outputFileName1, outputFileName2,
-                        assemblyIndices.collect { it ? 0 : 1 }.join(":"),
-                        minCount, nMigs.get(), nReadsInMigs.get(),
-                        nGoodMigs[2].get(), nReadsInGoodMigs[2].get()].join("\t"))
-    }
-}
 println "[${new Date()} $scriptName] Finished"
+
+return [assemblyIndices[0] ? new File(inputFileName1).absolutePath : '-',
+        assemblyIndices[1] ? new File(inputFileName2).absolutePath : '-',
+        assemblyIndices[0] ? new File(outputDir).absolutePath + '/' +
+                outputFilePrefix1 + ".fastq${compressed ? ".gz" : ""}" : '-',
+        assemblyIndices[1] ? new File(outputDir).absolutePath + '/' +
+                outputFilePrefix2 + ".fastq${compressed ? ".gz" : ""}" : '-',
+
+        minMigSize,
+
+        nGoodMigs[0].get(), nGoodMigs[1].get(), nGoodMigs[2].get(), nMigs.get(),
+
+        nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(), nReadsInMigs.get()].join("\t")

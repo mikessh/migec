@@ -59,7 +59,8 @@ new File(inputRawFile).splitEachLine("\t") { line ->
     }
 }
 
-// Set V and J segments for a given CDR3nt as the ones with top count, collapse by CDR3
+// IMPORTANT:
+// Set V and J segments for a given CDR3nt as the ones with top count, i.e. collapse by CDR3
 def cdr2signature = new HashMap<String, String>()
 def cdr2count = new HashMap<String, int[]>()
 println "[${new Date()} $scriptName] Reading assembled clonotypes from $inputUmiFile and filtering"
