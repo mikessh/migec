@@ -18,7 +18,9 @@ package com.milaboratory.migec
 
 def scriptName = getClass().canonicalName
 
-def cli = new CliBuilder(usage: "$scriptName [options] [checkout_dir/ or -] [assemble_dir/ or -] output_dir/")
+def cli = new CliBuilder(usage: "$scriptName [options] [checkout_dir/ or -] [assemble_dir/ or -] output_dir/\n" +
+        "Either --sample-info or --default-chain argument is required. If --sample-info is not provided, " +
+        "CdrBlast will be set based on provided default parameters.")
 cli.p(args: 1, 'number of threads to use')
 cli._(longOpt: 'sample-info', args: 1, argName: 'file name',
         "A tab-delimited file indicating which samples to process and containing 6 columns:" +
@@ -143,6 +145,7 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
         qualityThreshold = splitLine.length > 5 ? (splitLine[5] == '-' ? null : splitLine[5]) : null
 
     qualityThreshold = qualityThreshold ? qualityThreshold.split(",") : null
+    // todo: estimate q threshold by HistQ
 
     if (!Util.SPECIES.any { species == it }) {
         println "[ERROR] Bad species $species in line $line. Supported species are ${Util.SPECIES.join(", ")}"
@@ -195,11 +198,13 @@ logFile.withPrintWriter { pw ->
     // RUN CDRBLAST
     boolean allSegments = opt.'all-segments' ? true : false
     def baseArgs = [["-o"]]
+    if (opt.p)
+        baseArgs = [baseArgs, ["-p", opt.p]]
     if (blastPath)
         baseArgs = [baseArgs, ["--blast-path", blastPath]]
     if (allSegments)
         baseArgs = [baseArgs, ["--all-segments"]]
-    String stats
+    String logLine
     if (processAssembled) {
         if (processBoth)
             println "[${new Date()} $scriptName] Running CdrBlast for raw and assembled data.."
@@ -249,14 +254,14 @@ logFile.withPrintWriter { pw ->
 
             def baseArgs1 = [baseArgs, ["-R", chain], ["-S", species]]
 
-            stats = Util.run(new CdrBlast(), [baseArgs1, ["-a"], ["-q", qualityThreshold[1]],
+            logLine = Util.run(new CdrBlast(), [baseArgs1, ["-a"], ["-q", qualityThreshold[1]],
                                               assemblyFiles, "$outputPath/${sampleId}.asm.cdrblast.txt"].flatten().join(" "))
-            pw.println(sampleId + "\tasm\t" + stats)
+            pw.println("$sampleId\t" + logLine)
 
             if (processBoth) {
-                stats = Util.run(new CdrBlast(), [baseArgs1, ["-q", qualityThreshold[0]],
+                logLine = Util.run(new CdrBlast(), [baseArgs1, ["-q", qualityThreshold[0]],
                                                   rawFiles, "$outputPath/${sampleId}.raw.cdrblast.txt"].flatten().join(" "))
-                pw.println(sampleId + "\traw\t" + stats)
+                pw.println("$sampleId\t" + logLine)
             }
         }
     } else {
@@ -285,9 +290,9 @@ logFile.withPrintWriter { pw ->
                 }
             }
 
-            stats = Util.run(new CdrBlast(), [baseArgs, ["-R", chain], ["-S", species], ["-q", qualityThreshold[0]],
+            logLine = Util.run(new CdrBlast(), [baseArgs, ["-R", chain], ["-S", species], ["-q", qualityThreshold[0]],
                                               rawFiles, "$outputPath/${sampleId}.raw.cdrblast.txt"].flatten().join(" "))
-            pw.println(sampleId + "\traw\t" + stats)
+            pw.println("$sampleId\t" +  logLine)
         }
     }
 }

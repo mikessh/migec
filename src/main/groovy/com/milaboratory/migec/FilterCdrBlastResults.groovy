@@ -24,6 +24,9 @@ cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that hav
 cli.s("Include clonotypes that are represented by single events (have only one associated MIG)")
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
+cli._(longOpt: 'log-file', args: 1, argName: 'file name', "File to output cdr extraction log")
+cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
+cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
@@ -35,10 +38,15 @@ if (opt == null || opt.arguments().size() < 3) {
 def scriptName = getClass().canonicalName
 def readAccumulationThreshold = Double.parseDouble(opt.r ?: R_A_T)
 def filterUnits = !opt.s, filterNonFunctional = !opt.n, includeNonCanonical = opt.c
-def inputUmiFile = opt.arguments()[0], inputRawFile = opt.arguments()[1], outputFile = opt.arguments()[2]
+def asmInputFileName = opt.arguments()[0], rawInputFileName = opt.arguments()[1], outputFileName = opt.arguments()[2]
 
-if (new File(outputFile).parentFile)
-    new File(outputFile).parentFile.mkdirs()
+// LOGGING
+String logFileName = opt.'log-file' ?: null
+boolean overwriteLog = opt.'log-overwrite'
+String sampleName = opt.'log-sample-name' ?: "N/A"
+
+if (new File(outputFileName).parentFile)
+    new File(outputFileName).parentFile.mkdirs()
 
 int NT_SEQ_COL = 2, AA_SEQ_COL = 3,
     READ_COUNT_COL = 13, READ_TOTAL_COL = 14, EVENT_COUNT_COL = 11, EVENT_TOTAL_COL = 12,
@@ -46,8 +54,8 @@ int NT_SEQ_COL = 2, AA_SEQ_COL = 3,
 def rawReadCounts = new HashMap<String, Integer>()
 def totalRawReads = 0, totalConsensusReads = 0
 int n = 0
-println "[${new Date()} $scriptName] Reading raw clonotypes from $inputRawFile.."
-new File(inputRawFile).splitEachLine("\t") { line ->
+println "[${new Date()} $scriptName] Reading raw clonotypes from $rawInputFileName.."
+new File(rawInputFileName).splitEachLine("\t") { line ->
     if (line[0].isInteger()) {
         if (!filterNonFunctional || line[AA_SEQ_COL].matches("[a-zA-Z]+"))
             rawReadCounts.put(line[NT_SEQ_COL], (rawReadCounts[line[NT_SEQ_COL]] ?: 0) +
@@ -63,9 +71,9 @@ new File(inputRawFile).splitEachLine("\t") { line ->
 // Set V and J segments for a given CDR3nt as the ones with top count, i.e. collapse by CDR3
 def cdr2signature = new HashMap<String, String>()
 def cdr2count = new HashMap<String, int[]>()
-println "[${new Date()} $scriptName] Reading assembled clonotypes from $inputUmiFile and filtering"
+println "[${new Date()} $scriptName] Reading assembled clonotypes from $asmInputFileName and filtering"
 n = 0
-new File(inputUmiFile).splitEachLine("\t") { line ->
+new File(asmInputFileName).splitEachLine("\t") { line ->
     if (line[0].isInteger()) {
         String cdrSeq = line[NT_SEQ_COL]
         def signature = cdr2signature[cdrSeq]
@@ -99,12 +107,17 @@ int totalUnits = 0
 // Filter: at least 1 good event & read accumulation > 100% (by default)
 def passFilter = { counters, rawReads ->
     (!filterUnits || counters[0] > 1) &&
-            (rawReads == null ||
+            (rawReads == null || // also output all clonotypes not detected in raw data, e.g. not extracted due to errors
                     (rawReads != null &&
                             counters[2] > readAccumulationThreshold *
                             rawReads * totalConsensusReads / totalRawReads))
 }
-new File(outputFile).withPrintWriter { pw ->
+
+int readsTotal = 0, readsFiltered = 0, eventsTotal = 0, eventsFiltered = 0
+
+def outputFile = new File(outputFileName)
+
+outputFile.withPrintWriter { pw ->
     pw.println("Count\tPercentage\t" +
             "CDR3 nucleotide sequence\tCDR3 amino acid sequence\t" +
             "V segments\tJ segments\tD segments\t" +
@@ -125,7 +138,38 @@ new File(outputFile).withPrintWriter { pw ->
         def counters = it.value, rawReads = rawReadCounts[it.key]
         if (passFilter(counters, rawReads))
             pw.println(counters[0] + "\t" + (counters[0] / totalUnits) + "\t" + signature)
+        else {
+            readsFiltered += counters[2]
+            eventsFiltered += counters[0]
+        }
+        readsTotal += counters[2]
+        eventsTotal += counters[0]
     }
 }
 
-println "[${new Date()} $scriptName] Finished"
+println "[${new Date()} $scriptName] Finished, ${Util.getPercent(eventsFiltered, eventsTotal)} events and " +
+        "${Util.getPercent(readsFiltered, readsTotal)} reads filtered"
+
+// Append to log and report to batch runner
+def logLine = [outputFile.absolutePath, rawInputFileName, asmInputFileName,
+               eventsFiltered, eventsTotal, readsFiltered, readsTotal].join("\t")
+
+if (logFileName) {
+    def logFile = new File(logFileName)
+
+    if (logFile.exists()) {
+        if (overwriteLog)
+            logFile.delete()
+    } else {
+        logFile.absoluteFile.parentFile.mkdirs()
+        logFile.withPrintWriter { pw ->
+            pw.println(Util.CDRBLASTFILTER_LOG_HEADER)
+        }
+    }
+
+    logFile.withWriterAppend { logWriter ->
+        logWriter.println("$sampleName\t" + logLine)
+    }
+}
+
+return logLine

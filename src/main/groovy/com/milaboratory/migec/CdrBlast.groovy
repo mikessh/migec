@@ -23,7 +23,7 @@ import java.util.zip.GZIPOutputStream
 //   CLI   //
 ////////////
 def cli = new CliBuilder(usage: 'CdrBlast [options] reads1.fastq[.gz] [reads2.fastq[.gz] ...] output_file\n' +
-        'NOTE: NCBI-BLAST+ package required, try \'$sudo apt-get install ncbi-blast+\'')
+        'NOTE: NCBI-BLAST+ package required')
 cli.h('usage')
 cli.R(args: 1, argName: '\'TRA\', \'TRB\', \'TRG\', \'TRD\',  \'IGL\', \'IGK\' or \'IGH\'', 'Receptor chain [required]')
 cli.S(args: 1, argName: '\'human\' or \'mouse\'', 'Species [default=human]')
@@ -848,7 +848,8 @@ if (!DEBUG)
     TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
 
 // Append to log and report to batch runner
-def logLine = [goodEvents, mappedEvents, totalEvents, goodReads, mappedReads, totalReads].join("\t")
+def logLine = [(assembledInput ? "asm" : "raw"), outputFile.absolutePath, inputFileNames.join(","),
+               goodEvents, mappedEvents, totalEvents, goodReads, mappedReads, totalReads].join("\t")
 
 if (logFileName) {
     def logFile = new File(logFileName)
@@ -864,7 +865,7 @@ if (logFileName) {
     }
 
     logFile.withWriterAppend { logWriter ->
-        logWriter.println("$sampleName\t" + (assembledInput ? "asm\t" : "raw\t") + logLine)
+        logWriter.println("$sampleName\t" + logLine)
     }
 }
 
