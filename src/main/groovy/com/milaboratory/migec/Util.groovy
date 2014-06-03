@@ -40,6 +40,7 @@ class Util {
 
     static final String CDRBLASTFILTER_LOG_HEADER =
             "#SAMPLE_ID\tOUTPUT_FILE\tINPUT_RAW\tINPUT_ASM\t" +
+                    "CLONOTYPES_FILTERED\tCLONOTYPES_TOTAL\t" +
                     "EVENTS_FILTERED\tEVENTS_TOTAL\t" +
                     "READS_FILTERED\tREADS_TOTAL"
 

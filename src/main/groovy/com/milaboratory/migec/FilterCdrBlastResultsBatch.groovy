@@ -21,6 +21,7 @@ def scriptName = getClass().canonicalName
 def cli = new CliBuilder(usage: "$scriptName [options] cdrblast_dir/ output_dir/")
 cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
+cli._(longOpt: 'collapse', "Collapse by clonotypes CDR3 and use top V and J chains")
 cli.s("Include clonotypes that are represented by single events (have only one associated MIG)")
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
@@ -40,6 +41,8 @@ if (opt.n)
     baseArgs = [baseArgs, ["-n"]]
 if (opt.c)
     baseArgs = [baseArgs, ["-c"]]
+if (opt.'collapse')
+    baseArgs = [baseArgs, ["--collapse"]]
 
 String inputDir = opt.arguments()[0], outputDir = opt.arguments()[1]
 
@@ -72,8 +75,8 @@ cdrBlastBatchFile.splitEachLine("\t") { splitLine ->
     }
 }
 
-def onlyInRaw = rawSampleMap.entrySet().findAll { !assembledSampleMap[it] },
-    onlyInAssembled = assembledSampleMap.entrySet().findAll { !rawSampleMap[it] }
+def onlyInRaw = rawSampleMap.keySet().findAll { !assembledSampleMap[it] },
+    onlyInAssembled = assembledSampleMap.keySet().findAll { !rawSampleMap[it] }
 
 if (onlyInRaw.size() > 0) {
     println "[WARNING] The following samples have only raw data analyzed by CdrBlast and will be skipped: " +
