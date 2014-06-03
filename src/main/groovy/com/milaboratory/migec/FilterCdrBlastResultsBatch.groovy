@@ -22,6 +22,7 @@ def cli = new CliBuilder(usage: "$scriptName [options] cdrblast_dir/ output_dir/
 cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
 cli._(longOpt: 'collapse', "Collapse by clonotypes CDR3 and use top V and J chains")
+cli.p(args: 1, "number of threads to use. Default: all available processors")
 cli.s("Include clonotypes that are represented by single events (have only one associated MIG)")
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
@@ -41,6 +42,8 @@ if (opt.n)
     baseArgs = [baseArgs, ["-n"]]
 if (opt.c)
     baseArgs = [baseArgs, ["-c"]]
+if (opt.p)
+    baseArgs = [baseArgs, ["-p", opt.p.toString()]]
 if (opt.'collapse')
     baseArgs = [baseArgs, ["--collapse"]]
 

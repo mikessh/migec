@@ -16,6 +16,11 @@
 
 package com.milaboratory.migec
 
+import groovyx.gpars.GParsPool
+
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+
 def R_A_T = "1.0"
 def cli = new CliBuilder(usage:
         'FilterCdrBlastResults [options] inputAssembledResult inputRawResult outputResult')
@@ -24,6 +29,7 @@ cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that hav
 cli.s("Include clonotypes that are represented by single events (have only one associated MIG)")
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
+cli.p(args: 1, "number of threads to use. Default: all available processors")
 cli._(longOpt: 'collapse', "Collapse by clonotypes CDR3 and use top V and J chains")
 cli._(longOpt: 'log-file', args: 1, argName: 'file name', "File to output cdr extraction log")
 cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
@@ -35,6 +41,10 @@ if (opt == null || opt.arguments().size() < 3) {
     cli.usage()
     System.exit(-1)
 }
+
+int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
+
+double unitFilterRatio1mm = 20, unitFilterRatio2mm = unitFilterRatio1mm * unitFilterRatio1mm
 
 boolean collapse = opt.'collapse'
 
@@ -114,10 +124,68 @@ new File(asmInputFileName).splitEachLine("\t") { splitLine ->
 }
 
 println "[${new Date()} $scriptName] Filtering.."
-int totalUnits = 0
+
 // Filter: at least 1 good event & read accumulation > 100% (by default)
-def passFilter = { counters, rawReads ->
-    (!filterUnits || counters[0] > 1) &&
+def passFilter = { String cdrKey, int[] counters, Integer rawReads ->
+    boolean unitFilterPassed = true
+
+    if (filterUnits && counters[0] == 1) {
+        def splitSignature = cdrKey.split("\t")
+        def cdrSeq = cdrKey[0], vdjString = collapse ? "" : splitSignature[1..3].join("\t")
+
+        // A standard hash-based 1-loop single-mm search..
+        final char[] charArray = cdrSeq.toCharArray()
+        char oldChar, oldChar2, nt, nt2
+        String otherSeq
+        int[] otherCounters
+        for (int i = 0; i < charArray.length; i++) {
+            oldChar = charArray[i]
+            for (int j = 0; j < 4; j++) {
+                nt = Util.code2nt(j)
+                if (nt != oldChar) {
+                    charArray[i] = nt
+                    otherSeq = collapse ? new String(charArray) :
+                            new String(charArray) + "\t" + vdjString
+
+                    otherCounters = cdr2count[otherSeq]
+
+                    if (otherCounters &&
+                            otherCounters[2] > unitFilterRatio1mm * counters[2]) {
+                        unitFilterPassed = false
+                        break
+                    }
+
+                    // Embedded 2nd mm search
+                    for (int k = i + 1; k < charArray.length; k++) {
+                        oldChar2 = charArray[k]
+                        for (int l = 0; l < 4; l++) {
+                            nt2 = Util.code2nt(l)
+                            if (nt2 != oldChar2) {
+                                otherSeq = collapse ? new String(charArray) :
+                                        new String(charArray) + "\t" + vdjString
+
+                                otherCounters = cdr2count[otherSeq]
+                                if (otherCounters &&
+                                        otherCounters[2] > unitFilterRatio2mm * counters[2]) {
+                                    unitFilterPassed = false
+                                    break
+                                }
+                            }
+                        }
+                        charArray[k] = oldChar2
+
+                        if (!unitFilterPassed)
+                            break
+                    }
+                }
+                if (!unitFilterPassed)
+                    break
+            }
+            charArray[i] = oldChar
+        }
+    }
+
+    unitFilterPassed &&
             (rawReads == null || // also output all clonotypes not detected in raw data, e.g. not extracted due to errors
                     (rawReads != null &&
                             counters[2] > readAccumulationThreshold *
@@ -128,6 +196,8 @@ int readsTotal = 0, readsFiltered = 0, eventsTotal = 0, eventsFiltered = 0, clon
 
 def outputFile = new File(outputFileName)
 
+def filter = Collections.newSetFromMap(new ConcurrentHashMap())
+def totalUnits = new AtomicInteger()
 outputFile.withPrintWriter { pw ->
     pw.println("Count\tPercentage\t" +
             "CDR3 nucleotide sequence\tCDR3 amino acid sequence\t" +
@@ -137,18 +207,25 @@ outputFile.withPrintWriter { pw ->
             "First J nucleotide position\t" +
             "Good events\tTotal events\tGood reads\tTotal reads")
 
-    // 1st pass - compute total
-    cdr2count.each {
-        def counters = it.value, rawReads = rawReadCounts[it.key]
-        if (passFilter(counters, rawReads))
-            totalUnits += counters[0]
+    // 1st pass - compute total and filter
+    GParsPool.withPool THREADS, {
+        cdr2count.eachParallel {
+            def cdrKey = it.key
+            def counters = it.value, rawReads = rawReadCounts[it.key]
+            if (passFilter(cdrKey, counters, rawReads)) {
+                filter.add(cdrKey)
+                totalUnits.addAndGet(counters[0])
+            }
+        }
     }
 
+    // 2nd pass - output and record statistics
     cdr2count.sort { -it.value[0] }.each {
-        def signature = cdr2signature[it.key].split("\t")[1..-1].join("\t") // omit counter
-        def counters = it.value, rawReads = rawReadCounts[it.key]
-        if (passFilter(counters, rawReads))
-            pw.println(counters[0] + "\t" + (counters[0] / totalUnits) + "\t" + signature)
+        def cdrKey = it.key
+        def signature = cdr2signature[cdrKey].split("\t")[1..-1].join("\t") // omit counter
+        def counters = it.value
+        if (filter.contains(cdrKey))
+            pw.println(counters[0] + "\t" + (counters[0] / (double) totalUnits.get()) + "\t" + signature)
         else {
             readsFiltered += counters[2]
             eventsFiltered += counters[0]
