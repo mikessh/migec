@@ -22,11 +22,11 @@ import java.util.zip.GZIPOutputStream
 //////////////
 //   CLI   //
 ////////////
-def cli = new CliBuilder(usage: 'CdrBlast [options] reads.fastq[.gz] output_file\n' +
+def cli = new CliBuilder(usage: 'CdrBlast [options] reads1.fastq[.gz] [reads2.fastq[.gz] ...] output_file\n' +
         'NOTE: NCBI-BLAST+ package required, try \'$sudo apt-get install ncbi-blast+\'')
 cli.h('usage')
-cli.C(args: 1, argName: '\'TRA\', \'TRB\', \'TRG\', \'TRD\',  \'IGL\', \'IGK\' or \'IGH\'', 'Receptor chain [required]')
-cli.S(args: 1, argName: '\'HomoSapines\' or \'MusMusculus\'', 'Species [default=HomoSapiens]')
+cli.R(args: 1, argName: '\'TRA\', \'TRB\', \'TRG\', \'TRD\',  \'IGL\', \'IGK\' or \'IGH\'', 'Receptor chain [required]')
+cli.S(args: 1, argName: '\'human\' or \'mouse\'', 'Species [default=human]')
 cli.a('Input data is assembled consensuses set, not reads. ' +
         'The read header must contain \'UMI:NNNNNNNNNNNN:COUNT\' entry.')
 cli.q(args: 1, argName: 'minimum quality [phred]',
@@ -35,51 +35,79 @@ cli.q(args: 1, argName: 'minimum quality [phred]',
 cli.p(args: 1, 'number of threads to use [default = all available processors]')
 cli.o('sort output [default=false]')
 cli.N(args: 1, 'number of reads to take')
+cli._(args: 1, longOpt: 'blast-path', 'Path to blast executable.')
 cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
 cli._(longOpt: 'debug', 'Prints out alignment details, stores all temporary alignment files.')
 cli._(args: 1, longOpt: 'cdr3-fastq-file', 'Store reads with CDR3 extracted with CDR3 data in header. ' +
         'Needed for \'com.milaboratory.migec.post.GroupByCdr\' script.')
+cli._(longOpt: 'log-file', args: 1, argName: 'fileName', "File to output cdr extraction log")
+cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
+cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
 
 def opt = cli.parse(args)
 
-if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.C) {
+if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.R) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
 }
 
+def blastPath = opt.'blast-path' ?: ""
+blastPath = blastPath.length() > 0 ? blastPath + "/" : ""
+
 // System
 def DEBUG = opt.'debug',
     THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors(),
-    SCRIPT_NAME = getClass().canonicalName,
-    SCRIPT_PATH = new File(getClass().protectionDomain.codeSource.location.path).parent.replaceAll("%20", " ")
+    SCRIPT_NAME = getClass().canonicalName
 
 def timestamp = {
     "[${new Date()} $SCRIPT_NAME]"
 }
 
+String logFileName = opt.'log-file' ?: null
+boolean overwriteLog = opt.'log-overwrite'
+String sampleName = opt.'log-sample-name' ?: "N/A"
+
 // Check for BLAST installation
 try {
-    ["convert2blastmask", "makeblastdb", "blastn"].each { it.execute().waitFor() }
+    ["${blastPath}convert2blastmask", "${blastPath}makeblastdb", "${blastPath}blastn"].each { it.execute().waitFor() }
 } catch (IOException e) {
     println "[ERROR] Problems with BLAST installation. " + e.message
     System.exit(-1)
 }
 
 // Parameters
-def cdr3FastqFile = opt.'cdr3-fastq-file',
-    allSegments = opt.'all-segments',
-    assembledInput = opt.a,
-    doSort = opt.o,
-    qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
-    chain = opt.C, species = opt.S ?: "HomoSapiens",
+def cdr3FastqFile = opt.'cdr3-fastq-file'
+
+boolean allSegments = opt.'all-segments',
+        assembledInput = opt.a,
+        doSort = opt.o
+
+int qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
     nReads = Integer.parseInt(opt.N ?: "-1")
 
-def inputFileName = opt.arguments()[0],
-    outputFileName = opt.arguments()[1],
+String chain = opt.R, species = opt.S ?: "HomoSapiens"
+
+if (!chain) {
+    println "[ERROR] Chain argument is required for CdrBlast"
+    System.exit(-1)
+}
+chain = chain.toString().toUpperCase()
+if (!Util.CHAINS.any { it == chain }) {
+    println "[ERROR] Bad chain $chain. Allowed chains: ${Util.CHAINS}"
+    System.exit(-1)
+}
+
+if (species.toLowerCase() == "human")
+    species = "HomoSapiens"
+else if (species.toLowerCase() == "mouse")
+    species = "MusMusculus"
+
+def inputFileNames = opt.arguments()[0..-2].collect { it.toString() },
+    outputFileName = opt.arguments()[-1].toString(),
     segmentsFileName = allSegments ? "segments_all.txt" : "segments.txt"
 
-def TMP_FOLDER = new File(inputFileName).absolutePath + "-cdrblast-" + UUID.randomUUID().toString()
+def TMP_FOLDER = new File(inputFileNames[0]).absolutePath + "-cdrblast-" + UUID.randomUUID().toString()
 
 def TMP_FOLDER_FILE = new File(TMP_FOLDER)
 TMP_FOLDER_FILE.mkdirs()
@@ -161,7 +189,7 @@ def segments = new HashMap<String, Segment>(), alleles = new HashMap<String, All
 def vAlleles = new ArrayList<Allele>(), jAlleles = new ArrayList<Allele>()
 def collapseAlleleMap = new HashMap<String, Allele>()
 
-def resFile = new InputStreamReader(this.class.classLoader.getResourceAsStream(segmentsFileName))
+def resFile = new InputStreamReader(Migec.class.classLoader.getResourceAsStream(segmentsFileName))
 
 resFile.splitEachLine("\t") {
     if (species == it[0] && chain == it[1]) { // Take only alleles of a given chain and species
@@ -228,10 +256,10 @@ collapseAlleleMap.values().each {
         }
     }
 
-    ("convert2blastmask -in $TMP_FOLDER/${chain}_${seg}.fa -out $TMP_FOLDER/${chain}_${seg}.msk " +
+    ("${blastPath}convert2blastmask -in $TMP_FOLDER/${chain}_${seg}.fa -out $TMP_FOLDER/${chain}_${seg}.msk " +
             "-masking_algorithm 'CDRBLAST' -masking_options 'NA'").execute().waitFor()
 
-    ("makeblastdb -in $TMP_FOLDER/${chain}_${seg}.fa -mask_data $TMP_FOLDER/${chain}_${seg}.msk " +
+    ("${blastPath}makeblastdb -in $TMP_FOLDER/${chain}_${seg}.fa -mask_data $TMP_FOLDER/${chain}_${seg}.msk " +
             "-dbtype nucl -out $TMP_FOLDER/${chain}_${seg}").execute().waitFor()
 }
 
@@ -239,33 +267,34 @@ collapseAlleleMap.values().each {
 // Stage I: blast for unique sequences. Here we ONLY determine V and J segment presence and their IDs //
 // seqSet (unique sequences) -> blast mapping data (unique sequence + V and J mapping)               //
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-println "${timestamp()} Reading $inputFileName and generating list of unique sequences to map V and J genes"
-def reader = getReader(inputFileName)
 def seqMap = new HashMap<String, Integer>(), seqList = new ArrayList<String>()
 int counter = 0, uniqueCounter = 0
-String header
-while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
-    if (assembledInput && !header.contains("UMI:")) {
-        println "[${new Date()} $SCRIPT_NAME] ERROR: Assembled input specified, but no UMI field in header"
-        System.exit(-1)
-    }
+inputFileNames.each { inputFileName ->
+    println "${timestamp()} Reading $inputFileName and generating list of unique sequences to map V and J genes"
+    def reader = getReader(inputFileName)
+    String header
+    while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
+        if (assembledInput && !header.contains("UMI:")) {
+            println "[${new Date()} $SCRIPT_NAME] ERROR: Assembled input specified, but no UMI field in header"
+            System.exit(-1)
+        }
 
-    def seq = reader.readLine()
-    if (!seqMap.containsKey(seq)) {
-        seqMap.put(seq, uniqueCounter) // build a set of unique sequences to reduce the amount of data
-        seqList.add(seq)
-        uniqueCounter++
-    }
-    counter++
-    reader.readLine()
-    reader.readLine()
+        def seq = reader.readLine()
+        if (!seqMap.containsKey(seq)) {
+            seqMap.put(seq, uniqueCounter) // build a set of unique sequences to reduce the amount of data
+            seqList.add(seq)
+            uniqueCounter++
+        }
+        counter++
+        reader.readLine()
+        reader.readLine()
 
-    if (counter % 1000000 == 0)
-        println "${timestamp()} $counter reads processed, $uniqueCounter unique"
+        if (counter % 1000000 == 0)
+            println "${timestamp()} $counter reads processed, $uniqueCounter unique"
+    }
 }
 
-def cf = new File(inputFileName)
-def queryFilePrefix = cf.absoluteFile.parent + "/tmp_" + cf.name.split(".fastq")[0]
+def queryFilePrefix = TMP_FOLDER + "/" + Util.getFastqPrefix(inputFileNames[0])
 println "[${new Date()} $SCRIPT_NAME] Making a temporary FASTA file for BLAST queries"
 int chunk_sz = seqList.size() / THREADS
 for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
@@ -279,16 +308,6 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
         file.deleteOnExit()
 }
 
-// Fixed
-//def blastShell = new File("$TMP_FOLDER/runblast.sh")
-//blastShell.withPrintWriter { pw ->
-//    pw.println("blastn -query \$1 $BLAST_FLAGS -gapopen $GAP_OPEN -gapextend $GAP_EXTEND " +
-//            "-word_size $WORD_SIZE -reward $REWARD -penalty $PENALTY -db \$2 " +
-//            "-outfmt \"6 qseqid sseqid qstart qend sstart send qseq sseq nident\" -max_target_seqs $TOP_SEQS -out \$3")
-//}
-//if (!DEBUG)
-//    blastShell.deleteOnExit()
-
 ["V", "J"].each { seg -> // run blast for v and j segments separately
     println "${timestamp()} Pre-aligning $chain $seg segment with BLAST <$THREADS threads>"
     (0..(THREADS - 1)).collect { p ->
@@ -297,7 +316,7 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
             new File(blastOutFname).deleteOnExit()
 
         // A trick to pass -outfmt argument correctly
-        def blastCmd = ["blastn",
+        def blastCmd = ["${blastPath}blastn",
                         "-query", "${queryFilePrefix}_${p}.fa",
                         BLAST_FLAGS.split(" "),
                         "-gapopen", "$GAP_OPEN", "-gapextend", "$GAP_EXTEND",
@@ -683,58 +702,60 @@ if (DEBUG) {
 ////////////////////////////////
 counter = 0
 int goodReads = 0, goodEvents = 0, mappedReads = 0, mappedEvents = 0, totalReads = 0, totalEvents = 0
-println "${timestamp()} Appending read data"
-reader = getReader(inputFileName)
 def writer = cdr3FastqFile ? getWriter(cdr3FastqFile) : null
-new File(outputFileName + ".bad").withPrintWriter { pw ->
-    while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
-        def seq = reader.readLine()
-        reader.readLine()
-        def qual = reader.readLine(), oldQual = qual
-        int id = seqMap[seq]  // get unique read sequence identifier
-        def clonotypeData = readId2ClonotypeData[id] // corresponding CDR3 extraction result
+inputFileNames.each { inputFileName ->
+    println "${timestamp()} Appending read data from $inputFileName"
+    def reader = getReader(inputFileName)
+    new File(outputFileName + ".bad").withPrintWriter { pw ->
+        while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
+            def seq = reader.readLine()
+            reader.readLine()
+            def qual = reader.readLine(), oldQual = qual
+            int id = seqMap[seq]  // get unique read sequence identifier
+            def clonotypeData = readId2ClonotypeData[id] // corresponding CDR3 extraction result
 
-        int increment = 1
+            int increment = 1
 
-        if (assembledInput) {
-            def splitHeader = header.split("[@ ]")
-            increment = Integer.parseInt(splitHeader.find { it.startsWith("UMI") }.split(":")[2])
-        }
-
-        // Has CDR3
-        if (clonotypeData != null) {
-            if (clonotypeData.rc) // found in RC
-                qual = qual.reverse()
-
-            qual = qual.substring(clonotypeData.cdrFrom, clonotypeData.cdrTo)
-
-            // Increment counters if quality is good
-            if (qual.toCharArray().collect { char2qual(it) }.min() >= qualThreshold) {
-                clonotypeData.counts[0]++
-                goodEvents++
-                clonotypeData.counts[2] += increment
-                goodReads += increment
-
-                if (cdr3FastqFile)
-                    writer.writeLine(header + " CDR3:" + clonotypeData.cdr3Seq + ":" +
-                            clonotypeData.cdrFrom + "\n" + seq + "\n+\n" + oldQual)
+            if (assembledInput) {
+                def splitHeader = header.split("[@ ]")
+                increment = Integer.parseInt(splitHeader.find { it.startsWith("UMI") }.split(":")[2])
             }
 
-            // Total (good+bad) for cases in which CDR3 was extracted
-            clonotypeData.counts[1]++
-            mappedEvents++
-            clonotypeData.counts[3] += increment
-            mappedReads += increment
-        } else if (DEBUG)
-            pw.println(header + "\n" + seq + "\n+\n" + qual)
+            // Has CDR3
+            if (clonotypeData != null) {
+                if (clonotypeData.rc) // found in RC
+                    qual = qual.reverse()
 
-        // Total, including cases when CDR3 was not extracted
-        totalEvents++
-        totalReads += increment
-        counter++
+                qual = qual.substring(clonotypeData.cdrFrom, clonotypeData.cdrTo)
 
-        if (counter % 1000000 == 0)
-            println "[${new Date()} $SCRIPT_NAME] $counter reads processed"
+                // Increment counters if quality is good
+                if (qual.toCharArray().collect { char2qual(it) }.min() >= qualThreshold) {
+                    clonotypeData.counts[0]++
+                    goodEvents++
+                    clonotypeData.counts[2] += increment
+                    goodReads += increment
+
+                    if (cdr3FastqFile)
+                        writer.writeLine(header + " CDR3:" + clonotypeData.cdr3Seq + ":" +
+                                clonotypeData.cdrFrom + "\n" + seq + "\n+\n" + oldQual)
+                }
+
+                // Total (good+bad) for cases in which CDR3 was extracted
+                clonotypeData.counts[1]++
+                mappedEvents++
+                clonotypeData.counts[3] += increment
+                mappedReads += increment
+            } else if (DEBUG)
+                pw.println(header + "\n" + seq + "\n+\n" + qual)
+
+            // Total, including cases when CDR3 was not extracted
+            totalEvents++
+            totalReads += increment
+            counter++
+
+            if (counter % 1000000 == 0)
+                println "[${new Date()} $SCRIPT_NAME] $counter reads processed"
+        }
     }
 }
 if (cdr3FastqFile)
@@ -811,3 +832,25 @@ outputFile.withPrintWriter { pw ->
 // Those were created by blast and have to be removed manually
 if (!DEBUG)
     TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
+
+def logLine = [sampleName, goodEvents, mappedEvents, totalEvents, goodReads, mappedReads, totalReads].join("\t")
+
+if (logFileName) {
+    def logFile = new File(logFileName)
+
+    if (logFile.exists()) {
+        if (overwriteLog)
+            logFile.delete()
+    } else {
+        logFile.absoluteFile.parentFile.mkdirs()
+        logFile.withPrintWriter { pw ->
+            pw.println(Util.CDRBLAST_LOG_HEADER)
+        }
+    }
+
+    logFile.withWriterAppend { logWriter ->
+        logWriter.println("$sampleName\t" + (assembledInput ? "asm\t" : "raw\t") + logLine)
+    }
+}
+
+return logLine

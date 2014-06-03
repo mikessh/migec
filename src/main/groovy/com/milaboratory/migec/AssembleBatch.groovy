@@ -19,6 +19,7 @@ package com.milaboratory.migec
 def DEFAULT_ASSEMBLE_MASK = "1:1"
 def cli = new CliBuilder(usage: 'AssembleBatch [options] checkout_dir/ histogram_dir/ output_dir/')
 cli.p(args: 1, 'number of threads to use')
+cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-info")
 cli._(longOpt: 'sample-list', args: 1, argName: 'file name',
         "A tab-delimited file indicating which samples to process and containing three columns:\n" +
                 "file_name (tab) file_type (tab) mask\n" +
@@ -41,15 +42,27 @@ if (opt == null || opt.arguments().size() < 3) {
 def checkoutDir = opt.arguments()[0], histogramDir = opt.arguments()[1],
     outputPath = opt.arguments()[2]
 
+def defaultMask = opt.'default-mask' ?: DEFAULT_ASSEMBLE_MASK
+
+def checkoutSampleListFile = new File(checkoutDir + "/checkout.filelist.txt")
+if (!checkoutSampleListFile.exists()) {
+    println "[ERROR] Sample list (checkout.filelist.txt) absent in Checkout folder $checkoutDir"
+    System.exit(-1)
+}
+def histogramEstimatesFile = new File(histogramDir + "/estimates.txt")
+if (!histogramEstimatesFile.exists()) {
+    println "[ERROR] Histogram output (estimates.txt) absent in Histogram folder $histogramDir"
+    System.exit(-1)
+}
+
 new File(outputPath).mkdirs()
 
 // Read filter
 Map sampleFilter = null
 String sampleFilterFileName = opt.'sample-list' ?: null
-def allowedMasksPaired = ["1:0", "0:1", "1:1"], allowedSampleTypes = ["paired", "unpaired", "overlapped"]
 
 // File names from Checkout output
-def sampleFileNamesMap = new File(checkoutDir + "/checkout.filelist.txt").readLines().findAll {
+def sampleFileNamesMap = checkoutSampleListFile.readLines().findAll {
     !it.startsWith("#")   // no headers
 }.collectEntries {
     def splitLine = it.split('\t')
@@ -65,7 +78,7 @@ if (sampleFilterFileName) {
             def sampleName = splitLine[0], sampleType = splitLine[1].toLowerCase(),
                 sampleKey = "$sampleName\t$sampleType".toString()
 
-            if (!allowedSampleTypes.contains(sampleType)) {
+            if (!Util.FILE_TYPES.any { sampleType == it }) {
                 println "[ERROR] Bad sample type $sampleType"
                 System.exit(-1)
             }
@@ -76,13 +89,12 @@ if (sampleFilterFileName) {
                 System.exit(-1)
             }
 
-            def sampleMask = splitLine.size() > 2 ? splitLine[2] : DEFAULT_ASSEMBLE_MASK
+            def sampleMask = splitLine.size() > 2 ? splitLine[2] : defaultMask
+            sampleMask = sampleMask
 
-            if (sampleType.toUpperCase() == "paired" && !allowedMasksPaired.contains(sampleMask)) {
-                if (!allowedMasksPaired.any { it == sampleMask }) {
-                    println "[ERROR] Bad assembly mask $sampleMask for paired reads. " +
-                            "Allowed values: ${allowedMasksPaired.collect()}"
-                }
+            if (sampleType.toUpperCase() == "paired" && !Util.MASKS.contains(sampleMask)) {
+                println "[ERROR] Bad assembly mask $sampleMask for paired reads. " +
+                        "Allowed values: ${Util.MASKS.collect().join(", ")}"
             }
 
             sampleFilter.put("$sampleName\t$sampleType".toString(), sampleMask)
@@ -101,25 +113,24 @@ double collisionFactorThreshold = 0.05
 def logFile = new File(outputPath + "/assemble.log.txt")
 if (logFile.exists())
     logFile.delete()
+else
+    logFile.absoluteFile.parentFile.mkdirs()
 
 logFile.withPrintWriter { pw ->
-    pw.println("#SAMPLE_ID\tSAMPLE_TYPE\tINPUT_FASTQ1\tINPUT_FASTQ2\tOUTPUT_ASSEMBLY1\tOUTPUT_ASSEMBLY2\t" +
-            "MIG_COUNT_THRESHOLD\t" +
-            "MIGS_GOOD_FASTQ1\tMIGS_GOOD_FASTQ2\tMIGS_GOOD_TOTAL\tMIGS_TOTAL\t" +
-            "READS_GOOD_FASTQ1\tREADS_GOOD_FASTQ2\tREADS_GOOD_TOTAL\tREADS_TOTAL")
-
+    pw.println(Util.ASSEMBLE_LOG_HEADER)
 
     println "[${new Date()} $scriptName] Starting batch assembly.."
-    new File(histogramDir + "/estimates.txt").readLines().findAll { !it.startsWith("#") }.each {   // skip header
+    histogramEstimatesFile.readLines().findAll { !it.startsWith("#") }.each {   // skip header
         def splitLine = it.split('\t')
         def sampleName = splitLine[0], sampleType = splitLine[1], sampleKey = "$sampleName\t$sampleType".toString()
-        def mask = sampleFilter ? sampleFilter[sampleKey] : "1:1"
 
-        if (mask) {
+        if (!sampleFilter || sampleFilter.containsKey(sampleKey)) {
+            def mask = sampleFilter ? sampleFilter[sampleKey] : defaultMask
+
             // Parse threshold estimates, check if it is safe to filter collisions
             def totalUmis = splitLine[3].toInteger(), overseqThreshold = splitLine[4].toInteger(),
-                    collThreshold = splitLine[5].toInteger(), umiQualThreshold = Byte.parseByte(splitLine[6]),
-                    umiLen = splitLine[7].toInteger(), filterCollisions = false
+                collThreshold = splitLine[5].toInteger(), umiQualThreshold = Byte.parseByte(splitLine[6]),
+                umiLen = splitLine[7].toInteger(), filterCollisions = false
 
             if (collThreshold >= overseqThreshold &&
                     totalUmis < collisionFactorThreshold * Math.pow(4, umiLen - 1)) // # collisions << # starting molecules

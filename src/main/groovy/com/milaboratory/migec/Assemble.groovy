@@ -34,6 +34,10 @@ cli._(longOpt: 'assembly-mask', args: 1, argName: 'X:Y, X=0/1, Y=0/1',
 cli.p(args: 1,
         "number of threads to use. Default: all available processors")
 cli.c("compressed output")
+cli._(longOpt: 'log-file', args: 1, argName: 'fileName', "File to output assembly log")
+cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
+cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
+cli._(longOpt: 'log-sample-type', "Sample type to use in log, i.e. unpaired, paired and overlapped [default = N/A]")
 cli._(longOpt: 'alignment-details',
         "Output multiple alignments generated during assembly as .asm files, " +
                 "for \"BacktrackSequence\"")
@@ -65,7 +69,8 @@ if (opt == null || opt.arguments().size() < 3) {
 def scriptName = getClass().canonicalName
 
 // Parameters
-boolean compressed = opt.c, filterCollisions = opt.'filter-collisions'
+boolean compressed = opt.c, filterCollisions = opt.'filter-collisions', overwriteLog = opt.'log-overwrite'
+String sampleName = opt.'log-sample-name' ?: "N/A", sampleType = opt.'log-sample-type' ?: "N/A"
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
 int minMigSize = Integer.parseInt(opt.'min-count' ?: DEFAULT_MIN_COUNT)
@@ -77,11 +82,13 @@ def inputFileName1 = opt.arguments()[0],
     outputDir = opt.arguments()[2],
     outputFilePrefix1 = '-', outputFilePrefix2 = '-'
 
+String logFileName = opt.'log-file' ?: null
+
 if (!(inputFileName1.endsWith(".fastq") || inputFileName1.endsWith(".fastq.gz"))) {
     println "[ERROR] Bad file extension $inputFileName1. Either .fastq or .fastq.gz should be provided as R1 file."
     System.exit(-1)
 } else {
-    outputFilePrefix1 = Util.getFastqPrefix(inputFileName1) + ".t" + minMigSize
+    outputFilePrefix1 = Util.getFastqPrefix(inputFileName1) + ".t" + minMigSize + (filterCollisions ? ".cf" : "")
 }
 
 if (inputFileName2 != "-") {
@@ -89,7 +96,7 @@ if (inputFileName2 != "-") {
         println "[ERROR] Bad file extension $inputFileName2. Either .fastq, .fastq.gz or \'-\' should be provided as R2 file."
         System.exit(-1)
     } else {
-        outputFilePrefix2 = Util.getFastqPrefix(inputFileName2) + ".t" + minMigSize
+        outputFilePrefix2 = Util.getFastqPrefix(inputFileName2) + ".t" + minMigSize + (filterCollisions ? ".cf" : "")
     }
 }
 
@@ -104,8 +111,8 @@ def assemblyIndices = [true, false]
 boolean bothReads = false
 if (paired) {
     def assemblyMask = (opt.'assembly-mask' ?: DEFAULT_ASSEMBLE_MASK).toString()
-    if (!["1:0", "0:1", "1:1"].any { it == assemblyMask }) {
-        println "[ERROR] Allowed masks for paired-end mode are 0:1, 1:0 and 1:1"
+    if (!Util.MASKS.any { it == assemblyMask }) {
+        println "[ERROR] Bad mask $assemblyMask. Allowed masks for paired-end mode are ${Util.MASKS.join(", ")}"
         System.exit(-1)
     }
     assemblyIndices = (opt.'assembly-mask' ?: DEFAULT_ASSEMBLE_MASK).split(":").collect { Integer.parseInt(it) > 0 }
@@ -430,15 +437,35 @@ writeThread.join()
 
 println "[${new Date()} $scriptName] Finished"
 
-return [assemblyIndices[0] ? new File(inputFileName1).absolutePath : '-',
-        assemblyIndices[1] ? new File(inputFileName2).absolutePath : '-',
-        assemblyIndices[0] ? new File(outputDir).absolutePath + '/' +
-                outputFilePrefix1 + ".fastq${compressed ? ".gz" : ""}" : '-',
-        assemblyIndices[1] ? new File(outputDir).absolutePath + '/' +
-                outputFilePrefix2 + ".fastq${compressed ? ".gz" : ""}" : '-',
+def logLine = [assemblyIndices[0] ? new File(inputFileName1).absolutePath : '-',
+               assemblyIndices[1] ? new File(inputFileName2).absolutePath : '-',
+               assemblyIndices[0] ? new File(outputDir).absolutePath + '/' +
+                       outputFilePrefix1 + ".fastq${compressed ? ".gz" : ""}" : '-',
+               assemblyIndices[1] ? new File(outputDir).absolutePath + '/' +
+                       outputFilePrefix2 + ".fastq${compressed ? ".gz" : ""}" : '-',
 
-        minMigSize,
+               minMigSize,
 
-        nGoodMigs[0].get(), nGoodMigs[1].get(), nGoodMigs[2].get(), nMigs.get(),
+               nGoodMigs[0].get(), nGoodMigs[1].get(), nGoodMigs[2].get(), nMigs.get(),
 
-        nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(), nReadsInMigs.get()].join("\t")
+               nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(), nReadsInMigs.get()].join("\t")
+
+
+if (logFileName) {
+    def logFile = new File(logFileName)
+    if (logFile.exists()) {
+        if (overwriteLog)
+            logFile.delete()
+    } else {
+        logFile.absoluteFile.parentFile.mkdirs()
+        logFile.withPrintWriter { pw ->
+            pw.println(Util.ASSEMBLE_LOG_HEADER)
+        }
+    }
+
+    logFile.withWriterAppend { writer ->
+        writer.println("$sampleName\t$sampleType\t" + logLine)
+    }
+}
+
+return logLine

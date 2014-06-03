@@ -22,6 +22,21 @@ import java.util.zip.GZIPOutputStream
 class Util {
     static final byte DEFAULT_UMI_QUAL_THRESHOLD = (byte) 15
     static final char[] NTS = ['A', 'T', 'G', 'C']
+    static final List<String> FILE_TYPES = ["paired", "unpaired", "overlapped"],
+                              CHAINS = ["TRA", "TRB", "TRG", "TRD", "IGH", "IGK", "IGL"],
+                              SPECIES = ["human", "mouse"],
+                              MASKS = ["0:1", "1:0", "1:1"]
+
+    static final String ASSEMBLE_LOG_HEADER =
+            "#SAMPLE_ID\tSAMPLE_TYPE\tINPUT_FASTQ1\tINPUT_FASTQ2\tOUTPUT_ASSEMBLY1\tOUTPUT_ASSEMBLY2\t" +
+                    "MIG_COUNT_THRESHOLD\t" +
+                    "MIGS_GOOD_FASTQ1\tMIGS_GOOD_FASTQ2\tMIGS_GOOD_TOTAL\tMIGS_TOTAL\t" +
+                    "READS_GOOD_FASTQ1\tREADS_GOOD_FASTQ2\tREADS_GOOD_TOTAL\tREADS_TOTAL"
+
+    static final String CDRBLAST_LOG_HEADER =
+            "SAMPLE_ID\tDATA_TYPE\t" +
+                    "EVENTS_GOOD\tEVENTS_MAPPED\tEVENTS_TOTAL\t" +
+                    "READS_GOOD\tREADS_MAPPED\tREADS_TOTAL"
 
     static byte qualFromSymbol(char symbol) {
         (int) symbol - 33
