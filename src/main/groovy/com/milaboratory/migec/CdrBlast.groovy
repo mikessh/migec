@@ -274,9 +274,15 @@ inputFileNames.each { inputFileName ->
     def reader = getReader(inputFileName)
     String header
     while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
-        if (assembledInput && !header.contains("UMI:")) {
-            println "[${new Date()} $SCRIPT_NAME] ERROR: Assembled input specified, but no UMI field in header"
-            System.exit(-1)
+        if (assembledInput) {
+            if (!header.contains("UMI:")) {
+                println "[ERROR] Assembled input specified, but no UMI field in header"
+                System.exit(-1)
+            } else if (!header.split("[@ ]").find { it.startsWith("UMI") }.split(":")[2].isInteger()) {
+                println "[ERROR] Assembled input specified, but UMI field in header does not contain count, " +
+                        "maybe you're running on raw checkout output?"
+                System.exit(-1)
+            }
         }
 
         def seq = reader.readLine()

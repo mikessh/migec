@@ -237,9 +237,9 @@ logFile.withPrintWriter { pw ->
                 }
             }
 
-            def baseArgs = "${blastPath ? "--blast-path $blastPath " : ""}-a -o -R ${chain} -S ${species}"
+            def baseArgs = "${blastPath ? "--blast-path $blastPath" : ""} -o -R ${chain} -S ${species}"
 
-            stats = Util.run(new CdrBlast(), "$baseArgs${qualityThreshold ? " -q ${qualityThreshold[1]}" : ""} " +
+            stats = Util.run(new CdrBlast(), "$baseArgs${qualityThreshold ? " -a -q ${qualityThreshold[1]}" : ""} " +
                     "${assemblyFiles.join(" ")} $outputPath/${sampleId}.asm.cdrblast.txt")
             pw.println(sampleId + "\tasm\t" + stats)
 
@@ -277,7 +277,7 @@ logFile.withPrintWriter { pw ->
                 }
             }
 
-            def baseArgs = "${blastPath ? "--blast-path $blastPath " : ""}-a -o -R ${chain} -S ${species}"
+            def baseArgs = "${blastPath ? "--blast-path $blastPath" : ""} -o -R ${chain} -S ${species}"
             stats = Util.run(new CdrBlast(), "$baseArgs${qualityThreshold ? " -q ${qualityThreshold[0]}" : ""} " +
                     "${rawFiles.join(" ")} $outputPath/${sampleId}.raw.cdrblast.txt")
             pw.println(sampleId + "\traw\t" + stats)

@@ -119,7 +119,7 @@ class Util {
     }
 
     static Object run(Script script, String args) {
-        script.binding.setVariable("args", args.split(" "))
+        script.binding.setVariable("args", args.split(" ").findAll { it != " " && it != "" })
         script.run()
     }
 
