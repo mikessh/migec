@@ -16,7 +16,9 @@ package com.milaboratory.migec
  limitations under the License.
  */
 
-def cli = new CliBuilder(usage: 'CdrBlastBatch [options] sample_info.txt [checkout_dir/ or -] [assemble_dir/ or -] output_dir/')
+def scriptName = getClass().canonicalName
+
+def cli = new CliBuilder(usage: "$scriptName [options] [checkout_dir/ or -] [assemble_dir/ or -] output_dir/")
 cli.p(args: 1, 'number of threads to use')
 cli._(longOpt: 'sample-info', args: 1, argName: 'file name',
         "A tab-delimited file indicating which samples to process and containing 6 columns:" +
@@ -33,6 +35,7 @@ cli._(longOpt: 'sample-info', args: 1, argName: 'file name',
                 "Comma-separated pair of quality threshold values for Phred and CQS quality thresholds respectively" +
                 "[default = 25,30]")
 cli._(args: 1, longOpt: 'blast-path', 'Path to blast executable.')
+cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
 cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-info")
 cli._(longOpt: 'default-chain', args: 1, "Chain, default for all samples, see --sample-info")
 cli._(longOpt: 'default-species', args: 1, "Species, default for all samples, see --sample-info")
@@ -49,12 +52,11 @@ if (opt == null || opt.arguments().size() < 3) {
 
 def blastPath = opt.'blast-path' ?: null
 
-def scriptName = getClass().canonicalName
-
-String chainsFileName = opt.'sample-info' ?: null, checkoutDir = opt.arguments()[0],
+// INPUT AND OUTPUT FILES
+String sampleInfoFileName = opt.'sample-info' ?: null, checkoutDir = opt.arguments()[0],
        assembleDir = opt.arguments()[1], outputPath = opt.arguments()[2]
 
-if (!chainsFileName && !opt.'default-chain') {
+if (!sampleInfoFileName && !opt.'default-chain') {
     println "[ERROR] Either --sample-info or --default-chain options should be provided"
     System.exit(-1)
 }
@@ -66,6 +68,7 @@ if (!processRaw && !processAssembled) {
 }
 boolean processBoth = processRaw && processAssembled
 
+// LOAD SAMPLE ENTRIES
 Map rawSamplesMap = null
 if (processRaw) {
     def checkoutSampleListFile = new File(checkoutDir + "/checkout.filelist.txt")
@@ -101,19 +104,20 @@ if (processAssembled) {
     }
 }
 
-def chainDataMap = new HashMap()
-List<String> chainsFileLines = []
+// GENERATE SAMPLE METADATA FOR CDRBLAST
+def sampleInfoMap = new HashMap()
+List<String> sampleInfoLines = []
 
-if (chainsFileName) {
+if (sampleInfoFileName) {
     // Read sample info
-    def chainsFile = new File(chainsFileName)
+    def chainsFile = new File(sampleInfoFileName)
 
     if (!chainsFile.exists()) {
         println "[ERROR] Sample info file not found"
         System.exit(-1)
     }
 
-    chainsFileLines = chainsFile.readLines()
+    sampleInfoLines = chainsFile.readLines()
 } else {
     // Or generate it from default parameters
     def defaultMask = opt.'default-mask' ?: "1:1", defaultSpecies = opt.'default-species' ?: "human",
@@ -125,13 +129,12 @@ if (chainsFileName) {
 
     (processRaw ? rawSamplesMap : assembledSampleMap).keySet().each {
         def sampleId = it.split("\t")[0]
-        chainsFileLines.add("$sampleId\t" + defaultParameters)
+        sampleInfoLines.add("$sampleId\t" + defaultParameters)
     }
 }
 
-chainsFileLines.findAll { !it.startsWith("#") }.each { line ->
-    // Check sample info list
-
+// CHECK SAMPLE METADATA
+sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     def splitLine = line.split("\t")
     def sampleId = splitLine[0],
         species = splitLine[1].toLowerCase(), chain = splitLine[2].toUpperCase(),
@@ -176,10 +179,10 @@ chainsFileLines.findAll { !it.startsWith("#") }.each { line ->
         System.exit(-1)
     }
 
-    chainDataMap.put(sampleId, [species, chain, fileTypes, mask, qualityThreshold])
+    sampleInfoMap.put(sampleId, [species, chain, fileTypes, mask, qualityThreshold])
 }
 
-
+// START LOGGING
 def logFile = new File(outputPath + "/cdrblast.log.txt")
 if (logFile.exists())
     logFile.delete()
@@ -189,6 +192,13 @@ else
 logFile.withPrintWriter { pw ->
     pw.println(Util.CDRBLAST_LOG_HEADER)
 
+    // RUN CDRBLAST
+    boolean allSegments = opt.'all-segments' ? true : false
+    def baseArgs = [["-o"]]
+    if (blastPath)
+        baseArgs = [baseArgs, ["--blast-path", blastPath]]
+    if (allSegments)
+        baseArgs = [baseArgs, ["--all-segments"]]
     String stats
     if (processAssembled) {
         if (processBoth)
@@ -196,7 +206,7 @@ logFile.withPrintWriter { pw ->
         else
             println "[${new Date()} $scriptName] Running CdrBlast for assembled data.."
 
-        chainDataMap.each { chainData ->
+        sampleInfoMap.each { chainData ->
             def sampleId = chainData.key, species = chainData.value[0], chain = chainData.value[1],
                 fileTypes = chainData.value[2], mask = chainData.value[3], qualityThreshold = chainData.value[4]
 
@@ -237,21 +247,21 @@ logFile.withPrintWriter { pw ->
                 }
             }
 
-            def baseArgs = "${blastPath ? "--blast-path $blastPath" : ""} -o -R ${chain} -S ${species}"
+            def baseArgs1 = [baseArgs, ["-R", chain], ["-S", species]]
 
-            stats = Util.run(new CdrBlast(), "$baseArgs${qualityThreshold ? " -a -q ${qualityThreshold[1]}" : ""} " +
-                    "${assemblyFiles.join(" ")} $outputPath/${sampleId}.asm.cdrblast.txt")
+            stats = Util.run(new CdrBlast(), [baseArgs1, ["-a"], ["-q", qualityThreshold[1]],
+                                              assemblyFiles, "$outputPath/${sampleId}.asm.cdrblast.txt"].flatten().join(" "))
             pw.println(sampleId + "\tasm\t" + stats)
 
             if (processBoth) {
-                stats = Util.run(new CdrBlast(), "$baseArgs${qualityThreshold ? " -q ${qualityThreshold[0]}" : ""} " +
-                        "${rawFiles.join(" ")} $outputPath/${sampleId}.raw.cdrblast.txt")
+                stats = Util.run(new CdrBlast(), [baseArgs1, ["-q", qualityThreshold[0]],
+                                                  rawFiles, "$outputPath/${sampleId}.raw.cdrblast.txt"].flatten().join(" "))
                 pw.println(sampleId + "\traw\t" + stats)
             }
         }
     } else {
         println "[${new Date()} $scriptName] Running CdrBlast for raw data.."
-        chainDataMap.each { chainData ->
+        sampleInfoMap.each { chainData ->
             def sampleId = chainData.key, species = chainData.value[0], chain = chainData.value[1],
                 fileTypes = chainData.value[2], mask = chainData.value[3], qualityThreshold = chainData.value[4]
 
@@ -265,21 +275,18 @@ logFile.withPrintWriter { pw ->
 
                     // apply mask
                     if (fileType == 'paired') {
-                        if (mask[0]) {
+                        if (mask[0])
                             rawFiles.add(correspondingFiles[0])
-                        }
-                        if (mask[1]) {
+
+                        if (mask[1])
                             rawFiles.add(correspondingFiles[1])
-                        }
-                    } else {
+                    } else
                         rawFiles.add(correspondingFiles[0])
-                    }
                 }
             }
 
-            def baseArgs = "${blastPath ? "--blast-path $blastPath" : ""} -o -R ${chain} -S ${species}"
-            stats = Util.run(new CdrBlast(), "$baseArgs${qualityThreshold ? " -q ${qualityThreshold[0]}" : ""} " +
-                    "${rawFiles.join(" ")} $outputPath/${sampleId}.raw.cdrblast.txt")
+            stats = Util.run(new CdrBlast(), [baseArgs, ["-R", chain], ["-S", species], ["-q", qualityThreshold[0]],
+                                              rawFiles, "$outputPath/${sampleId}.raw.cdrblast.txt"].flatten().join(" "))
             pw.println(sampleId + "\traw\t" + stats)
         }
     }

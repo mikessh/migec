@@ -29,18 +29,20 @@ cli.R(args: 1, argName: '\'TRA\', \'TRB\', \'TRG\', \'TRD\',  \'IGL\', \'IGK\' o
 cli.S(args: 1, argName: '\'human\' or \'mouse\'', 'Species [default=human]')
 cli.a('Input data is assembled consensuses set, not reads. ' +
         'The read header must contain \'UMI:NNNNNNNNNNNN:COUNT\' entry.')
-cli.q(args: 1, argName: 'minimum quality [phred]',
+cli.q(args: 1, argName: 'Phred quality value',
         'minimum quality of read to pass filter, will be ' +
                 'applied only to CDR3 region [default=30 for -a or 25, out of 40]')
 cli.p(args: 1, 'number of threads to use [default = all available processors]')
-cli.o('sort output [default=false]')
-cli.N(args: 1, 'number of reads to take')
-cli._(args: 1, longOpt: 'blast-path', 'Path to blast executable.')
+cli.N(args: 1, 'Number of reads to take. For downsampling purposes')
+cli._(longOpt: 'no-sort', 'Do not sort output by clonotype count, can save some time')
+cli._(longOpt: 'blast-path', args: 1, argName: 'folder name', 'Path to blast executable.')
 cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
+cli._(longOpt: 'strict-nc-handling', "Will not discard clonotypes with partial CDR3, " +
+        "but rather try to append to corresponding complete clonotypes.")
 cli._(longOpt: 'debug', 'Prints out alignment details, stores all temporary alignment files.')
-cli._(args: 1, longOpt: 'cdr3-fastq-file', 'Store reads with CDR3 extracted with CDR3 data in header. ' +
+cli._(longOpt: 'cdr3-fastq-file', args: 1, argName: 'file name', 'Store reads with CDR3 extracted with CDR3 data in header. ' +
         'Needed for \'com.milaboratory.migec.post.GroupByCdr\' script.')
-cli._(longOpt: 'log-file', args: 1, argName: 'fileName', "File to output cdr extraction log")
+cli._(longOpt: 'log-file', args: 1, argName: 'file name', "File to output cdr extraction log")
 cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
 cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
 
@@ -55,7 +57,7 @@ if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.R) {
 def blastPath = opt.'blast-path' ?: ""
 blastPath = blastPath.length() > 0 ? blastPath + "/" : ""
 
-// System
+// SYSTEM
 def DEBUG = opt.'debug',
     THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors(),
     SCRIPT_NAME = getClass().canonicalName
@@ -63,10 +65,6 @@ def DEBUG = opt.'debug',
 def timestamp = {
     "[${new Date()} $SCRIPT_NAME]"
 }
-
-String logFileName = opt.'log-file' ?: null
-boolean overwriteLog = opt.'log-overwrite'
-String sampleName = opt.'log-sample-name' ?: "N/A"
 
 // Check for BLAST installation
 try {
@@ -76,12 +74,46 @@ try {
     System.exit(-1)
 }
 
-// Parameters
+// INPUT, OUTPUT AND TEMPORARY FILES
+def inputFileNames = opt.arguments()[0..-2].collect { it.toString() },
+    outputFileName = opt.arguments()[-1].toString()
+
+def TMP_FOLDER = new File(inputFileNames[0]).absolutePath + "-cdrblast-" + UUID.randomUUID().toString()
+
+def TMP_FOLDER_FILE = new File(TMP_FOLDER)
+TMP_FOLDER_FILE.mkdirs()
+if (!DEBUG)
+    TMP_FOLDER_FILE.deleteOnExit()
+
+if (new File(outputFileName).parentFile)
+    new File(outputFileName).parentFile.mkdirs()
+
+// BLAST SETTINGS
+int ALLELE_TAIL_INNER = 10, ALLELE_TAIL_OUTER = 6,
+    ALLELE_TAIL_V_MAX = 40, ALLELE_TAIL_J_MAX = 20,
+    GAP_OPEN = 5, GAP_EXTEND = 2, WORD_SIZE = 7, REWARD = 2, PENALTY = -3
+
+String BLAST_FLAGS = "-lcase_masking"
+
+// BLAST results filtering
+int TOP_SEQS = 1,
+    MIN_SEGMENT_IDENT = 7,
+    MIN_CDR_LEN = 7, // at least 1 nt + conserved AAs
+    MAX_CDR_LEN = 70
+
+// LOGGING
+String logFileName = opt.'log-file' ?: null
+boolean overwriteLog = opt.'log-overwrite'
+String sampleName = opt.'log-sample-name' ?: "N/A"
+
+// PARAMETERS
 def cdr3FastqFile = opt.'cdr3-fastq-file'
 
-boolean allSegments = opt.'all-segments',
+boolean strictNcHandling = opt.'strict-nc-handling',
         assembledInput = opt.a,
-        doSort = opt.o
+        doSort = !opt.'no-sort'
+
+def segmentsFileName = opt.'all-segments' ? "segments_all.txt" : "segments.txt"
 
 int qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
     nReads = Integer.parseInt(opt.N ?: "-1")
@@ -102,33 +134,6 @@ if (species.toLowerCase() == "human")
     species = "HomoSapiens"
 else if (species.toLowerCase() == "mouse")
     species = "MusMusculus"
-
-def inputFileNames = opt.arguments()[0..-2].collect { it.toString() },
-    outputFileName = opt.arguments()[-1].toString(),
-    segmentsFileName = allSegments ? "segments_all.txt" : "segments.txt"
-
-def TMP_FOLDER = new File(inputFileNames[0]).absolutePath + "-cdrblast-" + UUID.randomUUID().toString()
-
-def TMP_FOLDER_FILE = new File(TMP_FOLDER)
-TMP_FOLDER_FILE.mkdirs()
-if (!DEBUG)
-    TMP_FOLDER_FILE.deleteOnExit()
-
-if (new File(outputFileName).parentFile)
-    new File(outputFileName).parentFile.mkdirs()
-
-// BLAST
-int ALLELE_TAIL_INNER = 10, ALLELE_TAIL_OUTER = 6,
-    ALLELE_TAIL_V_MAX = 40, ALLELE_TAIL_J_MAX = 20,
-    GAP_OPEN = 5, GAP_EXTEND = 2, WORD_SIZE = 7, REWARD = 2, PENALTY = -3
-
-String BLAST_FLAGS = "-lcase_masking"
-
-// BLAST results filtering
-int TOP_SEQS = 1,
-    MIN_SEGMENT_IDENT = 7,
-    MIN_CDR_LEN = 7, // at least 1 nt + conserved AAs
-    MAX_CDR_LEN = 70
 
 /////////////////
 // MISC UTILS //
@@ -783,15 +788,16 @@ println "READS (good mapped total):\t$goodReads\t$mappedReads\t$totalReads\t|\t"
 def cloneMap = new HashMap<String, int[]>()
 def nonCanonicalCounts = new HashMap<String, int[]>()
 
-uniqueClonotypes.keySet().each {
-    if (!it.isCanonical()) {
-        def counts = nonCanonicalCounts.get(it.cdr3Seq)
-        if (counts == null)
-            nonCanonicalCounts.put(it.cdr3Seq, counts = new int[4])
-        for (int i = 0; i < 4; i++)
-            counts[i] += it.counts[i]
+if (strictNcHandling)
+    uniqueClonotypes.keySet().each {
+        if (!it.isCanonical()) {
+            def counts = nonCanonicalCounts.get(it.cdr3Seq)
+            if (counts == null)
+                nonCanonicalCounts.put(it.cdr3Seq, counts = new int[4])
+            for (int i = 0; i < 4; i++)
+                counts[i] += it.counts[i]
+        }
     }
-}
 
 uniqueClonotypes.keySet().each {
     if (it.isCanonical()) {
@@ -802,16 +808,18 @@ uniqueClonotypes.keySet().each {
         for (int i = 0; i < 4; i++)
             counts[i] += it.counts[i]
 
-        def ncToRemove = new HashSet<String>()
-        nonCanonicalCounts.entrySet().each { ncEntry ->
-            if (ncEntry.key.contains(it.cdr3Seq)) {
-                for (int i = 0; i < 4; i++)
-                    counts[i] += ncEntry.value[i]
-                ncToRemove.add(ncEntry.key)
+        if (strictNcHandling) {
+            def ncToRemove = new HashSet<String>()
+            nonCanonicalCounts.entrySet().each { ncEntry ->
+                if (ncEntry.key.contains(it.cdr3Seq)) {
+                    for (int i = 0; i < 4; i++)
+                        counts[i] += ncEntry.value[i]
+                    ncToRemove.add(ncEntry.key)
+                }
             }
-        }
-        ncToRemove.each { nc2remove ->
-            nonCanonicalCounts.remove(nc2remove)
+            ncToRemove.each { nc2remove ->
+                nonCanonicalCounts.remove(nc2remove)
+            }
         }
     }
 }
@@ -839,7 +847,8 @@ outputFile.withPrintWriter { pw ->
 if (!DEBUG)
     TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
 
-def logLine = [sampleName, goodEvents, mappedEvents, totalEvents, goodReads, mappedReads, totalReads].join("\t")
+// Append to log and report to batch runner
+def logLine = [goodEvents, mappedEvents, totalEvents, goodReads, mappedReads, totalReads].join("\t")
 
 if (logFileName) {
     def logFile = new File(logFileName)
