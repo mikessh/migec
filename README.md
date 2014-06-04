@@ -70,11 +70,11 @@ An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM Unix se
 
 ```
 export JAVA_OPTS="-Xmx14G" &&
-java -jar migec-1.1.0.jar Checkout -cute --overlap barcodes.txt IGH_SAMPLE_R1.fastq.gz IGH_SAMPLE_R2.fastq.gz checkout/ &&
-java -jar migec-1.1.0.jar Histogram checkout/ histogram/ &&
-java -jar migec-1.1.0.jar AssembleBatch -c --default-mask 0:1 checkout/ histogram/ assemble/ &&
-java -jar migec-1.1.0.jar CdrBlastBatch --no-sort --default-mask 0:1 -R IGH checkout/ assemble/ cdrblast/ &&
-java -jar migec-1.1.0.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
+java -jar migec.jar Checkout -cute --overlap barcodes.txt IGH_SAMPLE_R1.fastq.gz IGH_SAMPLE_R2.fastq.gz checkout/ &&
+java -jar migec.jar Histogram checkout/ histogram/ &&
+java -jar migec.jar AssembleBatch -c --default-mask 0:1 checkout/ histogram/ assemble/ &&
+java -jar migec.jar CdrBlastBatch --no-sort --default-mask 0:1 -R IGH checkout/ assemble/ cdrblast/ &&
+java -jar migec.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 ``` 
 
 ## THE PIPELINE
