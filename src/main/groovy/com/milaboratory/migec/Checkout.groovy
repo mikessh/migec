@@ -364,15 +364,17 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
         if (paired) {
             counters.get(sampleId)[1].incrementAndGet()
 
-            def overlapResult = overlapReads(readData[1], readData[4], readData[2], readData[5])
+            if (overlap) {
+                def overlapResult = overlapReads(readData[1], readData[4], readData[2], readData[5])
 
-            if (overlapResult) {
-                overlapCounter.incrementAndGet()
-                readData[1] = overlapResult[0]
-                readData[2] = overlapResult[1]
-                readData[7] = "yes"
+                if (overlapResult) {
+                    overlapCounter.incrementAndGet()
+                    readData[1] = overlapResult[0]
+                    readData[2] = overlapResult[1]
+                    readData[7] = "yes"
 
-                counters.get(sampleId)[2].incrementAndGet()
+                    counters.get(sampleId)[2].incrementAndGet()
+                }
             }
         }
     } else {
@@ -598,7 +600,7 @@ def writeThread = new Thread({  // Writing thread
         if (!paired)
             writerTrio[0].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
         else {
-            if (result[7]) {
+            if (overlap && result[7]) {
                 writerTrio[2].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
             } else {
                 writerTrio[0].writeLine(result[0] + "\n" + result[1] + "\n+\n" + result[2])
