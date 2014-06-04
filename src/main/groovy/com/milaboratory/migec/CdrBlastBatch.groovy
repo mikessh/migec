@@ -19,14 +19,14 @@ package com.milaboratory.migec
 def scriptName = getClass().canonicalName
 
 def cli = new CliBuilder(usage: "$scriptName [options] [checkout_dir/ or -] [assemble_dir/ or -] output_dir/\n" +
-        "Either --sample-info or --default-chain argument is required. If --sample-info is not provided, " +
+        "Either --sample-metadata or -R argument is required. If --sample-metadata is not provided, " +
         "CdrBlast will be set based on provided default parameters.")
 cli.p(args: 1, 'number of threads to use')
-cli._(longOpt: 'sample-info', args: 1, argName: 'file name',
+cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
         "A tab-delimited file indicating which samples to process and containing 6 columns:" +
-                "sample_id (tab) species (tab) chain (tab) file_types (tab) mask (tab) quality_threshold_pair\n" +
+                "sample_id (tab) species (tab) gene (tab) file_types (tab) mask (tab) quality_threshold_pair\n" +
                 "Sample ids not included will be omitted by CdrBlast. If this argument is not provided, default values will be used.\n" +
-                "Allowed species: ${Util.SPECIES.join(", ")}\nAllowed chains:${Util.CHAINS}\n" +
+                "Allowed species: ${Util.SPECIES.join(", ")}\nAllowed genes:${Util.CHAINS}\n" +
                 "File types column is optional (it could be either omitted or set to \'-\'). " +
                 "This columns should contain comma-separated list of file types to be processed for a given sample, e.g. \'paired, overlapped\'" +
                 "Allowed file types are: ${Util.FILE_TYPES}. By default all file types are considered." +
@@ -38,11 +38,11 @@ cli._(longOpt: 'sample-info', args: 1, argName: 'file name',
                 "[default = 25,30]")
 cli._(args: 1, longOpt: 'blast-path', 'Path to blast executable.')
 cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
-cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-info")
-cli._(longOpt: 'default-chain', args: 1, "Chain, default for all samples, see --sample-info")
-cli._(longOpt: 'default-species', args: 1, "Species, default for all samples, see --sample-info")
-cli._(longOpt: 'default-file-types', args: 1, "Accepted file types, default for all samples, see --sample-info")
-cli._(longOpt: 'default-quality-threshold', args: 1, "Quality threshold pair, default for all samples, see --sample-info")
+cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-metadata")
+cli.R(longOpt: 'default-gene', args: 1, "Gene, default for all samples, see --sample-metadata")
+cli._(longOpt: 'default-species', args: 1, "Species, default for all samples, see --sample-metadata")
+cli._(longOpt: 'default-file-types', args: 1, "Accepted file types, default for all samples, see --sample-metadata")
+cli._(longOpt: 'default-quality-threshold', args: 1, "Quality threshold pair, default for all samples, see --sample-metadata")
 
 def opt = cli.parse(args)
 
@@ -55,11 +55,11 @@ if (opt == null || opt.arguments().size() < 3) {
 def blastPath = opt.'blast-path' ?: null
 
 // INPUT AND OUTPUT FILES
-String sampleInfoFileName = opt.'sample-info' ?: null, checkoutDir = opt.arguments()[0],
+String sampleInfoFileName = opt.'sample-metadata' ?: null, checkoutDir = opt.arguments()[0],
        assembleDir = opt.arguments()[1], outputPath = opt.arguments()[2]
 
-if (!sampleInfoFileName && !opt.'default-chain') {
-    println "[ERROR] Either --sample-info or --default-chain options should be provided"
+if (!sampleInfoFileName && !opt.R) {
+    println "[ERROR] Either --sample-metadata or --default-gene options should be provided"
     System.exit(-1)
 }
 
@@ -111,11 +111,11 @@ def sampleInfoMap = new HashMap()
 List<String> sampleInfoLines = []
 
 if (sampleInfoFileName) {
-    // Read sample info
+    // Read sample metadata
     def chainsFile = new File(sampleInfoFileName)
 
     if (!chainsFile.exists()) {
-        println "[ERROR] Sample info file not found"
+        println "[ERROR] Sample metadata file not found"
         System.exit(-1)
     }
 
@@ -124,7 +124,7 @@ if (sampleInfoFileName) {
     // Or generate it from default parameters
     def defaultMask = opt.'default-mask' ?: "1:1", defaultSpecies = opt.'default-species' ?: "human",
         defaultFileTypes = opt.'default-file-types' ?: Util.FILE_TYPES.join(","),
-        defaultQualityThreshold = opt.'default-quality-threshold' ?: "25,30", defaultChain = opt.'default-chain'
+        defaultQualityThreshold = opt.'default-quality-threshold' ?: "25,30", defaultChain = opt.R
 
     def defaultParameters = [defaultSpecies, defaultChain,
                              defaultFileTypes, defaultMask, defaultQualityThreshold].join("\t")
@@ -148,15 +148,15 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     // todo: estimate q threshold by HistQ
 
     if (!Util.SPECIES.any { species == it }) {
-        println "[ERROR] Bad species $species in line $line. Supported species are ${Util.SPECIES.join(", ")}"
+        println "[ERROR] Bad species $species on line $line. Supported species are ${Util.SPECIES.join(", ")}"
         System.exit(-1)
     }
     if (!Util.CHAINS.any { chain == it }) {
-        println "[ERROR] Bad chain $chain in line $line. Supported chains are ${Util.CHAINS.join(", ")}"
+        println "[ERROR] Bad gene $chain on line $line. Supported genes are ${Util.CHAINS.join(", ")}"
         System.exit(-1)
     }
     if (!Util.MASKS.any { mask == it }) {
-        println "[ERROR] Bad mask $mask in line $line. Supported masks are ${Util.MASKS.join(", ")}"
+        println "[ERROR] Bad mask $mask on line $line. Supported masks are ${Util.MASKS.join(", ")}"
         System.exit(-1)
     }
     mask.split(",").collect { it == "1" }

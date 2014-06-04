@@ -20,9 +20,9 @@ def DEFAULT_ASSEMBLE_MASK = "1:1"
 def cli = new CliBuilder(usage: 'AssembleBatch [options] checkout_dir/ histogram_dir/ output_dir/')
 cli.p(args: 1, 'number of threads to use')
 cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-info")
-cli._(longOpt: 'sample-list', args: 1, argName: 'file name',
+cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
         "A tab-delimited file indicating which samples to process and containing three columns:\n" +
-                "file_name (tab) file_type (tab) mask\n" +
+                "sample_name (tab) file_type (tab) mask\n" +
                 "Allowed file types\n" +
                 "paired, unpaired, overlapped\n" +
                 "Mask column is optional and will be ignored for unpaired and overlapped reads. " +
@@ -59,7 +59,7 @@ new File(outputPath).mkdirs()
 
 // Read filter
 Map sampleFilter = null
-String sampleFilterFileName = opt.'sample-list' ?: null
+String sampleFilterFileName = opt.'sample-metadata' ?: null
 
 // File names from Checkout output
 def sampleFileNamesMap = checkoutSampleListFile.readLines().findAll {
@@ -90,7 +90,7 @@ if (sampleFilterFileName) {
             }
 
             def sampleMask = splitLine.size() > 2 ? splitLine[2] : defaultMask
-            sampleMask = sampleMask
+            sampleMask = sampleMask == '-' ? defaultMask : sampleMask
 
             if (sampleType.toUpperCase() == "paired" && !Util.MASKS.contains(sampleMask)) {
                 println "[ERROR] Bad assembly mask $sampleMask for paired reads. " +

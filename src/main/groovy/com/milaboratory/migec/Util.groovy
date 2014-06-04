@@ -125,6 +125,7 @@ class Util {
     }
 
     static Object run(Script script, String args) {
+        println "Executing ${script.class.canonicalName} $args"
         script.binding.setVariable("args", args.split(" ").findAll { it != " " && it != "" })
         script.run()
     }
