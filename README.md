@@ -1,6 +1,16 @@
 # MiGEC: Molecular Identifier Group-based Error Correction pipeline  
 
-This pipeline provides several useful tools for analysis of immune repertoire sequencing data. The pipeline utilizes unique nucleotide tags (UMIs) in order to filter experimental errors from resulting sequences. Those tags are attached to molecules before sequencing library preparation and allow to backtrack the original sequence of molecule. This pipeline is applicable for Illumina MiSeq and HiSeq 2500 reads. Sequencing libraries targeting CDR3 locus of immune receptor genes with high over-sequencing, i.e. ones that have at least 10 reads (optimally 30+ reads) per each starting molecule, should be used for optimal error elimination.
+This pipeline provides several useful tools for analysis of immune repertoire sequencing data. Its main feature is the ability to use information from unique nucleotide tags (UMIs, see this [paper](http://www.nature.com/nmeth/journal/v9/n1/full/nmeth.1778.html) for details), which are attached to molecules before sequencing library preparation and allow to backtrack the original sequence of molecule. UMIs make it possible to computationally filter nearly all experimental errors from resulting immune receptor sequences. 
+
+This pipeline was designed for libraries sequenced using Illumina MiSeq and HiSeq and the main requirement for sequencing reads is that they should contain the entire CDR3 region of immune receptor gene. Sequencing libraries with high over-sequencing, i.e. ones that have 8+ reads per starting molecule (unique UMI tag), should be used for optimal error elimination.
+
+Several modules of the pipeline, such as de-multiplexing and CDR3 extraction could be utilized for a wider range of datasets.
+
+For more details please see the [paper](http://www.nature.com/nmeth/journal/v11/n6/abs/nmeth.2960.html) describing MiGEC.
+
+Please cite the tool as:
+
+> Shugay M *et al.* Towards error-free profiling of immune repertoires. Nature Methods **11**, 653–655 (2014)
 
 ### FEATURES
 
@@ -67,7 +77,7 @@ java -jar migec-1.1.0.jar CdrBlastBatch --no-sort --default-mask 0:1 -R IGH chec
 java -jar migec-1.1.0.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 ``` 
 
-## STANDARD PIPELINE
+## THE PIPELINE
 
 ### 1. Checkout
 
