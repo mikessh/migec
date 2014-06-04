@@ -56,14 +56,14 @@ If insufficient amount memory is allocated, the Java Virtual Machine could drop 
 
 ### USAGE EXAMPLE
 
-An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM Unix server. First *barcodes.txt* should be created containing adapter sequences, see **Checkout** section for guidelines. Then, assuming that the corresponding FASTQ files are *IGH_SAMPLE_L001_R1_001.fastq.gz* and *IGH_SAMPLE_L001_R2_001.fastq.gz*, UMI- and multiplex index-containing adapter is near 5'UTR of V segment and NCBI-BLAST+ is installed, run all 5 stages of the pipeline using the following command:
+An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM Unix server. First *barcodes.txt* should be created containing adapter sequences, see **Checkout** section for guidelines. Then, assuming that the corresponding FASTQ files are *IGH_SAMPLE_R1.fastq.gz* and *IGH_SAMPLE_R2.fastq.gz*, UMI- and multiplex index-containing adapter is near 5'UTR of V segment (so the CDR3 is in mate#2 after reads are oriented) and NCBI-BLAST+ is installed, run all 5 stages of the pipeline using the following command:
 
 ```
 export JAVA_OPTS="-Xmx14G" &&
-java -jar migec-1.1.0.jar Checkout -cute --overlap barcodes.txt IGH_SAMPLE_L001_R1_001.fastq.gz IGH_SAMPLE_L001_R2_001.fastq.gz checkout/ &&
+java -jar migec-1.1.0.jar Checkout -cute --overlap barcodes.txt IGH_SAMPLE_R1.fastq.gz IGH_SAMPLE_R2.fastq.gz checkout/ &&
 java -jar migec-1.1.0.jar Histogram checkout/ histogram/ &&
 java -jar migec-1.1.0.jar AssembleBatch -c --default-mask 0:1 checkout/ histogram/ assemble/ &&
-java -jar migec-1.1.0.jar CdrBlastBatch --default-mask 0:1 -R IGH checkout/ assemble/ cdrblast/ &&
+java -jar migec-1.1.0.jar CdrBlastBatch --no-sort --default-mask 0:1 -R IGH checkout/ assemble/ cdrblast/ &&
 java -jar migec-1.1.0.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 ``` 
 
@@ -267,6 +267,7 @@ Several default **CdrBlast** parameters could be set,
 ```--default-species``` - default species to be used for all samples, *human* (used by default) or *mouse*
 ```--default-file-types``` - default file types (paired, overlapped or single) to be processed for each sample. If several file types are specified, the corresponding raw and assembled files will be combined and used as an input to CdrBlast
 ```--default-quality-threshold <Phred=[2..40],CQS=[2..40]>``` - quality threshold pair, default for all samples. First threshold in pair is used for raw sequence quality (sequencing quality phred) and the second one is used for assembled sequence quality (CQS score, the fraction of reads in MIG that contain dominant letter at a given position)
+```--no-sort``` - no sorting is performed for output files which speeds up processing. Could be safely used in full pipeline as FilterCdrBlastResults will provide final clonotype table in sorted format
 
 A sample metadata file could also be provided with ```--sample-metadata <file_name>``` argument to guide the batch CDR3 extraction. This file should have the following tab-separated table structure:
 
@@ -274,7 +275,7 @@ Sample ID | Species    | Gene | File types | Mask | Quality threshold pair
 ----------|------------|------|------------|------|-----------------------
 S0        | human      |  TRA |paired, overlapped|1:0 | 25,30
 S1        | human      |  TRB |unpaired    | -   |      25,30
-S2        | mouse      |  TRB |paired      |1:0 |       20,25
+S2        | mouse      |  TRB |paired      |0:1 |       20,25
 
 ### 4. CdrBlast (Manual)
 

@@ -125,8 +125,12 @@ class Util {
     }
 
     static Object run(Script script, String args) {
-        println "Executing ${script.class.canonicalName} $args"
-        script.binding.setVariable("args", args.split(" ").findAll { it != " " && it != "" })
+        // perform cleanup
+        def argArray = args.split(" ").
+                findAll { it != " " && it != "" }.
+                collect { it.replaceAll("//+", "/").toString() }
+        println "Executing ${script.class.canonicalName} ${argArray.join(" ")}"
+        script.binding.setVariable("args", argArray)
         script.run()
     }
 

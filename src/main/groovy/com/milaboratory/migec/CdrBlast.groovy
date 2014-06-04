@@ -25,7 +25,7 @@ import java.util.zip.GZIPOutputStream
 def cli = new CliBuilder(usage: 'CdrBlast [options] reads1.fastq[.gz] [reads2.fastq[.gz] ...] output_file\n' +
         'NOTE: NCBI-BLAST+ package required')
 cli.h('usage')
-cli.R(args: 1, argName: '\'TRA\', \'TRB\', \'TRG\', \'TRD\',  \'IGL\', \'IGK\' or \'IGH\'', 'Receptor chain [required]')
+cli.R(args: 1, argName: '\'TRA\', \'TRB\', \'TRG\', \'TRD\',  \'IGL\', \'IGK\' or \'IGH\'', 'Receptor gene [required]')
 cli.S(args: 1, argName: '\'human\' or \'mouse\'', 'Species [default=human]')
 cli.a('Input data is assembled consensuses set, not reads. ' +
         'The read header must contain \'UMI:NNNNNNNNNNNN:COUNT\' entry.')
@@ -48,7 +48,13 @@ cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
 
 def opt = cli.parse(args)
 
-if (opt.h || opt == null || opt.arguments().size() < 2 || !opt.R) {
+if (!opt.R) {
+    println "[ERROR] Receptor gene not provided"
+    cli.usage()
+    System.exit(-1)
+}
+
+if (opt.h || opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)

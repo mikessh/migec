@@ -37,6 +37,8 @@ cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
                 "Comma-separated pair of quality threshold values for Phred and CQS quality thresholds respectively" +
                 "[default = 25,30]")
 cli._(args: 1, longOpt: 'blast-path', 'Path to blast executable.')
+cli._(longOpt: 'no-sort', 'Do not sort output files which will speed up processing. ' +
+        'Could be used for full pipeline as FilterCdrBlastResults will provide final clonotype table in sorted format.')
 cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
 cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-metadata")
 cli.R(longOpt: 'default-gene', args: 1, "Gene, default for all samples, see --sample-metadata")
@@ -197,7 +199,9 @@ logFile.withPrintWriter { pw ->
 
     // RUN CDRBLAST
     boolean allSegments = opt.'all-segments' ? true : false
-    def baseArgs = [["-o"]]
+    def baseArgs = []
+    if (opt.'no-sort')
+        baseArgs = [baseArgs, ["--no-sort"]]
     if (opt.p)
         baseArgs = [baseArgs, ["-p", opt.p]]
     if (blastPath)
@@ -255,12 +259,12 @@ logFile.withPrintWriter { pw ->
             def baseArgs1 = [baseArgs, ["-R", chain], ["-S", species]]
 
             logLine = Util.run(new CdrBlast(), [baseArgs1, ["-a"], ["-q", qualityThreshold[1]],
-                                              assemblyFiles, "$outputPath/${sampleId}.asm.cdrblast.txt"].flatten().join(" "))
+                                                assemblyFiles, "$outputPath/${sampleId}.asm.cdrblast.txt"].flatten().join(" "))
             pw.println("$sampleId\t" + logLine)
 
             if (processBoth) {
                 logLine = Util.run(new CdrBlast(), [baseArgs1, ["-q", qualityThreshold[0]],
-                                                  rawFiles, "$outputPath/${sampleId}.raw.cdrblast.txt"].flatten().join(" "))
+                                                    rawFiles, "$outputPath/${sampleId}.raw.cdrblast.txt"].flatten().join(" "))
                 pw.println("$sampleId\t" + logLine)
             }
         }
@@ -291,8 +295,8 @@ logFile.withPrintWriter { pw ->
             }
 
             logLine = Util.run(new CdrBlast(), [baseArgs, ["-R", chain], ["-S", species], ["-q", qualityThreshold[0]],
-                                              rawFiles, "$outputPath/${sampleId}.raw.cdrblast.txt"].flatten().join(" "))
-            pw.println("$sampleId\t" +  logLine)
+                                                rawFiles, "$outputPath/${sampleId}.raw.cdrblast.txt"].flatten().join(" "))
+            pw.println("$sampleId\t" + logLine)
         }
     }
 }
