@@ -30,7 +30,7 @@ cli.s("Include clonotypes that are represented by single events (have only one a
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
 cli.p(args: 1, "number of threads to use. Default: all available processors")
-cli._(longOpt: 'collapse', "Collapse by clonotypes CDR3 and use top V and J chains")
+cli._(longOpt: 'collapse', "Collapse clonotypes by CDR3 and use top V and J chains")
 cli._(longOpt: 'log-file', args: 1, argName: 'file name', "File to output cdr extraction log")
 cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
 cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
