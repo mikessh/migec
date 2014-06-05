@@ -104,6 +104,9 @@ else
     logFile.absoluteFile.parentFile.mkdirs()
 
 logFile.withPrintWriter { pw ->
+
+    pw.println(Util.CDRBLASTFILTER_LOG_HEADER)
+
     assembledSampleMap.each {
         def sampleId = it.key, asmFileName = it.value, rawFileName = rawSampleMap[sampleId]
         if (rawFileName) {
