@@ -25,8 +25,7 @@ Please cite the tool as:
 - Flexible and straightforward batch processing 
 
 - Currently all species-gene pairs that have germline sequences (based on IMGT) that allow CDR3 identification are supported
-
-- Species              | Gene
+  Species              | Gene
   ---------------------|-----------------------------------
   HomoSapiens          | TRA, TRB, TRG, TRD, IGL, IGK, IGH
   MusMusculus          | TRB, TRG, TRD, IGL, IGK, IGH     
