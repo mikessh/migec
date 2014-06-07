@@ -24,19 +24,19 @@ Please cite the tool as:
 
 - Flexible and straightforward batch processing 
 
-- Currently all species-gene pairs from IMGT that have both Variable and Joining segments are supported, this list includes
+- Currently all species-gene pairs that have germline sequences (based on IMGT) that allow CDR3 identification are supported
 
-Species              | Gene
----------------------|-----------------------------------
-HomoSapiens          | TRA, TRB, TRG, TRD, IGL, IGK, IGH
-MusMusculus          | TRB, TRG, TRD, IGL, IGK, IGH     
-MacacaMulatta        | TRB, IGK, IGH
-OryctolagusCuniculus | IGL, IGK, IGH
-RattusNorvegicus     | IGL, IGH
-CanisLupusFamiliaris | TRB, TRG
-SusScrofa            | IGL, IGK
-BosTaurus            | TRD          
-MusSpretus           | IGL
+- Species              | Gene
+  ---------------------|-----------------------------------
+  HomoSapiens          | TRA, TRB, TRG, TRD, IGL, IGK, IGH
+  MusMusculus          | TRB, TRG, TRD, IGL, IGK, IGH     
+  MacacaMulatta        | TRB, IGK, IGH
+  OryctolagusCuniculus | IGL, IGK, IGH
+  RattusNorvegicus     | IGL, IGH
+  CanisLupusFamiliaris | TRB, TRG
+  SusScrofa            | IGL, IGK
+  BosTaurus            | TRD          
+  MusSpretus           | IGL
 
 
 ### INSTALLATION AND RUNNING
@@ -337,7 +337,7 @@ to concatenate and process two or more FASTQ files at once:
 java -jar migec.jar CdrBlast -R TRA ./checkout/S1_R2.fastq.gz ./checkout/S2_R2.fastq.gz ./cdrblast/S12_raw.cdrblast.txt
 ```
 
-Gene parameter ```-R``` is required, supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and IGL*. Species could be provided with ```-S``` parameter, by default uses *human*, supported species are *human* and *mouse*. Assembled data should be passed to the script with ```-a``` option.
+Gene parameter ```-R``` is required, supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Species could be provided with ```-S``` parameter, by default uses *human*, supported species are *HomoSapines*, *MusMusculus* and others. Assembled data should be passed to the script with ```-a``` option.
 
 To get a sorted output use ```-o``` option, otherwise sorting will be performed at **FilterCdrBlastResults** step. Note that both raw and assembled data should be processed to apply the last step of filtration.
 
