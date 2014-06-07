@@ -19,36 +19,56 @@ package com.milaboratory.migec
 def scriptName = getClass().canonicalName
 
 def cli = new CliBuilder(usage: "$scriptName [options] [checkout_dir/ or -] [assemble_dir/ or -] output_dir/\n" +
-        "Either --sample-metadata or -R argument is required. If --sample-metadata is not provided, " +
-        "CdrBlast will be set based on provided default parameters.")
-cli.p(args: 1, 'number of threads to use')
-cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
-        "A tab-delimited file indicating which samples to process and containing 6 columns:" +
-                "sample_id (tab) species (tab) gene (tab) file_types (tab) mask (tab) quality_threshold_pair\n" +
-                "Sample ids not included will be omitted by CdrBlast. If this argument is not provided, default values will be used.\n" +
-                "Allowed species: ${Util.SPECIES.join(", ")}\nAllowed genes:${Util.CHAINS}\n" +
-                "File types column is optional (it could be either omitted or set to \'-\'). " +
-                "This columns should contain comma-separated list of file types to be processed for a given sample, e.g. \'paired, overlapped\'" +
-                "Allowed file types are: ${Util.FILE_TYPES}. By default all file types are considered." +
-                "Mask column is optional (it could be either omitted or set to \'-\') and will be ignored for unpaired and overlapped reads. " +
-                "Mask which read(s) in pair will be searched for CDR3 region. " +
-                "Allowed values are: 1:0 (R1 assembled), 0:1 (R2 assembled) and 1:1 (both reads assembled, [default])\n" +
-                "Quality threshold column is optional (it could be either omitted or set to '-'). " +
-                "Comma-separated pair of quality threshold values for Phred and CQS quality thresholds respectively" +
-                "[default = 25,30]")
-cli._(args: 1, longOpt: 'blast-path', 'Path to blast executable.')
-cli._(longOpt: 'no-sort', 'Do not sort output files which will speed up processing. ' +
-        'Could be used for full pipeline as FilterCdrBlastResults will provide final clonotype table in sorted format.')
-cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
-cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-metadata")
-cli.R(longOpt: 'default-gene', args: 1, "Gene, default for all samples, see --sample-metadata")
-cli._(longOpt: 'default-species', args: 1, "Species, default for all samples, see --sample-metadata")
-cli._(longOpt: 'default-file-types', args: 1, "Accepted file types, default for all samples, see --sample-metadata")
-cli._(longOpt: 'default-quality-threshold', args: 1, "Quality threshold pair, default for all samples, see --sample-metadata")
+        "Either --sample-metadata or -R argument is required.")
+cli.p(args: 1, "Number of threads to use")
+cli._(longOpt: "sample-metadata", args: 1, argName: "file",
+        "An optional tab-delimited file indicating which samples to process and containing 6 columns:\n" +
+                "sample_id|species|gene|file_types|mask|quality_threshold_pair\n" +
+                "Samples not included will be omitted by CdrBlast. " +
+                "File types, mask and quality threshold columns could be either omitted or set to "-"")
+cli._(args: 1, longOpt: "blast-path",
+        "Path to blast executable.")
+cli._(longOpt: "no-sort",
+        "Do not sort output files, which will speed up processing. " +
+                "Could be used for full pipeline as FilterCdrBlastResults will provide final clonotype table in sorted format.")
+cli._(longOpt: "all-segments",
+        "Use full V/D/J segment library (including pseudogens, etc).")
+cli._(longOpt: "print-library",
+        "Prints out allowed species-gene pairs. " +
+                "To account non-functional segment data use together with --all-segments")
+cli._(longOpt: "default-mask", args: 1, argName: "R1=0/1:R2=0/1",
+        "Mask, default for all samples, will be ignored for unpaired and overlapped reads, " +
+                "allowed values are: 1:0 (R1 assembled), 0:1 (R2 assembled) and 1:1 (both reads assembled, default)")
+cli.R(longOpt: "default-gene", args: 1, argName: "gene",
+        "Gene, default for all samples, allowed values: 'TRA', 'TRB', 'TRG', 'TRD', 'IGL', 'IGK' or 'IGH'. " +
+                "Use --print-library for the list of allowed species-gene combinations.")
+cli._(longOpt: "default-species", args: 1, argName: "species",
+        "Species, default for all samples, allowed values: 'HomoSapiens'[default], 'MusMusculus', ... " +
+                "Use --print-library for the list of allowed species-gene combinations.")
+cli._(longOpt: "default-file-types", args: 1, argName: "type1,..",
+        "Accepted file types, default for all samples, " +
+                "comma-separated list of file types to be processed for a given sample, allowed values: ${Util.FILE_TYPES.join(", ")}")
+cli._(longOpt: "default-quality-threshold", args: 1, argName: "Phred,CQS",
+        "Quality threshold pair, default for all samples, comma-separated pair " +
+                "of quality threshold values for Phred and CQS quality thresholds respectively [default = 25, 30]")
 
 def opt = cli.parse(args)
 
-if (opt == null || opt.arguments().size() < 3) {
+if (opt == null) {
+    println "[ERROR] Too few arguments provided"
+    cli.usage()
+    System.exit(-1)
+}
+
+// SEGMENTS
+boolean includeNonFuncitonal = opt.'all-segments'
+if (opt.'print-library') {
+    println "CDR3 extraction is possible for the following data (segments include non-functional = $includeNonFuncitonal):"
+    Util.listAvailableSegments(includeNonFuncitonal)
+    System.exit(0)
+}
+
+if (opt.arguments().size() < 3) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
@@ -141,7 +161,7 @@ if (sampleInfoFileName) {
 sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     def splitLine = line.split("\t")
     def sampleId = splitLine[0],
-        species = splitLine[1].toLowerCase(), chain = splitLine[2].toUpperCase(),
+        species = splitLine[1], chain = splitLine[2],
         fileTypes = splitLine.length > 3 ? (splitLine[3] == '-' ? Util.FILE_TYPES.join(",") : splitLine[3]) : Util.FILE_TYPES.join(","),
         mask = (splitLine.length > 4 ? (splitLine[4] == '-' ? "1:1" : splitLine[4]) : "1:1"),
         qualityThreshold = splitLine.length > 5 ? (splitLine[5] == '-' ? null : splitLine[5]) : null
@@ -149,12 +169,10 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     qualityThreshold = qualityThreshold ? qualityThreshold.split(",") : null
     // todo: estimate q threshold by HistQ
 
-    if (!Util.SPECIES.any { species == it }) {
-        println "[ERROR] Bad species $species on line $line. Supported species are ${Util.SPECIES.join(", ")}"
-        System.exit(-1)
-    }
-    if (!Util.CHAINS.any { chain == it }) {
-        println "[ERROR] Bad gene $chain on line $line. Supported genes are ${Util.CHAINS.join(", ")}"
+    if (!Util.isAvailable(species, chain, includeNonFuncitonal)) {
+        println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
+                "(include non-functional = $includeNonFuncitonal). " +
+                "Possible variants are:\n${Util.listAvailableSegments(includeNonFuncitonal)}"
         System.exit(-1)
     }
     if (!Util.MASKS.any { mask == it }) {
@@ -198,7 +216,6 @@ logFile.withPrintWriter { pw ->
     pw.println(Util.CDRBLAST_LOG_HEADER)
 
     // RUN CDRBLAST
-    boolean allSegments = opt.'all-segments' ? true : false
     def baseArgs = []
     if (opt.'no-sort')
         baseArgs = [baseArgs, ["--no-sort"]]
@@ -206,7 +223,7 @@ logFile.withPrintWriter { pw ->
         baseArgs = [baseArgs, ["-p", opt.p]]
     if (blastPath)
         baseArgs = [baseArgs, ["--blast-path", blastPath]]
-    if (allSegments)
+    if (includeNonFuncitonal)
         baseArgs = [baseArgs, ["--all-segments"]]
     String logLine
     if (processAssembled) {

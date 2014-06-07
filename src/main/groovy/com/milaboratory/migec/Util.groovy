@@ -23,8 +23,6 @@ class Util {
     static final byte DEFAULT_UMI_QUAL_THRESHOLD = (byte) 15
     static final char[] NTS = ['A', 'T', 'G', 'C']
     static final List<String> FILE_TYPES = ["paired", "unpaired", "overlapped"],
-                              CHAINS = ["TRA", "TRB", "TRG", "TRD", "IGH", "IGK", "IGL"],
-                              SPECIES = ["human", "mouse"],
                               MASKS = ["0:1", "1:0", "1:1"]
 
     static final String ASSEMBLE_LOG_HEADER =
@@ -43,6 +41,32 @@ class Util {
                     "CLONOTYPES_FILTERED\tCLONOTYPES_TOTAL\t" +
                     "EVENTS_FILTERED\tEVENTS_TOTAL\t" +
                     "READS_FILTERED\tREADS_TOTAL"
+
+    static void listAvailableSegments(boolean includeNonFunctional) {
+        println "SPECIES\tGENE"
+        new InputStreamReader(Migec.class.classLoader.getResourceAsStream("segments" +
+                (includeNonFunctional ? "_all" : "") + ".metadata")).splitEachLine("\t") { splitLine ->
+            if (!splitLine[0].startsWith("#") && splitLine[-1] == "1") {
+                println "${splitLine[0]}\t${splitLine[1]}"
+            }
+        }
+    }
+
+    static boolean isAvailable(String species, String gene, boolean includeNonFunctional) {
+        new InputStreamReader(Migec.class.classLoader.getResourceAsStream("segments" +
+                (includeNonFunctional ? "_all" : "") + ".metadata")).splitEachLine("\t") { splitLine ->
+            if (!splitLine[0].startsWith("#") && splitLine[-1] == "1" &&
+                    splitLine[0].toUpperCase() == species.toUpperCase() &&
+                    splitLine[1].toUpperCase() == gene.toUpperCase())
+                return true
+        }
+        false
+    }
+
+    static InputStreamReader getSegmentsFile(boolean includeNonFunctional) {
+        new InputStreamReader(Migec.class.classLoader.getResourceAsStream("segments" +
+                (includeNonFunctional ? "_all" : "") + ".txt"))
+    }
 
     static byte qualFromSymbol(char symbol) {
         (int) symbol - 33

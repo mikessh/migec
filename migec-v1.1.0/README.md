@@ -24,21 +24,6 @@ Please cite the tool as:
 
 - Flexible and straightforward batch processing 
 
-- Currently all species-gene pairs from IMGT that have both Variable and Joining segments are supported, this list includes
-
-Species              | Gene
----------------------|-----------------------------------
-HomoSapiens          | TRA, TRB, TRG, TRD, IGL, IGK, IGH
-MusMusculus          | TRB, TRG, TRD, IGL, IGK, IGH     
-MacacaMulatta        | TRB, IGK, IGH
-OryctolagusCuniculus | IGL, IGK, IGH
-RattusNorvegicus     | IGL, IGH
-CanisLupusFamiliaris | TRB, TRG
-SusScrofa            | IGL, IGK
-BosTaurus            | TRD          
-MusSpretus           | IGL
-
-
 ### INSTALLATION AND RUNNING
 
 The pipeline is written in Groovy (a Java scripting language) and distributed as an executable JAR. To install it get the latest [JRE](http://www.oracle.com/technetwork/java/javase/downloads/index.html) and download the executable from [releases section](https://github.com/mikessh/migec/releases). 
@@ -61,7 +46,6 @@ alternatively you can download the repository and compile it from source using [
 $git clone https://github.com/mikessh/migec.git
 $cd migec/
 $mvn clean install
-$java -jar target/migec-VERSION.jar
 ```
 
 ### NOTE

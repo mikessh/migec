@@ -22,31 +22,69 @@ import java.util.zip.GZIPOutputStream
 //////////////
 //   CLI   //
 ////////////
-def cli = new CliBuilder(usage: 'CdrBlast [options] reads1.fastq[.gz] [reads2.fastq[.gz] ...] output_file\n' +
-        'NOTE: NCBI-BLAST+ package required')
-cli.h('usage')
-cli.R(args: 1, argName: '\'TRA\', \'TRB\', \'TRG\', \'TRD\',  \'IGL\', \'IGK\' or \'IGH\'', 'Receptor gene [required]')
-cli.S(args: 1, argName: '\'human\' or \'mouse\'', 'Species [default=human]')
-cli.a('Input data is assembled consensuses set, not reads. ' +
-        'The read header must contain \'UMI:NNNNNNNNNNNN:COUNT\' entry.')
-cli.q(args: 1, argName: 'Phred quality value',
-        'minimum quality of read to pass filter, will be ' +
-                'applied only to CDR3 region [default=30 for -a or 25, out of 40]')
-cli.p(args: 1, 'number of threads to use [default = all available processors]')
-cli.N(args: 1, 'Number of reads to take. For downsampling purposes')
-cli._(longOpt: 'no-sort', 'Do not sort output by clonotype count, can save some time')
-cli._(longOpt: 'blast-path', args: 1, argName: 'folder name', 'Path to blast executable.')
-cli._(longOpt: 'all-segments', 'Use full V/D/J segment library (including pseudogens, etc).')
-cli._(longOpt: 'strict-nc-handling', "Will not discard clonotypes with partial CDR3, " +
-        "but rather try to append to corresponding complete clonotypes.")
-cli._(longOpt: 'debug', 'Prints out alignment details, stores all temporary alignment files.')
-cli._(longOpt: 'cdr3-fastq-file', args: 1, argName: 'file name', 'Store reads with CDR3 extracted with CDR3 data in header. ' +
-        'Needed for \'com.milaboratory.migec.post.GroupByCdr\' script.')
-cli._(longOpt: 'log-file', args: 1, argName: 'file name', "File to output cdr extraction log")
-cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
-cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
+def cli = new CliBuilder(usage: "CdrBlast [options] reads1.fastq[.gz] [reads2.fastq[.gz] ...] output_file\n" +
+        "NOTE: NCBI-BLAST+ package required")
+cli.h("usage")
+cli.R(args: 1, argName: "gene",
+        "Receptor gene: 'TRA', 'TRB', 'TRG', 'TRD',  'IGL', 'IGK' or 'IGH' [required]. " +
+                "Use --print-library to print the list of allowed species-gene combinations.")
+cli.S(args: 1, argName: "species",
+        "Species: 'HomoSapiens'[default], 'MusMusculus', ... " +
+                "Use --print-library to print the list of allowed species-gene combinations.")
+cli.a("Input data is assembled consensuses set, not reads. " +
+        "The read header must contain 'UMI:NNNNN:COUNT' entry.")
+cli.q(args: 1, argName: "Phred",
+        "minimum quality of read to pass filter, will be " +
+                "applied only to CDR3 region [default=30 for -a or 25, out of 40]")
+cli.p(args: 1,
+        "number of threads to use [default = all available processors]")
+cli.N(args: 1,
+        "Number of reads to take. For downsampling purposes")
+cli._(longOpt: "no-sort",
+        "Do not sort output by clonotype count, can save some time")
+cli._(longOpt: "blast-path", args: 1, argName: "directory",
+        "Path to blast executable.")
+cli._(longOpt: "all-segments",
+        "Use full V/D/J segment library (including pseudogens, etc).")
+cli._(longOpt: "print-library",
+        "Prints out allowed species-gene pairs. " +
+                "To account non-functional segment data use together with --all-segments")
+cli._(longOpt: "strict-nc-handling",
+        "Will not discard clonotypes with partial CDR3, " +
+                "but rather try to append to corresponding complete clonotypes.")
+cli._(longOpt: "debug",
+        "Prints out alignment details, stores all temporary alignment files.")
+cli._(longOpt: "cdr3-fastq-file", args: 1, argName: "file",
+        "Store reads with CDR3 extracted with CDR3 data in header. " +
+                "Needed for 'com.milaboratory.migec.post.GroupByCdr' script.")
+cli._(longOpt: "log-file", args: 1, argName: "file",
+        "File to output cdr extraction log.")
+cli._(longOpt: "log-overwrite",
+        "Overwrites provided log file.")
+cli._(longOpt: "log-sample-name",
+        "Sample name to use in log [default = N/A].")
 
 def opt = cli.parse(args)
+
+if (opt == null) {
+    println "[ERROR] Too few arguments provided"
+    cli.usage()
+    System.exit(-1)
+}
+
+if (opt.h) {
+    println "[ERROR] Too few arguments provided"
+    cli.usage()
+    System.exit(0)
+}
+
+// SEGMENTS STUFF
+boolean includeNonFuncitonal = opt.'all-segments'
+if (opt.'print-library') {
+    println "CDR3 extraction is possible for the following data (segments include non-functional = $includeNonFuncitonal):"
+    Util.listAvailableSegments(includeNonFuncitonal)
+    System.exit(0)
+}
 
 if (!opt.R) {
     println "[ERROR] Receptor gene not provided"
@@ -54,14 +92,20 @@ if (!opt.R) {
     System.exit(-1)
 }
 
-if (opt.h || opt == null || opt.arguments().size() < 2) {
-    println "[ERROR] Too few arguments provided"
-    cli.usage()
+String chain = opt.R, species = opt.S ?: "HomoSapiens"
+
+if (!chain) {
+    println "[ERROR] Chain argument is required for CdrBlast"
     System.exit(-1)
 }
 
-def blastPath = opt.'blast-path' ?: ""
-blastPath = blastPath.length() > 0 ? blastPath + "/" : ""
+if (!Util.isAvailable(species, chain, includeNonFuncitonal)) {
+    println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
+            "(include non-functional = $includeNonFuncitonal). " +
+            "Possible variants are:"
+    Util.listAvailableSegments(includeNonFuncitonal)
+    System.exit(-1)
+}
 
 // SYSTEM
 def DEBUG = opt.'debug',
@@ -72,6 +116,9 @@ def timestamp = {
     "[${new Date()} $SCRIPT_NAME]"
 }
 
+def blastPath = opt.'blast-path' ?: ""
+blastPath = blastPath.length() > 0 ? blastPath + "/" : ""
+
 // Check for BLAST installation
 try {
     ["${blastPath}convert2blastmask", "${blastPath}makeblastdb", "${blastPath}blastn"].each { it.execute().waitFor() }
@@ -81,6 +128,12 @@ try {
 }
 
 // INPUT, OUTPUT AND TEMPORARY FILES
+if (opt.arguments().size() < 2) {
+    println "[ERROR] Too few arguments provided"
+    cli.usage()
+    System.exit(-1)
+}
+
 def inputFileNames = opt.arguments()[0..-2].collect { it.toString() },
     outputFileName = opt.arguments()[-1].toString()
 
@@ -119,27 +172,8 @@ boolean strictNcHandling = opt.'strict-nc-handling',
         assembledInput = opt.a,
         doSort = !opt.'no-sort'
 
-def segmentsFileName = opt.'all-segments' ? "segments_all.txt" : "segments.txt"
-
 int qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
     nReads = Integer.parseInt(opt.N ?: "-1")
-
-String chain = opt.R, species = opt.S ?: "HomoSapiens"
-
-if (!chain) {
-    println "[ERROR] Chain argument is required for CdrBlast"
-    System.exit(-1)
-}
-chain = chain.toString().toUpperCase()
-if (!Util.CHAINS.any { it == chain }) {
-    println "[ERROR] Bad chain $chain. Allowed chains: ${Util.CHAINS}"
-    System.exit(-1)
-}
-
-if (species.toLowerCase() == "human")
-    species = "HomoSapiens"
-else if (species.toLowerCase() == "mouse")
-    species = "MusMusculus"
 
 /////////////////
 // MISC UTILS //
@@ -200,10 +234,11 @@ def segments = new HashMap<String, Segment>(), alleles = new HashMap<String, All
 def vAlleles = new ArrayList<Allele>(), jAlleles = new ArrayList<Allele>()
 def collapseAlleleMap = new HashMap<String, Allele>()
 
-def resFile = new InputStreamReader(Migec.class.classLoader.getResourceAsStream(segmentsFileName))
+def resFile = Util.getSegmentsFile(includeNonFuncitonal)
 
 resFile.splitEachLine("\t") {
-    if (species == it[0] && chain == it[1]) { // Take only alleles of a given chain and species
+    if (species.toUpperCase() == it[0].toUpperCase() &&
+            chain.toUpperCase() == it[1].toUpperCase()) { // Take only alleles of a given chain and species
         def type = it[2].charAt(0).toUpperCase(), seq = it[5], refPoint = Integer.parseInt(it[4])
 
         // Mask all except seed region
