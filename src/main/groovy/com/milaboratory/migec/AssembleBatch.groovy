@@ -138,7 +138,7 @@ logFile.withPrintWriter { pw ->
 
             // More messy argument passing
             def assembleArgs = [baseArgs,
-                                ['-m', collThreshold],
+                                ['-m', overseqThreshold],
                                 ['-q', umiQualThreshold],
                                 ['--assembly-mask', mask]]
 
