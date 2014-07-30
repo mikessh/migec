@@ -175,46 +175,6 @@ boolean strictNcHandling = opt.'strict-nc-handling',
 int qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
     nReads = Integer.parseInt(opt.N ?: "-1")
 
-/////////////////
-// MISC UTILS //
-///////////////
-def getReader = { String fname ->
-    new BufferedReader(new InputStreamReader(fname.endsWith(".gz") ?
-            new GZIPInputStream(new FileInputStream(fname)) : new FileInputStream(fname)))
-}
-
-def getWriter = { String outfile ->
-    new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(outfile))))
-}
-
-def char2qual(char c) {
-    (int) c - 33
-}
-
-def revCompl = { String seq ->
-    def chars = seq.reverse().toCharArray()
-    for (int i = 0; i < chars.length; i++) {
-        switch (chars[i]) {
-            case ((char) 'A'):
-                chars[i] = (char) 'T'
-                break
-            case ((char) 'T'):
-                chars[i] = (char) 'A'
-                break
-            case ((char) 'G'):
-                chars[i] = (char) 'C'
-                break
-            case ((char) 'C'):
-                chars[i] = (char) 'G'
-                break
-            default:
-                chars[i] = (char) 'N'
-                break
-        }
-    }
-    return new String(chars)
-}
-
 ////////////////////////////////////////////
 // Stage 0: Pre-load segment information //
 //////////////////////////////////////////
@@ -317,7 +277,7 @@ def seqMap = new HashMap<String, Integer>(), seqList = new ArrayList<String>()
 int counter = 0, uniqueCounter = 0
 inputFileNames.each { inputFileName ->
     println "${timestamp()} Reading $inputFileName and generating list of unique sequences to map V and J genes"
-    def reader = getReader(inputFileName)
+    def reader = Util.getReader(inputFileName)
     String header
     while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
         if (assembledInput) {
@@ -462,118 +422,13 @@ class ClonotypeData {
         this.rc = rc
     }
 
-
-    static String codon2aa(String codon) {
-        switch (codon.toUpperCase()) {
-            case 'TTT': return 'F'
-            case 'TTC': return 'F'
-            case 'TTA': return 'L'
-            case 'TTG': return 'L'
-            case 'TCT': return 'S'
-            case 'TCC': return 'S'
-            case 'TCA': return 'S'
-            case 'TCG': return 'S'
-            case 'TAT': return 'Y'
-            case 'TAC': return 'Y'
-            case 'TAA': return '*'
-            case 'TAG': return '*'
-            case 'TGT': return 'C'
-            case 'TGC': return 'C'
-            case 'TGA': return '*'
-            case 'TGG': return 'W'
-            case 'CTT': return 'L'
-            case 'CTC': return 'L'
-            case 'CTA': return 'L'
-            case 'CTG': return 'L'
-            case 'CCT': return 'P'
-            case 'CCC': return 'P'
-            case 'CCA': return 'P'
-            case 'CCG': return 'P'
-            case 'CAT': return 'H'
-            case 'CAC': return 'H'
-            case 'CAA': return 'Q'
-            case 'CAG': return 'Q'
-            case 'CGT': return 'R'
-            case 'CGC': return 'R'
-            case 'CGA': return 'R'
-            case 'CGG': return 'R'
-            case 'ATT': return 'I'
-            case 'ATC': return 'I'
-            case 'ATA': return 'I'
-            case 'ATG': return 'M'
-            case 'ACT': return 'T'
-            case 'ACC': return 'T'
-            case 'ACA': return 'T'
-            case 'ACG': return 'T'
-            case 'AAT': return 'N'
-            case 'AAC': return 'N'
-            case 'AAA': return 'K'
-            case 'AAG': return 'K'
-            case 'AGT': return 'S'
-            case 'AGC': return 'S'
-            case 'AGA': return 'R'
-            case 'AGG': return 'R'
-            case 'GTT': return 'V'
-            case 'GTC': return 'V'
-            case 'GTA': return 'V'
-            case 'GTG': return 'V'
-            case 'GCT': return 'A'
-            case 'GCC': return 'A'
-            case 'GCA': return 'A'
-            case 'GCG': return 'A'
-            case 'GAT': return 'D'
-            case 'GAC': return 'D'
-            case 'GAA': return 'E'
-            case 'GAG': return 'E'
-            case 'GGT': return 'G'
-            case 'GGC': return 'G'
-            case 'GGA': return 'G'
-            case 'GGG': return 'G'
-            default: return '?'
-        }
-    }
-
-    static String translate(String seq) {
-        def aaSeq = ""
-        def oof = seq.size() % 3
-        if (oof > 0) {
-            def mid = (int) (seq.size() / 2)
-            seq = seq.substring(0, mid) + ("?" * (3 - oof)) + seq.substring(mid, seq.length())
-        }
-
-        def leftEnd = -1, rightEnd = -1
-        for (int i = 0; i <= seq.size() - 3; i += 3) {
-            def codon = seq.substring(i, i + 3)
-            if (codon.contains("?")) {
-                leftEnd = i
-                break
-            }
-            aaSeq += codon2aa(codon)
-        }
-
-        if (oof == 0)
-            return aaSeq
-
-        def aaRight = ""
-        for (int i = seq.size(); i >= 3; i -= 3) {
-            def codon = seq.substring(i - 3, i)
-            if (codon.contains("?")) {
-                rightEnd = i
-                break
-            }
-            aaRight += codon2aa(codon)
-        }
-
-        return aaSeq + seq.substring(leftEnd, rightEnd).toLowerCase() + aaRight.reverse()
-    }
-
     boolean isCanonical() {
-        aaSeq = aaSeq ?: translate(cdr3Seq)
+        aaSeq = aaSeq ?: Util.translate(cdr3Seq)
         aaSeq.contains("?") || aaSeq.contains("*") || aaSeq.endsWith("F") || aaSeq.endsWith("W")
     }
 
     String getSignature() {
-        [cdr3Seq, aaSeq = aaSeq ?: translate(cdr3Seq),
+        [cdr3Seq, aaSeq = aaSeq ?: Util.translate(cdr3Seq),
          vAllele.alleleId, jAllele.alleleId, ".",
          vEndRel, ".", ".", jStartRel].join("\t") // for tabular output
     }
@@ -636,7 +491,7 @@ seqMap.each {
         if (vRefInAlign && jRefInAlign && vRC == jRC) {
             if (vRC) { // after that step RC is same to non-RC
                 reverseFound++
-                seq = revCompl(seq)
+                seq = Util.revCompl(seq)
 
                 int temp = vMapping.qTo
                 vMapping.qTo = seq.length() - vMapping.qFrom - 1
@@ -706,16 +561,16 @@ seqMap.each {
             if (bad) {
                 if (badExamples < 5) {
                     println ">BAD"
-                    println((vRC == jRC && vRC) ? revCompl(seq) : seq)
+                    println((vRC == jRC && vRC) ? Util.revCompl(seq) : seq)
                     if (!vRefInAlign)
                         println vAllele.alleleId + "\t" +
-                                (vRC ? revCompl(vAllele.seq.toUpperCase()) :
+                                (vRC ? Util.revCompl(vAllele.seq.toUpperCase()) :
                                         vAllele.seq.toUpperCase()) + "\t" +
                                 "aFrom=$vMapping.aFrom aTo=$vMapping.aTo ref=$vRef"
 
                     if (!jRefInAlign)
                         println jAllele.alleleId + "\t" +
-                                (vRC ? revCompl(jAllele.seq.toUpperCase()) :
+                                (vRC ? Util.revCompl(jAllele.seq.toUpperCase()) :
                                         jAllele.seq.toUpperCase()) + "\t" +
                                 "aFrom=$jMapping.aFrom aTo=$jMapping.aTo ref=$jRef"
                     badExamples++
@@ -728,7 +583,7 @@ seqMap.each {
                         vAllele.seq.toUpperCase() + "\t" +
                         "qTo=$vMapping.qTo qFrom=$vMapping.qFrom aTo=$vMapping.aTo aFrom=$vMapping.aFrom ref=$vRef"
                 println jAllele.alleleId + "\t" +
-                        revCompl(jAllele.seq.toUpperCase()) + "\t" +
+                        Util.revCompl(jAllele.seq.toUpperCase()) + "\t" +
                         "qTo=$jMapping.qTo qFrom=$jMapping.qFrom aTo=$jMapping.aTo aFrom=$jMapping.aFrom ref=$jRef"
                 goodExamples++
             }
@@ -754,10 +609,10 @@ if (DEBUG) {
 ////////////////////////////////
 counter = 0
 int goodReads = 0, goodEvents = 0, mappedReads = 0, mappedEvents = 0, totalReads = 0, totalEvents = 0
-def writer = cdr3FastqFile ? getWriter(cdr3FastqFile) : null
+def writer = cdr3FastqFile ? Util.getWriter(cdr3FastqFile) : null
 inputFileNames.each { inputFileName ->
     println "${timestamp()} Appending read data from $inputFileName"
-    def reader = getReader(inputFileName)
+    def reader = Util.getReader(inputFileName)
     new File(outputFileName + ".bad").withPrintWriter { pw ->
         while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
             def seq = reader.readLine()
@@ -781,7 +636,7 @@ inputFileNames.each { inputFileName ->
                 qual = qual.substring(clonotypeData.cdrFrom, clonotypeData.cdrTo)
 
                 // Increment counters if quality is good
-                if (qual.toCharArray().collect { char2qual(it) }.min() >= qualThreshold) {
+                if (Util.qualFromString(qual).min() >= qualThreshold) {
                     clonotypeData.counts[0]++
                     goodEvents++
                     clonotypeData.counts[2] += increment

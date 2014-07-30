@@ -137,10 +137,12 @@ logFile.withPrintWriter { pw ->
                 filterCollisions = true
 
             // More messy argument passing
-            def assembleArgs = [baseArgs,
-                                ['-m', overseqThreshold],
-                                ['-q', umiQualThreshold],
-                                ['--assembly-mask', mask]]
+            def assembleArgs = [
+                    baseArgs,
+                    ['-m', overseqThreshold],
+                    ['-q', umiQualThreshold],
+                    ['--assembly-mask', mask]
+            ]
 
             if (filterCollisions)
                 assembleArgs.add(['--filter-collisions'])

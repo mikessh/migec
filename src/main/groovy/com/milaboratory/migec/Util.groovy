@@ -20,8 +20,20 @@ import java.util.zip.GZIPOutputStream
  limitations under the License.
  */
 class Util {
-    static final byte DEFAULT_UMI_QUAL_THRESHOLD = (byte) 15
-    static final char[] NTS = ['A', 'T', 'G', 'C']
+    /*
+     * Execution utils
+     */
+
+    static Object run(Script script, String args) {
+        // perform cleanup
+        def argArray = args.split(" ").
+                findAll { it != " " && it != "" }.
+                collect { it.replaceAll("//+", "/").toString() }
+        println "Executing ${script.class.canonicalName} ${argArray.join(" ")}"
+        script.binding.setVariable("args", argArray)
+        script.run()
+    }
+
     static final List<String> FILE_TYPES = ["paired", "unpaired", "overlapped"],
                               MASKS = ["0:1", "1:0", "1:1"]
 
@@ -41,6 +53,10 @@ class Util {
                     "CLONOTYPES_FILTERED\tCLONOTYPES_TOTAL\t" +
                     "EVENTS_FILTERED\tEVENTS_TOTAL\t" +
                     "READS_FILTERED\tREADS_TOTAL"
+
+    /*
+     * Immune gene segment utils
+     */
 
     static void listAvailableSegments(boolean includeNonFunctional) {
         println "SPECIES\tGENE"
@@ -68,6 +84,10 @@ class Util {
                 (includeNonFunctional ? "_all" : "") + ".txt"))
     }
 
+    /*
+     * Phred utils
+     */
+
     static byte qualFromSymbol(char symbol) {
         (int) symbol - 33
     }
@@ -84,6 +104,12 @@ class Util {
         qual = qual > 40 ? 40 : qual
         (char) (qual + 33)
     }
+
+    /*
+     * NT utils
+     */
+
+    static final char[] NTS = ['A', 'T', 'G', 'C']
 
     static char code2nt(int code) {
         switch (code) {
@@ -111,6 +137,102 @@ class Util {
         }
     }
 
+    static String revCompl(String seq) {
+        def chars = seq.reverse().toCharArray()
+        for (int i = 0; i < chars.length; i++) {
+            switch (chars[i]) {
+                case ((char) 'A'):
+                    chars[i] = (char) 'T'
+                    break
+                case ((char) 'T'):
+                    chars[i] = (char) 'A'
+                    break
+                case ((char) 'G'):
+                    chars[i] = (char) 'C'
+                    break
+                case ((char) 'C'):
+                    chars[i] = (char) 'G'
+                    break
+                default:
+                    chars[i] = (char) 'N'
+                    break
+            }
+        }
+        return new String(chars)
+    }
+
+    /*
+     * Amino acid utils
+     */
+
+    static String codon2aa(String codon) {
+        switch (codon.toUpperCase()) {
+            case 'TTT': case 'TTC': return 'F'
+            case 'TTA': case 'TTG': return 'L'
+            case 'TCT': case 'TCC': case 'TCA': case 'TCG': return 'S'
+            case 'TAT': case 'TAC': return 'Y'
+            case 'TAA': case 'TAG': case 'TGA': return '*'
+            case 'TGT': case 'TGC': return 'C'
+            case 'TGG': return 'W'
+            case 'CTT': case 'CTC': case 'CTA': case 'CTG': return 'L'
+            case 'CCT': case 'CCC': case 'CCA': case 'CCG': return 'P'
+            case 'CAT': case 'CAC': return 'H'
+            case 'CAA': case 'CAG': return 'Q'
+            case 'CGT': case 'CGC': case 'CGA': case 'CGG': return 'R'
+            case 'ATT': case 'ATC': case 'ATA': return 'I'
+            case 'ATG': return 'M'
+            case 'ACT': case 'ACC': case 'ACA': case 'ACG': return 'T'
+            case 'AAT': case 'AAC': return 'N'
+            case 'AAA': case 'AAG': return 'K'
+            case 'AGT': case 'AGC': return 'S'
+            case 'AGA': case 'AGG': return 'R'
+            case 'GTT': case 'GTC': case 'GTA': case 'GTG': return 'V'
+            case 'GCT': case 'GCC': case 'GCA': case 'GCG': return 'A'
+            case 'GAT': case 'GAC': return 'D'
+            case 'GAA': case 'GAG': return 'E'
+            case 'GGT': case 'GGC': case 'GGA': case 'GGG': return 'G'
+            default: return '?'
+        }
+    }
+
+    static String translate(String seq) {
+        def aaSeq = ""
+        def oof = seq.size() % 3
+        if (oof > 0) {
+            def mid = (int) (seq.size() / 2)
+            seq = seq.substring(0, mid) + ("?" * (3 - oof)) + seq.substring(mid, seq.length())
+        }
+
+        def leftEnd = -1, rightEnd = -1
+        for (int i = 0; i <= seq.size() - 3; i += 3) {
+            def codon = seq.substring(i, i + 3)
+            if (codon.contains("?")) {
+                leftEnd = i
+                break
+            }
+            aaSeq += codon2aa(codon)
+        }
+
+        if (oof == 0)
+            return aaSeq
+
+        def aaRight = ""
+        for (int i = seq.size(); i >= 3; i -= 3) {
+            def codon = seq.substring(i - 3, i)
+            if (codon.contains("?")) {
+                rightEnd = i
+                break
+            }
+            aaRight += codon2aa(codon)
+        }
+
+        return aaSeq + seq.substring(leftEnd, rightEnd).toLowerCase() + aaRight.reverse()
+    }
+
+    /*
+     * I/O utils
+     */
+
     static BufferedReader getReader(String fname) {
         new BufferedReader(new InputStreamReader(fname.endsWith(".gz") ? new GZIPInputStream(new FileInputStream(fname)) :
                 new FileInputStream(fname)))
@@ -129,6 +251,19 @@ class Util {
                 new GZIPOutputStream(new FileOutputStream(outfile)) : new FileOutputStream(outfile)))
     }
 
+    static String getFileName(String fullFileName) {
+        fullFileName.split("/")[-1]
+    }
+
+    static String getFastqPrefix(String fileName) {
+        fileName.split("/")[-1].replaceAll(/\.fastq(?:\.gz)?$/, "")
+    }
+
+    /*
+     * UMI utils
+     */
+
+    static final byte DEFAULT_UMI_QUAL_THRESHOLD = (byte) 15
 
     static String getUmi(String header, byte umiQualThreshold) {
         def splitHeader = header.split(" ")
@@ -144,26 +279,12 @@ class Util {
         umi
     }
 
+    /*
+     * Misc utils
+     */
+
     static String toString(AtomicIntegerArray arr) {
         (0..<arr.length()).collect { arr.get(it) }.join("\t")
-    }
-
-    static Object run(Script script, String args) {
-        // perform cleanup
-        def argArray = args.split(" ").
-                findAll { it != " " && it != "" }.
-                collect { it.replaceAll("//+", "/").toString() }
-        println "Executing ${script.class.canonicalName} ${argArray.join(" ")}"
-        script.binding.setVariable("args", argArray)
-        script.run()
-    }
-
-    static String getFileName(String fullFileName) {
-        fullFileName.split("/")[-1]
-    }
-
-    static String getFastqPrefix(String fileName) {
-        fileName.split("/")[-1].replaceAll(/\.fastq(?:\.gz)?$/, "")
     }
 
     static String getPercent(int n, int N) {
