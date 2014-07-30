@@ -69,14 +69,15 @@ class Util {
     }
 
     static boolean isAvailable(String species, String gene, boolean includeNonFunctional) {
+        boolean result = false
         new InputStreamReader(Migec.class.classLoader.getResourceAsStream("segments" +
                 (includeNonFunctional ? "_all" : "") + ".metadata")).splitEachLine("\t") { splitLine ->
             if (!splitLine[0].startsWith("#") && splitLine[-1] == "1" &&
                     splitLine[0].toUpperCase() == species.toUpperCase() &&
                     splitLine[1].toUpperCase() == gene.toUpperCase())
-                return true
+                result = true
         }
-        false
+        result
     }
 
     static InputStreamReader getSegmentsFile(boolean includeNonFunctional) {
