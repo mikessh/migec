@@ -636,7 +636,7 @@ inputFileNames.each { inputFileName ->
                 qual = qual.substring(clonotypeData.cdrFrom, clonotypeData.cdrTo)
 
                 // Increment counters if quality is good
-                if (Util.qualFromString(qual).min() >= qualThreshold) {
+                if (Util.minQual(qual) >= qualThreshold) {
                     clonotypeData.counts[0]++
                     goodEvents++
                     clonotypeData.counts[2] += increment

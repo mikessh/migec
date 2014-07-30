@@ -93,6 +93,10 @@ class Util {
         (int) symbol - 33
     }
 
+    static byte minQual(String qual) {
+        qualFromString(qual).collect().min()
+    }
+
     static byte[] qualFromString(String qual) {
         byte[] qualArr = new byte[qual.length()]
         for (int i = 0; i < qual.length(); i++)
