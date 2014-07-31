@@ -71,7 +71,7 @@ if (overlap && !paired) {
 }
 
 //========================
-//          MISC
+//  MISC IUPAC TABLES
 //========================
 def complements = ['A': 'T', 'T': 'A', 'G': 'C', 'C': 'G', 'Y': 'R', 'R': 'Y', 'S': 'S', 'W': 'W', 'K': 'M',
                    'M': 'K', 'B': 'V', 'D': 'H', 'H': 'D', 'V': 'B', 'N': 'N', 'a': 't', 't': 'a', 'g': 'c', 'c': 'g', 'y': 'r',
@@ -96,49 +96,6 @@ def redundancy2 = new HashMap<Character, Set<Character>>([
         ((Character) 'D'): new HashSet<Character>([(Character) 'A', (Character) 'G', (Character) 'T']),
         ((Character) 'H'): new HashSet<Character>([(Character) 'A', (Character) 'C', (Character) 'T']),
         ((Character) 'B'): new HashSet<Character>([(Character) 'C', (Character) 'G', (Character) 'T'])])
-
-def qualFromSymbol = { char symbol ->
-    (int) symbol - 33
-}
-
-def getReader = { String fname ->
-    new BufferedReader(new InputStreamReader(fname.endsWith(".gz") ? new GZIPInputStream(new FileInputStream(fname)) :
-            new FileInputStream(fname)))
-}
-
-def getWriter = { String outfile ->
-    if (compressed)
-        outfile += ".gz"
-    new BufferedWriter(new OutputStreamWriter(compressed ?
-            new GZIPOutputStream(new FileOutputStream(outfile)) : new FileOutputStream(outfile)))
-}
-
-def revCompl = { String seq ->
-    def chars = seq.reverse().toCharArray()
-    for (int i = 0; i < chars.length; i++) {
-        if (chars[i] == (char) 'A')
-            chars[i] = (char) 'T'
-        else if (chars[i] == (char) 'T')
-            chars[i] = (char) 'A'
-        else if (chars[i] == (char) 'G')
-            chars[i] = (char) 'C'
-        else if (chars[i] == (char) 'C')
-            chars[i] = (char) 'G'
-        else if (chars[i] == (char) 'N')
-            chars[i] = (char) 'N'
-        else if (chars[i] == (char) 'a')
-            chars[i] = (char) 't'
-        else if (chars[i] == (char) 't')
-            chars[i] = (char) 'a'
-        else if (chars[i] == (char) 'g')
-            chars[i] = (char) 'c'
-        else if (chars[i] == (char) 'c')
-            chars[i] = (char) 'g'
-        else
-            chars[i] = (char) 'N'
-    }
-    return new String(chars)
-}
 
 //========================
 //       BARCODE DATA
@@ -192,7 +149,7 @@ new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
                 sl[1].toCharArray().every { complements.keySet().contains((String) it) }) {
             addBarcode(sl[1], 0)
             if (addRevComplBc)
-                addBarcode(revCompl(sl[1]), 0)
+                addBarcode(Util.revComplExt(sl[1]), 0)
         } else {
             println "ERROR: Bad barcode ${sl[1]}. Terminating"
             System.exit(-1)
@@ -201,7 +158,7 @@ new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
                 sl[2].toCharArray().every { complements.keySet().contains((String) it) }) {
             addBarcode(sl[2], 1)
             if (addRevComplBc)
-                addBarcode(revCompl(sl[2]), 1)
+                addBarcode(Util.revComplExt(sl[2]), 1)
         } else {
             addBarcode('n', 1)
             if (addRevComplBc)
@@ -230,7 +187,7 @@ def hasFuzzyMatch = { String barcode, String seq, String qual, int from, int bcI
     int goodThreshold = maxGoodMMs[slave][bcIndex], badThreshold = maxBadMMs[slave][bcIndex]
     for (int i = 0; i < barcode.size(); i++) {
         if (!(redundancy2[(Character) barcode.charAt(i)].contains((Character) seq.charAt(from + i)))) {
-            if (qualFromSymbol(qual.charAt(i)) > lq)
+            if (Util.qualFromSymbol(qual.charAt(i)) > lq)
                 if (++nGoodMMs > goodThreshold)
                     break
                 else if (++nBadMMs > badThreshold)
@@ -291,10 +248,10 @@ def overlapReads = { String r1, String r2, String q1, String q2 ->
                         if (pos2 == r2.length())
                             break // should not happen
 
-                        seq.append(qualFromSymbol(q1.charAt(j)) > qualFromSymbol(q2.charAt(pos2)) ?
+                        seq.append(Util.qualFromSymbol(q1.charAt(j)) > Util.qualFromSymbol(q2.charAt(pos2)) ?
                                 r1.charAt(j) : r2.charAt(pos2))
 
-                        qual.append(qualFromSymbol(q1.charAt(j)) > qualFromSymbol(q2.charAt(pos2)) ?
+                        qual.append(Util.qualFromSymbol(q1.charAt(j)) > Util.qualFromSymbol(q2.charAt(pos2)) ?
                                 q1.charAt(j) : q2.charAt(pos2))
                     }
                     for (int j = pos2 + 1; j < r2.length(); j++) {
@@ -342,14 +299,14 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
         }
 
         if (rcReadMask[1]) { // rc slave if needed
-            readData[4] = revCompl(readData[4])
+            readData[4] = Util.revCompl(readData[4])
             readData[5] = readData[5].reverse()
         }
         readData[6] = sampleId
     } else readData[3] = sampleId
 
     if (rcReadMask[0]) {  // rc master if needed
-        readData[1] = revCompl(readData[1])
+        readData[1] = Util.revCompl(readData[1])
         readData[2] = readData[2].reverse()
     }
 
@@ -398,19 +355,19 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
 def readQueue = new LinkedBlockingQueue<String[]>(4096)  // SINGLE: h1 r1 q1 ''       PAIRED: h1 r1 q1 h2 r2 q2 ''       ''
 def writeQueue = new LinkedBlockingQueue<String[]>(4096) // SINGLE: h1 r1 q1 sampleId PAIRED: h1 r1 q1 h2 r2 q2 sampleId overlapped
 
-def reader1 = getReader(inputFileName1), reader2 = (inputFileName2 == '-') ? null : getReader(inputFileName2)
+def reader1 = Util.getReader(inputFileName1), reader2 = (inputFileName2 == '-') ? null : Util.getReader(inputFileName2)
 def writers = new HashMap<String, BufferedWriter[]>()
 println "[${new Date()} $scriptName] Started processing for $inputFileName1, $inputFileName2"
 new File(outputDir).mkdir()
 [sampleIds, 'undef-s', 'undef-m'].flatten().each { String sampleId ->
     def writerTrio = new BufferedWriter[3]
 
-    writerTrio[0] = getWriter(paired ? "$outputDir/${sampleId}_R1.fastq" :
-            "$outputDir/${sampleId}_R0.fastq")
+    writerTrio[0] = Util.getWriter(paired ? "$outputDir/${sampleId}_R1.fastq" :
+            "$outputDir/${sampleId}_R0.fastq", compressed)
     if (paired) {
-        writerTrio[1] = getWriter("$outputDir/${sampleId}_R2.fastq")
+        writerTrio[1] = Util.getWriter("$outputDir/${sampleId}_R2.fastq", compressed)
         if (overlap)
-            writerTrio[2] = getWriter("$outputDir/${sampleId}_R12.fastq")
+            writerTrio[2] = Util.getWriter("$outputDir/${sampleId}_R12.fastq", compressed)
     }
 
     writers.put(sampleId, writerTrio)
