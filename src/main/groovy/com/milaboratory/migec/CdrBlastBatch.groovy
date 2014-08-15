@@ -25,7 +25,7 @@ cli._(longOpt: "sample-metadata", args: 1, argName: "file",
         "An optional tab-delimited file indicating which samples to process and containing 6 columns:\n" +
                 "sample_id|species|gene|file_types|mask|quality_threshold_pair\n" +
                 "Samples not included will be omitted by CdrBlast. " +
-                "File types, mask and quality threshold columns could be either omitted or set to "-"")
+                "File types, mask and quality threshold columns could be either omitted or set to " - "")
 cli._(args: 1, longOpt: "blast-path",
         "Path to blast executable.")
 cli._(longOpt: "no-sort",
@@ -144,7 +144,7 @@ if (sampleInfoFileName) {
     sampleInfoLines = chainsFile.readLines()
 } else {
     // Or generate it from default parameters
-    def defaultMask = opt.'default-mask' ?: "1:1", defaultSpecies = opt.'default-species' ?: "human",
+    def defaultMask = opt.'default-mask' ?: "1:1", defaultSpecies = opt.'default-species' ?: "homosapiens",
         defaultFileTypes = opt.'default-file-types' ?: Util.FILE_TYPES.join(","),
         defaultQualityThreshold = opt.'default-quality-threshold' ?: "25,30", defaultChain = opt.R
 
@@ -172,7 +172,8 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     if (!Util.isAvailable(species, chain, includeNonFuncitonal)) {
         println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
                 "(include non-functional = $includeNonFuncitonal). " +
-                "Possible variants are:\n${Util.listAvailableSegments(includeNonFuncitonal)}"
+                "Possible variants are:\n"
+        Util.listAvailableSegments(includeNonFuncitonal)
         System.exit(-1)
     }
     if (!Util.MASKS.any { mask == it }) {

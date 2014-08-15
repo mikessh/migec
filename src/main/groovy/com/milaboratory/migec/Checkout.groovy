@@ -21,8 +21,6 @@ import java.util.concurrent.Future
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
 
 def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10"
 def cli = new CliBuilder(usage:
@@ -30,9 +28,10 @@ def cli = new CliBuilder(usage:
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
         'Default: scans both reads (if pair-end) for master barcode')
 cli.u('Save UMI region specified by capital N\'s in barcode sequence to the header')
-cli.t('Trim barcode sequences. Also trims boundary sequence between barcode and read start/end if it is short.')
+cli.t('Trim barcode sequences. Will also trim boundary sequence between barcode and read start/end if it is short enough.')
 cli.e('Remove template-switching trace, ^T{0,3}G{3,7}. Only works in compination with -t')
-cli._(longOpt: 'max-trim-nts', 'Maximal number of nucleotides between barcode and read start/end that could be trimmed')
+cli._(longOpt: 'max-trim-nts', args: 1, argName: "int",
+        'Maximal number of nucleotides between barcode and read start/end that could be trimmed')
 cli.r(args: 1, "RC mask to apply after master-slave is determined, e.g. will RC slave read if set to 0:1. " +
         "Default: $rcm")
 cli.p(args: 1, 'Number of threads. Default: all available processors.')

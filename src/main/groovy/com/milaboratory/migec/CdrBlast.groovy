@@ -15,10 +15,6 @@
  */
 
 package com.milaboratory.migec
-
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
-
 //////////////
 //   CLI   //
 ////////////
@@ -55,8 +51,10 @@ cli._(longOpt: "strict-nc-handling",
 cli._(longOpt: "debug",
         "Prints out alignment details, stores all temporary alignment files.")
 cli._(longOpt: "cdr3-fastq-file", args: 1, argName: "file",
-        "Store reads with CDR3 extracted with CDR3 data in header. " +
+        "Store reads with extracted CDR3, appends CDR3 data in header. " +
                 "Needed for 'com.milaboratory.migec.post.GroupByCdr' script.")
+cli._(longOpt: "cdr3-umi-table", args: 1, argName: "file",
+        "Stores UMIs and their associated clonotypes. Only applicable with -a option.")
 cli._(longOpt: "log-file", args: 1, argName: "file",
         "File to output cdr extraction log.")
 cli._(longOpt: "log-overwrite",
@@ -102,7 +100,7 @@ if (!chain) {
 if (!Util.isAvailable(species, chain, includeNonFuncitonal)) {
     println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
             "(include non-functional = $includeNonFuncitonal). " +
-            "Possible variants are:"
+            "Possible variants are:\n"
     Util.listAvailableSegments(includeNonFuncitonal)
     System.exit(-1)
 }
@@ -166,7 +164,7 @@ boolean overwriteLog = opt.'log-overwrite'
 String sampleName = opt.'log-sample-name' ?: "N/A"
 
 // PARAMETERS
-def cdr3FastqFile = opt.'cdr3-fastq-file'
+def cdr3FastqFile = opt.'cdr3-fastq-file', cdr3UmiTable = opt.'cdr3-umi-table'
 
 boolean strictNcHandling = opt.'strict-nc-handling',
         assembledInput = opt.a,
@@ -609,11 +607,16 @@ if (DEBUG) {
 ////////////////////////////////
 counter = 0
 int goodReads = 0, goodEvents = 0, mappedReads = 0, mappedEvents = 0, totalReads = 0, totalEvents = 0
-def writer = cdr3FastqFile ? Util.getWriter(cdr3FastqFile) : null
+def writerCdr3Fastq = cdr3FastqFile ? Util.getWriter(cdr3FastqFile) : null,
+    writerCdr3Umi = assembledInput && cdr3UmiTable ? Util.getWriter(cdr3UmiTable) : null
+
+if (writerCdr3Umi)
+    writerCdr3Umi.println("#umi\tmig_sz\tv\tcdr3nt")
+
 inputFileNames.each { inputFileName ->
     println "${timestamp()} Appending read data from $inputFileName"
     def reader = Util.getReader(inputFileName)
-    new File(outputFileName + ".bad").withPrintWriter { pw ->
+    new File(TMP_FOLDER + "/bad_reads.txt").withPrintWriter { pw ->
         while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
             def seq = reader.readLine()
             reader.readLine()
@@ -622,10 +625,13 @@ inputFileNames.each { inputFileName ->
             def clonotypeData = readId2ClonotypeData[id] // corresponding CDR3 extraction result
 
             int increment = 1
+            String umi
 
             if (assembledInput) {
                 def splitHeader = header.split("[@ ]")
-                increment = Integer.parseInt(splitHeader.find { it.startsWith("UMI") }.split(":")[2])
+                def umiFields = splitHeader.find { it.startsWith("UMI") }.split(":")
+                umi = umiFields[1]
+                increment = Integer.parseInt(umiFields[2])
             }
 
             // Has CDR3
@@ -643,8 +649,12 @@ inputFileNames.each { inputFileName ->
                     goodReads += increment
 
                     if (cdr3FastqFile)
-                        writer.writeLine(header + " CDR3:" + clonotypeData.cdr3Seq + ":" +
-                                clonotypeData.cdrFrom + "\n" + seq + "\n+\n" + oldQual)
+                        writerCdr3Fastq.writeLine(header + " CDR3:" + clonotypeData.cdr3Seq + ":" +
+                                clonotypeData.cdrFrom + " V:" + clonotypeData.vAllele + "\n" +
+                                seq + "\n+\n" + oldQual)
+
+                    if (writerCdr3Umi)
+                        writerCdr3Umi.println([umi, increment, clonotypeData.vAllele, clonotypeData.cdr3Seq].join("\t"))
                 }
 
                 // Total (good+bad) for cases in which CDR3 was extracted
@@ -666,10 +676,9 @@ inputFileNames.each { inputFileName ->
     }
 }
 if (cdr3FastqFile)
-    writer.close()
-
-if (!DEBUG)
-    new File(outputFileName + ".bad").delete()
+    writerCdr3Fastq.close()
+if (writerCdr3Umi)
+    writerCdr3Umi.close()
 
 println "${timestamp()} Done"
 println "EVENTS (good mapped total):\t$goodEvents\t$mappedEvents\t$totalEvents\t|\t" +
