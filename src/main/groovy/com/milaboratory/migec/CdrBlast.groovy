@@ -650,11 +650,12 @@ inputFileNames.each { inputFileName ->
 
                     if (cdr3FastqFile)
                         writerCdr3Fastq.writeLine(header + " CDR3:" + clonotypeData.cdr3Seq + ":" +
-                                clonotypeData.cdrFrom + " V:" + clonotypeData.vAllele + "\n" +
+                                clonotypeData.cdrFrom + " V:" + clonotypeData.vAllele.alleleId + "\n" +
                                 seq + "\n+\n" + oldQual)
 
                     if (writerCdr3Umi)
-                        writerCdr3Umi.println([umi, increment, clonotypeData.vAllele, clonotypeData.cdr3Seq].join("\t"))
+                        writerCdr3Umi.println([umi, increment, clonotypeData.vAllele.alleleId,
+                                               clonotypeData.cdr3Seq].join("\t"))
                 }
 
                 // Total (good+bad) for cases in which CDR3 was extracted
