@@ -266,13 +266,18 @@ logFile.withPrintWriter { pw ->
                                     "of ${correspondingFiles[1]}"
                             System.exit(-1)
                         }
-                        assemblyFiles.removeAll { it == '-' } // cleanup from files masked on assembly stage
                     } else {
                         rawFiles.add(correspondingFiles[0][0])
+                        rawFiles.add(correspondingFiles[0][1])
                         assemblyFiles.add(correspondingFiles[1][0])
+                        assemblyFiles.add(correspondingFiles[1][1])
                     }
                 }
             }
+
+            // cleanup from masked files
+            assemblyFiles.removeAll { it == '-' }
+            rawFiles.removeAll { it == '-' }
 
             def baseArgs1 = [baseArgs, ["-R", chain], ["-S", species]]
 
