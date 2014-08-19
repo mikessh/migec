@@ -15,6 +15,9 @@
  */
 
 package com.milaboratory.migec
+
+import org.codehaus.groovy.runtime.ResourceGroovyMethods
+
 //////////////
 //   CLI   //
 ////////////
@@ -139,8 +142,8 @@ def TMP_FOLDER = new File(inputFileNames[0]).absolutePath + "-cdrblast-" + UUID.
 
 def TMP_FOLDER_FILE = new File(TMP_FOLDER)
 TMP_FOLDER_FILE.mkdirs()
-if (!DEBUG)
-    TMP_FOLDER_FILE.deleteOnExit()
+//if (!DEBUG)
+//    TMP_FOLDER_FILE.deleteOnExit()
 
 if (new File(outputFileName).parentFile)
     new File(outputFileName).parentFile.mkdirs()
@@ -314,16 +317,16 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
             pw.println(">$i\n${seqList[i]}")
         }
     }
-    if (!DEBUG)
-        file.deleteOnExit()
+    //if (!DEBUG)
+    //    file.deleteOnExit()
 }
 
 ["V", "J"].each { seg -> // run blast for v and j segments separately
     println "${timestamp()} Pre-aligning $chain $seg segment with BLAST <$THREADS threads>"
     (0..(THREADS - 1)).collect { p ->
         def blastOutFname = "${queryFilePrefix}_${chain}_${seg}_${p}.blast" // temp
-        if (!DEBUG)
-            new File(blastOutFname).deleteOnExit()
+        //if (!DEBUG)
+        //    new File(blastOutFname).deleteOnExit()
 
         // A trick to pass -outfmt argument correctly
         def blastCmd = ["${blastPath}blastn",
@@ -751,7 +754,8 @@ outputFile.withPrintWriter { pw ->
 
 // Those were created by blast and have to be removed manually
 if (!DEBUG)
-    TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
+    ResourceGroovyMethods.deleteDir(TMP_FOLDER_FILE)
+    //TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
 
 // Append to log and report to batch runner
 def logLine = [(assembledInput ? "asm" : "raw"), outputFile.absolutePath, inputFileNames.join(","),
