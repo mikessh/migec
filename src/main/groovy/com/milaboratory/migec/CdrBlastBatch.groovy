@@ -42,7 +42,7 @@ cli._(longOpt: "default-mask", args: 1, argName: "R1=0/1:R2=0/1",
 cli.R(longOpt: "default-gene", args: 1, argName: "gene",
         "Gene, default for all samples, allowed values: 'TRA', 'TRB', 'TRG', 'TRD', 'IGL', 'IGK' or 'IGH'. " +
                 "Use --print-library for the list of allowed species-gene combinations.")
-cli._(longOpt: "default-species", args: 1, argName: "species",
+cli.S(longOpt: "default-species", args: 1, argName: "species",
         "Species, default for all samples, allowed values: 'HomoSapiens'[default], 'MusMusculus', ... " +
                 "Use --print-library for the list of allowed species-gene combinations.")
 cli._(longOpt: "default-file-types", args: 1, argName: "type1,..",

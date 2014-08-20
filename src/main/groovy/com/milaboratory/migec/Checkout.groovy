@@ -22,7 +22,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
-def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10"
+def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10", ooff = "5"
 def cli = new CliBuilder(usage:
         'Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or -] output_dir/')
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
@@ -37,6 +37,8 @@ cli.r(args: 1, "RC mask to apply after master-slave is determined, e.g. will RC 
 cli.p(args: 1, 'Number of threads. Default: all available processors.')
 cli._(args: 1, longOpt: 'first', 'Number of reads to try. If <0 will process all reads. [default = -1]')
 cli._(longOpt: 'overlap', 'Will try to overlap paired reads.')
+cli._(longOpt: 'overlap-max-offset', args: 1, "Max offset for overlap. " +
+        "Shoud be increased if reads are read-through. [default = $ooff]")
 cli._(longOpt: 'rc-barcodes', 'Also search for reverse-complement barcodes.')
 cli.m(args: 1,
         argName: 'LQ:E0:E1', "Low quality threshold : Ratio of low-quality errors : Ratio of high-quality errors. " +
@@ -55,6 +57,7 @@ boolean compressed = opt.c, oriented = opt.o, extractUMI = opt.u, addRevComplBc 
         trimBc = opt.t, removeTS = opt.e, overlap = opt.'overlap'
 int trimSizeThreshold = (opt.'max-trim-nts' ?: mtrim).toInteger()
 int firstReadsToTake = (opt.'first' ?: "-1").toInteger()
+int maxOverlapOffset = (opt.'overlap-max-offset' ?: ooff).toInteger()
 def rcReadMask = (opt.r ?: rcm).split(":").collect { Integer.parseInt(it) > 0 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 def barcodesFileName = opt.arguments()[0],
@@ -209,7 +212,7 @@ def findMatch = { String barcode, Pattern seed, String seq, String qual, int bcI
 //  READ PROCESSING UTILS
 //========================
 // Overlap, select top quality nts for overlap zone
-int maxOffset = 5, mmOverlapSz = 10
+int maxOffset = maxOverlapOffset, mmOverlapSz = 10
 int K = 5
 def overlapReads = { String r1, String r2, String q1, String q2 ->
     String[] result = null
