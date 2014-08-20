@@ -323,7 +323,7 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
 
 ["V", "J"].each { seg -> // run blast for v and j segments separately
     println "${timestamp()} Pre-aligning $chain $seg segment with BLAST <$THREADS threads>"
-    (0..(THREADS - 1)).collect { p ->
+    def blastProcs = (0..(THREADS - 1)).collect { p ->
         def blastOutFname = "${queryFilePrefix}_${chain}_${seg}_${p}.blast" // temp
         //if (!DEBUG)
         //    new File(blastOutFname).deleteOnExit()
@@ -340,7 +340,11 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
         blastCmd = [blastCmd, "-outfmt", "6 qseqid sseqid qstart qend sstart send qseq sseq nident"].flatten()
         blastCmd.execute()
         //"bash $TMP_FOLDER/runblast.sh ${queryFilePrefix}_${p}.fa $TMP_FOLDER/${chain}_${seg} $blastOutFname".execute()
-    }.each { it.waitFor() }  // This is the only way to parallelize blast
+    }
+
+    blastProcs.each { it.waitFor() }  // This is the only way to parallelize blast
+    blastProcs.each { it.closeStreams() }
+    blastProcs.each { it.destroy() }
 
     println "[${new Date()} $SCRIPT_NAME] Done"
 }
@@ -755,7 +759,7 @@ outputFile.withPrintWriter { pw ->
 // Those were created by blast and have to be removed manually
 if (!DEBUG)
     ResourceGroovyMethods.deleteDir(TMP_FOLDER_FILE)
-    //TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
+//TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
 
 // Append to log and report to batch runner
 def logLine = [(assembledInput ? "asm" : "raw"), outputFile.absolutePath, inputFileNames.join(","),

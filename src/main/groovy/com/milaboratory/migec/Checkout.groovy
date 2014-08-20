@@ -584,18 +584,20 @@ writers.values().each { // don't forget to flush
     }
 }
 
+def fastqPrefix = compressed ? "fastq.gz" : "fastq"
+
 new File("$outputDir/checkout.filelist.txt").withPrintWriter { pw ->
     pw.println("#SAMPLE_ID\tSAMPLE_TYPE\tCHECKOUT_FASTQ1\tCHECKOUT_FASTQ2")
     new HashSet(sampleIds).each { String sampleId -> // only unique
         pw.println(sampleId +
                 (paired ? "\tpaired\t" : "\tunpaired\t") +
-                (paired ? new File("$outputDir/${sampleId}_R1.fastq.gz").absolutePath :
-                        new File("$outputDir/${sampleId}_R0.fastq.gz").absolutePath)
+                (paired ? new File("$outputDir/${sampleId}_R1.$fastqPrefix").absolutePath :
+                        new File("$outputDir/${sampleId}_R0.$fastqPrefix").absolutePath)
                 + "\t" +
-                (paired ? new File("$outputDir/${sampleId}_R2.fastq.gz").absolutePath : "-"))
+                (paired ? new File("$outputDir/${sampleId}_R2.$fastqPrefix").absolutePath : "-"))
         if (overlap)
             pw.println(sampleId + "\toverlapped\t" +
-                    new File("$outputDir/${sampleId}_R12.fastq.gz").absolutePath + "\t-")
+                    new File("$outputDir/${sampleId}_R12.$fastqPrefix").absolutePath + "\t-")
     }
 }
 
