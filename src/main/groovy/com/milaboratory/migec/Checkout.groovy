@@ -40,6 +40,7 @@ cli._(longOpt: 'overlap', 'Will try to overlap paired reads.')
 cli._(longOpt: 'overlap-max-offset', args: 1, "Max offset for overlap. " +
         "Shoud be increased if reads are read-through. [default = $ooff]")
 cli._(longOpt: 'rc-barcodes', 'Also search for reverse-complement barcodes.')
+cli._(longOpt: 'skip-undef', 'Do not store reads that have no barcode match in separate file.')
 cli.m(args: 1,
         argName: 'LQ:E0:E1', "Low quality threshold : Ratio of low-quality errors : Ratio of high-quality errors. " +
         "Used to calculate the maximum number of allowed mismatches when performing alignment to full barcode, " +
@@ -54,7 +55,7 @@ if (opt == null || opt.arguments().size() < 2) {
 
 def scriptName = getClass().canonicalName
 boolean compressed = opt.c, oriented = opt.o, extractUMI = opt.u, addRevComplBc = opt."rc-barcodes",
-        trimBc = opt.t, removeTS = opt.e, overlap = opt.'overlap'
+        trimBc = opt.t, removeTS = opt.e, overlap = opt.'overlap', noUndef = opt.'skip-undef'
 int trimSizeThreshold = (opt.'max-trim-nts' ?: mtrim).toInteger()
 int firstReadsToTake = (opt.'first' ?: "-1").toInteger()
 int maxOverlapOffset = (opt.'overlap-max-offset' ?: ooff).toInteger()
@@ -527,8 +528,10 @@ for (int k = 0; k < nProcessors; k++) {
                                     sampleIds[sampleIndex], sampleIds[sampleIndex], true))
                         } else {
                             // 2.3 Report failed slave
-                            writeQueue.put(wrapRead(readData, umiData, readIndex,
-                                    'undef-s', sampleIds[sampleIndex], false))
+                            def wrappedRead = wrapRead(readData, umiData, readIndex,
+                                    'undef-s', sampleIds[sampleIndex], false)
+                            if (!noUndef)
+                                writeQueue.put(wrappedRead)
                         }
                     } else { // Single-end, master match
                         writeQueue.put(wrapRead(readData, umiData, readIndex,
@@ -536,8 +539,10 @@ for (int k = 0; k < nProcessors; k++) {
                     }
                 } else {
                     // 1.3 Report failed master
-                    writeQueue.put(wrapRead(readData, umiData, readIndex,
-                            'undef-m', 'undef-m', false))
+                    def wrappedRead = wrapRead(readData, umiData, readIndex,
+                            'undef-m', 'undef-m', false)
+                    if (!noUndef)
+                        writeQueue.put(wrappedRead)
                 }
             }
         }
