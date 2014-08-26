@@ -22,7 +22,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
-def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10", ooff = "5"
+def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10", omf = "5", oss = "5", oms = "10"
 def cli = new CliBuilder(usage:
         'Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or -] output_dir/')
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
@@ -38,7 +38,13 @@ cli.p(args: 1, 'Number of threads. Default: all available processors.')
 cli._(args: 1, longOpt: 'first', 'Number of reads to try. If <0 will process all reads. [default = -1]')
 cli._(longOpt: 'overlap', 'Will try to overlap paired reads.')
 cli._(longOpt: 'overlap-max-offset', args: 1, "Max offset for overlap. " +
-        "Shoud be increased if reads are read-through. [default = $ooff]")
+        "Shoud be increased if reads are read-through. [default = $omf]")
+cli._(longOpt: 'overlap-seed-size', args: 1,
+        "Number of perfectly matching nucleotides to perform overlap, should be. [default = $oss]")
+cli._(longOpt: 'overlap-match-size', args: 1,
+        "Number of fuzzy matching nucleotides to perform overlap, should be. [default = $oms]")
+cli._(longOpt: 'overlap-allow-partial',
+        "Allow partial fuzzy overlap due to reaching end of one of reads.")
 cli._(longOpt: 'rc-barcodes', 'Also search for reverse-complement barcodes.')
 cli._(longOpt: 'skip-undef', 'Do not store reads that have no barcode match in separate file.')
 cli.m(args: 1,
@@ -58,7 +64,10 @@ boolean compressed = opt.c, oriented = opt.o, extractUMI = opt.u, addRevComplBc 
         trimBc = opt.t, removeTS = opt.e, overlap = opt.'overlap', noUndef = opt.'skip-undef'
 int trimSizeThreshold = (opt.'max-trim-nts' ?: mtrim).toInteger()
 int firstReadsToTake = (opt.'first' ?: "-1").toInteger()
-int maxOverlapOffset = (opt.'overlap-max-offset' ?: ooff).toInteger()
+int maxOverlapOffset = (opt.'overlap-max-offset' ?: omf).toInteger(),
+        overlapFuzzySize = (opt.'overlap-match-size' ?: oms).toInteger(),
+        overlapSeedSize = (opt.'overlap-seed-size' ?: oss).toInteger()
+boolean allowPartialOverlap = opt.'overlap-allow-partial'
 def rcReadMask = (opt.r ?: rcm).split(":").collect { Integer.parseInt(it) > 0 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 def barcodesFileName = opt.arguments()[0],
@@ -213,13 +222,14 @@ def findMatch = { String barcode, Pattern seed, String seq, String qual, int bcI
 //  READ PROCESSING UTILS
 //========================
 // Overlap, select top quality nts for overlap zone
-int maxOffset = maxOverlapOffset, mmOverlapSz = 10
-int K = 5
+int maxConsMms = 2
+double maxOverlapMismatchRatio = 0.1
+
 def overlapReads = { String r1, String r2, String q1, String q2 ->
     String[] result = null
 
-    for (int i = 0; i < maxOffset; i++) {
-        def kmer = r2.substring(i, i + K)
+    for (int i = 0; i < maxOverlapOffset; i++) {
+        def kmer = r2.substring(i, i + overlapSeedSize)
         def pattern = Pattern.compile(kmer)
         def matcher = pattern.matcher(r1)
         // Find last match
@@ -228,19 +238,28 @@ def overlapReads = { String r1, String r2, String q1, String q2 ->
             position = matcher.start()
             if (position >= 0) {
                 // Start fuzzy align
-                int nmm = 0
-                for (int j = 0; j < mmOverlapSz; j++) {
-                    def posInR1 = position + K + j, posInR2 = i + K + j
-                    if (posInR1 + 1 > r1.length())
-                        break  // went to end of r1, all fine
+                boolean alignedAll = true
+                int nConsMms = 0, nMms = 0, actualFuzzyOverlapSize = overlapFuzzySize
+
+                for (int j = 0; j < overlapFuzzySize; j++) {
+                    def posInR1 = position + overlapSeedSize + j, posInR2 = i + overlapSeedSize + j
+                    if (posInR1 + 1 > r1.length()) {
+                        actualFuzzyOverlapSize = j + 1
+                        alignedAll = false
+                        break     // went to end of r1
+                    }
                     if (r1.charAt(posInR1) != r2.charAt(posInR2)) {
-                        if (++nmm > 1)
-                            break  // two consequent mismatches
+                        nMms++
+                        if (++nConsMms >= maxConsMms)
+                            break  // several consequent mismatches
                     } else {
-                        nmm = 0 // zero counter
+                        nConsMms = 0 // zero counter
                     }
                 }
-                if (nmm < 2) {
+
+                if (nConsMms < maxConsMms &&
+                        (allowPartialOverlap || alignedAll) &&
+                        (nMms / (double) actualFuzzyOverlapSize) <= maxOverlapMismatchRatio) {
                     // take best qual nts
                     def seq = new StringBuilder(r1.substring(0, position)),
                         qual = new StringBuilder(q1.substring(0, position))

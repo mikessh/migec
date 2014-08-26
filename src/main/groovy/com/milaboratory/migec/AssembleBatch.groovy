@@ -28,6 +28,8 @@ cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
                 "Mask column is optional and will be ignored for unpaired and overlapped reads. " +
                 "Mask indicates read(s) in pair that should be assembled. " +
                 "Allowed values are\n1:0 (R1 assembled), 0:1 (R2 assembled) and 1:1 (both reads assembled, [default])")
+cli._(longOpt: 'force-collision-filter', "Forced collision filtering for all samples.")
+cli._(longOpt: 'force-overseq', args: 1, argName: 'int', "Forced minimal MIG size for all samples.")
 cli.c("compressed output")
 
 def scriptName = getClass().canonicalName
@@ -42,7 +44,9 @@ if (opt == null || opt.arguments().size() < 3) {
 def checkoutDir = opt.arguments()[0], histogramDir = opt.arguments()[1],
     outputPath = opt.arguments()[2]
 
-def defaultMask = opt.'default-mask' ?: DEFAULT_ASSEMBLE_MASK
+def defaultMask = opt.'default-mask' ?: DEFAULT_ASSEMBLE_MASK,
+    forcedCollFilter = opt.'force-collision-filter',
+    forcedOverseq = opt.'force-overseq' ? (opt.'force-overseq').toString().toInteger() : null
 
 def checkoutSampleListFile = new File(checkoutDir + "/checkout.filelist.txt")
 if (!checkoutSampleListFile.exists()) {
@@ -128,12 +132,12 @@ logFile.withPrintWriter { pw ->
             def mask = sampleFilter ? sampleFilter[sampleKey] : defaultMask
 
             // Parse threshold estimates, check if it is safe to filter collisions
-            def totalUmis = splitLine[3].toInteger(), overseqThreshold = splitLine[4].toInteger(),
+            def totalUmis = splitLine[3].toInteger(), overseqThreshold = forcedOverseq ?: splitLine[4].toInteger(),
                 collThreshold = splitLine[5].toInteger(), umiQualThreshold = Byte.parseByte(splitLine[6]),
                 umiLen = splitLine[7].toInteger(), filterCollisions = false
 
-            if (collThreshold >= overseqThreshold &&
-                    totalUmis < collisionFactorThreshold * Math.pow(4, umiLen - 1)) // # collisions << # starting molecules
+            if (forcedCollFilter || (collThreshold >= overseqThreshold &&
+                    totalUmis < collisionFactorThreshold * Math.pow(4, umiLen - 1))) // # collisions << # starting molecules
                 filterCollisions = true
 
             // More messy argument passing
