@@ -43,6 +43,8 @@ cli._(longOpt: "no-sort",
         "Do not sort output by clonotype count, can save some time")
 cli._(longOpt: "blast-path", args: 1, argName: "directory",
         "Path to blast executable.")
+cli._(longOpt: "same-sample", "Assembled data only (-a). Input files come from the same sample so " +
+        "each UMI will be counted once.")
 cli._(longOpt: "all-segments",
         "Use full V/D/J segment library (including pseudogens, etc).")
 cli._(longOpt: "print-library",
@@ -171,7 +173,8 @@ def cdr3FastqFile = opt.'cdr3-fastq-file', cdr3UmiTable = opt.'cdr3-umi-table'
 
 boolean strictNcHandling = opt.'strict-nc-handling',
         assembledInput = opt.a,
-        doSort = !opt.'no-sort'
+        doSort = !opt.'no-sort',
+        sameSample = opt.'same-sample'
 
 int qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
     nReads = Integer.parseInt(opt.N ?: "-1")
@@ -620,6 +623,8 @@ def writerCdr3Fastq = cdr3FastqFile ? Util.getWriter(cdr3FastqFile) : null,
 if (writerCdr3Umi)
     writerCdr3Umi.println("#umi\tmig_sz\tv\tcdr3nt")
 
+def usedUmis = new HashSet<String>()
+
 inputFileNames.each { inputFileName ->
     println "${timestamp()} Appending read data from $inputFileName"
     def reader = Util.getReader(inputFileName)
@@ -633,6 +638,7 @@ inputFileNames.each { inputFileName ->
 
             int increment = 1
             String umi
+            boolean duplicateUmi = false
 
             if (assembledInput) {
                 def splitHeader = header.split("[@ ]")
@@ -650,8 +656,19 @@ inputFileNames.each { inputFileName ->
 
                 // Increment counters if quality is good
                 if (Util.minQual(qual) >= qualThreshold) {
-                    clonotypeData.counts[0]++
+                    if (assembledInput && sameSample) {
+                        def umiCdr = umi + "_" + clonotypeData.cdr3Seq
+                        duplicateUmi = usedUmis.contains(umi)
+                        if (!duplicateUmi)
+                            usedUmis.add(umiCdr)
+                    }
+
+                    if (!duplicateUmi) {
+                        // Protect from duplicate counting when UMI overlap
+                        clonotypeData.counts[0]++
+                    }
                     goodEvents++
+
                     clonotypeData.counts[2] += increment
                     goodReads += increment
 
@@ -666,7 +683,9 @@ inputFileNames.each { inputFileName ->
                 }
 
                 // Total (good+bad) for cases in which CDR3 was extracted
-                clonotypeData.counts[1]++
+                if (!duplicateUmi) {
+                    clonotypeData.counts[1]++
+                }
                 mappedEvents++
                 clonotypeData.counts[3] += increment
                 mappedReads += increment

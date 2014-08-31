@@ -217,7 +217,7 @@ logFile.withPrintWriter { pw ->
     pw.println(Util.CDRBLAST_LOG_HEADER)
 
     // RUN CDRBLAST
-    def baseArgs = []
+    def baseArgs = ["--same-sample"]
     if (opt.'no-sort')
         baseArgs = [baseArgs, ["--no-sort"]]
     if (opt.p)
