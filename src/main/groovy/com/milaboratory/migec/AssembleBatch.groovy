@@ -131,41 +131,43 @@ logFile.withPrintWriter { pw ->
         if (!sampleFilter || sampleFilter.containsKey(sampleKey)) {
             def mask = sampleFilter ? sampleFilter[sampleKey] : defaultMask
 
-            // Parse threshold estimates, check if it is safe to filter collisions
-            def totalUmis = splitLine[3].toInteger(), overseqThreshold = forcedOverseq ?: splitLine[4].toInteger(),
-                collThreshold = splitLine[5].toInteger(), umiQualThreshold = Byte.parseByte(splitLine[6]),
-                umiLen = splitLine[7].toInteger(), filterCollisions = false
+            if (sampleType != "paired" || mask != "0:0") {
+                // Parse threshold estimates, check if it is safe to filter collisions
+                def totalUmis = splitLine[3].toInteger(), overseqThreshold = forcedOverseq ?: splitLine[4].toInteger(),
+                    collThreshold = splitLine[5].toInteger(), umiQualThreshold = Byte.parseByte(splitLine[6]),
+                    umiLen = splitLine[7].toInteger(), filterCollisions = false
 
-            if (forcedCollFilter || (collThreshold >= overseqThreshold &&
-                    totalUmis < collisionFactorThreshold * Math.pow(4, umiLen - 1))) // # collisions << # starting molecules
-                filterCollisions = true
+                if (forcedCollFilter || (collThreshold >= overseqThreshold &&
+                        totalUmis < collisionFactorThreshold * Math.pow(4, umiLen - 1))) // # collisions << # starting molecules
+                    filterCollisions = true
 
-            // More messy argument passing
-            def assembleArgs = [
-                    baseArgs,
-                    ['-m', overseqThreshold],
-                    ['-q', umiQualThreshold],
-                    ['--assembly-mask', mask]
-            ]
+                // More messy argument passing
+                def assembleArgs = [
+                        baseArgs,
+                        ['-m', overseqThreshold],
+                        ['-q', umiQualThreshold],
+                        ['--assembly-mask', mask]
+                ]
 
-            if (filterCollisions)
-                assembleArgs.add(['--filter-collisions'])
+                if (filterCollisions)
+                    assembleArgs.add(['--filter-collisions'])
 
-            // Pass filenames for I/O
-            def sampleFileNames = sampleFileNamesMap[sampleKey]
+                // Pass filenames for I/O
+                def sampleFileNames = sampleFileNamesMap[sampleKey]
 
-            if (!sampleFileNames) {
-                println "[ERROR] Sample list is inconsistent between Checkout log and Histogram output: " +
-                        "$sampleKey not present in Checkout log"
-                System.exit(-1)
+                if (!sampleFileNames) {
+                    println "[ERROR] Sample list is inconsistent between Checkout log and Histogram output: " +
+                            "$sampleKey not present in Checkout log"
+                    System.exit(-1)
+                }
+
+                assembleArgs.add(sampleFileNames)
+                assembleArgs.add([outputPath])
+
+                String stats = Util.run(new Assemble(), assembleArgs.flatten().join(" "))
+
+                pw.println(sampleKey + "\t" + stats)
             }
-
-            assembleArgs.add(sampleFileNames)
-            assembleArgs.add([outputPath])
-
-            String stats = Util.run(new Assemble(), assembleArgs.flatten().join(" "))
-
-            pw.println(sampleKey + "\t" + stats)
         }
     }
 }

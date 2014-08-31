@@ -35,7 +35,7 @@ class Util {
     }
 
     static final List<String> FILE_TYPES = ["paired", "unpaired", "overlapped"],
-                              MASKS = ["0:1", "1:0", "1:1"]
+                              MASKS = ["0:1", "1:0", "1:1", "0:0"]
 
     static final String ASSEMBLE_LOG_HEADER =
             "#SAMPLE_ID\tSAMPLE_TYPE\tINPUT_FASTQ1\tINPUT_FASTQ2\tOUTPUT_ASSEMBLY1\tOUTPUT_ASSEMBLY2\t" +

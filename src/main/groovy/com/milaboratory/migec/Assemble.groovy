@@ -115,6 +115,10 @@ if (paired) {
         println "[ERROR] Bad mask $assemblyMask. Allowed masks for paired-end mode are ${Util.MASKS.join(", ")}"
         System.exit(-1)
     }
+    if (assemblyMask == "0:0") {
+        println "[WARNING] Blank mask specified for paired-end data, skipping"
+        System.exit(0)
+    }
     assemblyIndices = (opt.'assembly-mask' ?: DEFAULT_ASSEMBLE_MASK).split(":").collect { Integer.parseInt(it) > 0 }
     bothReads = assemblyIndices[0] && assemblyIndices[1]
 }

@@ -247,24 +247,26 @@ logFile.withPrintWriter { pw ->
 
                     // apply mask
                     if (fileType == 'paired') {
-                        boolean zeroMask = true
-                        if (mask[0]) {
-                            rawFiles.add(correspondingFiles[0][0])
-                            assemblyFiles.add(correspondingFiles[1][0])
-                            if (correspondingFiles[1][0] != '-')
-                                zeroMask = false
-                        }
-                        if (mask[1]) {
-                            rawFiles.add(correspondingFiles[0][1])
-                            assemblyFiles.add(correspondingFiles[1][1])
-                            if (correspondingFiles[1][1] != '-')
-                                zeroMask = false
-                        }
-                        if (zeroMask) {
-                            println "[ERROR] Sample $sampleId with mask ${mask.collect { it ? 1 : 0 }} " +
-                                    "does not have any corresponding assembled files, " +
-                                    "of ${correspondingFiles[1]}"
-                            System.exit(-1)
+                        if (mask[0] + mask[1] != 0) {
+                            boolean zeroMask = true
+                            if (mask[0]) {
+                                rawFiles.add(correspondingFiles[0][0])
+                                assemblyFiles.add(correspondingFiles[1][0])
+                                if (correspondingFiles[1][0] != '-')
+                                    zeroMask = false
+                            }
+                            if (mask[1]) {
+                                rawFiles.add(correspondingFiles[0][1])
+                                assemblyFiles.add(correspondingFiles[1][1])
+                                if (correspondingFiles[1][1] != '-')
+                                    zeroMask = false
+                            }
+                            if (zeroMask) {
+                                println "[ERROR] Sample $sampleId with mask ${mask.collect { it ? 1 : 0 }} " +
+                                        "does not have any corresponding assembled files, " +
+                                        "of ${correspondingFiles[1]}"
+                                System.exit(-1)
+                            }
                         }
                     } else {
                         rawFiles.add(correspondingFiles[0][0])
