@@ -96,6 +96,7 @@ if (onlyInRaw.size() == rawSampleMap.size()) {
 }
 
 println "[${new Date()} $scriptName] Running batch hot-spot error filtering for CdrBlast results.."
+
 // START LOGGING
 def logFile = new File(outputDir + "/cdrblastfilter.log.txt")
 if (logFile.exists())
@@ -109,6 +110,7 @@ logFile.withPrintWriter { pw ->
 
     assembledSampleMap.each {
         def sampleId = it.key, asmFileName = it.value, rawFileName = rawSampleMap[sampleId]
+
         if (rawFileName) {
             def finalArgs = [baseArgs, [asmFileName, rawFileName, "$outputDir/${sampleId}.filtered.cdrblast.txt"]]
             def logLine = Util.run(new FilterCdrBlastResults(), finalArgs.flatten().join(" "))

@@ -52,7 +52,8 @@ class Util {
             "#SAMPLE_ID\tOUTPUT_FILE\tINPUT_RAW\tINPUT_ASM\t" +
                     "CLONOTYPES_FILTERED\tCLONOTYPES_TOTAL\t" +
                     "EVENTS_FILTERED\tEVENTS_TOTAL\t" +
-                    "READS_FILTERED\tREADS_TOTAL"
+                    "READS_FILTERED\tREADS_TOTAL\t" +
+                    "NON_FUNCTIONAL_CLONOTYPES\tNON_FUNCTIONAL_EVENTS\tNON_FUNCTIONAL_READS"
 
     /*
      * Immune gene segment utils

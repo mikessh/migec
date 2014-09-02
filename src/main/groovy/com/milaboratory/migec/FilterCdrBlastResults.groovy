@@ -75,12 +75,12 @@ int n = 0
 println "[${new Date()} $scriptName] Reading raw clonotypes from $rawInputFileName.."
 new File(rawInputFileName).splitEachLine("\t") { splitLine ->
     if (splitLine[0].isInteger()) {
-        if (!filterNonFunctional || splitLine[AA_SEQ_COL].matches("[a-zA-Z]+")) {
-            def cdrKey = getCdrKey(splitLine)
+        //if (!filterNonFunctional || splitLine[AA_SEQ_COL].matches("[a-zA-Z]+")) {
+        def cdrKey = getCdrKey(splitLine)
 
-            rawReadCounts.put(cdrKey, (rawReadCounts[splitLine[NT_SEQ_COL]] ?: 0) +
-                    Integer.parseInt(splitLine[READ_COUNT_COL]))
-        }
+        rawReadCounts.put(cdrKey, (rawReadCounts[splitLine[NT_SEQ_COL]] ?: 0) +
+                Integer.parseInt(splitLine[READ_COUNT_COL]))
+        //}
         totalRawReads += Integer.parseInt(splitLine[READ_TOTAL_COL])
 
         if (++n % 500000 == 0)
@@ -91,6 +91,7 @@ new File(rawInputFileName).splitEachLine("\t") { splitLine ->
 // IMPORTANT:
 // Set V and J segments for a given CDR3nt as the ones with top count, i.e. collapse by CDR3
 def cdr2signature = new HashMap<String, String>()
+def nonFunctionalCdrs = new HashSet<String>()
 def cdr2count = new HashMap<String, int[]>()
 println "[${new Date()} $scriptName] Reading assembled clonotypes from $asmInputFileName and filtering"
 n = 0
@@ -101,8 +102,12 @@ new File(asmInputFileName).splitEachLine("\t") { splitLine ->
         int goodEvents = Integer.parseInt(splitLine[EVENT_COUNT_COL]), eventsTotal = Integer.parseInt(splitLine[EVENT_TOTAL_COL]),
             goodReads = Integer.parseInt(splitLine[READ_COUNT_COL]), readsTotal = Integer.parseInt(splitLine[READ_TOTAL_COL])
 
-        if ((!filterNonFunctional || splitLine[AA_SEQ_COL].matches(/[a-zA-Z]+/))
-                && (includeNonCanonical || splitLine[AA_SEQ_COL].matches(/^C(.+)[FW]$/))) {
+        //if ((!filterNonFunctional || splitLine[AA_SEQ_COL].matches(/[a-zA-Z]+/))
+        //        && (includeNonCanonical || splitLine[AA_SEQ_COL].matches(/^C(.+)[FW]$/))) {
+        if (includeNonCanonical || splitLine[AA_SEQ_COL].matches(/^C(.+)[FW]$/)) {
+            if (!splitLine[AA_SEQ_COL].matches(/[a-zA-Z]+/))
+                nonFunctionalCdrs.add(cdrKey)
+
             // first col in signature is counter
             if (signature == null || (collapse && Integer.parseInt(signature.split("\t")[0]) < goodReads))
                 cdr2signature.put(cdrKey, [goodReads, splitLine[DATA_FROM..DATA_TO]].flatten().join("\t"))
@@ -197,7 +202,12 @@ int readsTotal = 0, readsFiltered = 0, eventsTotal = 0, eventsFiltered = 0, clon
 def outputFile = new File(outputFileName)
 
 def filter = Collections.newSetFromMap(new ConcurrentHashMap())
-def totalUnits = new AtomicInteger()
+
+def totalUmis = new AtomicInteger(),
+    nonFunctionalClonotypes = new AtomicInteger(),
+    nonFunctionalEvents = new AtomicInteger(),
+    nonFunctionalReads = new AtomicInteger()
+
 outputFile.withPrintWriter { pw ->
     pw.println("Count\tPercentage\t" +
             "CDR3 nucleotide sequence\tCDR3 amino acid sequence\t" +
@@ -213,8 +223,18 @@ outputFile.withPrintWriter { pw ->
             def cdrKey = it.key
             def counters = it.value, rawReads = rawReadCounts[it.key]
             if (passFilter(cdrKey, counters, rawReads)) {
-                filter.add(cdrKey)
-                totalUnits.addAndGet(counters[0])
+                boolean nonFunctional = nonFunctionalCdrs.contains(cdrKey)
+
+                if (nonFunctional) {
+                    nonFunctionalClonotypes.incrementAndGet()
+                    nonFunctionalEvents.addAndGet(counters[0])
+                    nonFunctionalReads.addAndGet(counters[2])
+                }
+
+                if (!nonFunctional || !filterNonFunctional) {
+                    filter.add(cdrKey)
+                    totalUmis.addAndGet(counters[0])
+                }
             }
         }
     }
@@ -225,7 +245,7 @@ outputFile.withPrintWriter { pw ->
         def signature = cdr2signature[cdrKey].split("\t")[1..-1].join("\t") // omit counter
         def counters = it.value
         if (filter.contains(cdrKey))
-            pw.println(counters[0] + "\t" + (counters[0] / (double) totalUnits.get()) + "\t" + signature)
+            pw.println(counters[0] + "\t" + (counters[0] / (double) totalUmis.get()) + "\t" + signature)
         else {
             readsFiltered += counters[2]
             eventsFiltered += counters[0]
@@ -242,10 +262,13 @@ println "[${new Date()} $scriptName] Finished, ${Util.getPercent(clonotypesFilte
         "${Util.getPercent(readsFiltered, readsTotal)} reads filtered"
 
 // Append to log and report to batch runner
-def logLine = [outputFile.absolutePath, rawInputFileName, asmInputFileName,
-               clonotypesFiltered, clonotypesTotal,
-               eventsFiltered, eventsTotal,
-               readsFiltered, readsTotal].join("\t")
+def logLine = [
+        outputFile.absolutePath, rawInputFileName, asmInputFileName,
+        clonotypesFiltered, clonotypesTotal,
+        eventsFiltered, eventsTotal,
+        readsFiltered, readsTotal,
+        nonFunctionalClonotypes.get(), nonFunctionalEvents.get(), nonFunctionalReads.get()
+].join("\t")
 
 if (logFileName) {
     def logFile = new File(logFileName)
