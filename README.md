@@ -37,6 +37,8 @@ Please cite the tool as:
   SusScrofa            | IGL, IGK
   BosTaurus            | TRD          
   MusSpretus           | IGL
+  GallusGallus           | TRB
+  AnasPlatyrhynchos           | TRB
 
 
 ### INSTALLATION AND RUNNING
@@ -88,8 +90,8 @@ An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM Unix se
 export JAVA_OPTS="-Xmx14G" &&
 java -jar migec.jar Checkout -cute --overlap barcodes.txt IGH_SAMPLE_R1.fastq.gz IGH_SAMPLE_R2.fastq.gz checkout/ &&
 java -jar migec.jar Histogram checkout/ histogram/ &&
-java -jar migec.jar AssembleBatch -c --default-mask 0:1 checkout/ histogram/ assemble/ &&
-java -jar migec.jar CdrBlastBatch --no-sort --default-mask 0:1 -R IGH checkout/ assemble/ cdrblast/ &&
+java -jar migec.jar AssembleBatch -c checkout/ histogram/ assemble/ &&
+java -jar migec.jar CdrBlastBatch -R IGH checkout/ assemble/ cdrblast/ &&
 java -jar migec.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 ``` 
 
@@ -164,7 +166,9 @@ General:
 
 ```-e``` also remove trails of template-switching (poly-G) for the case when UMI-containing adapter is added using reverse-transcription (cDNA libraries).
 
-```--overlap``` will try to overlap reads (paired-end data only), non-overlapping and overlapping reads will be placed to *_R1/_R2* and *_R12* FASTQ files respectively.
+```--overlap``` will try to overlap reads (paired-end data only), non-overlapping and overlapping reads will be placed to *_R1/_R2* and *_R12* FASTQ files respectively. While overlapping the nucleotide with higher quality will be taken thus improving overall data quality.
+
+```-overlap-max-offset X``` controls to which extent overlapping region is searched. If the read-through extent is high (reads are embedded) should be set to ~40.
 
 Barcode search:
 
@@ -173,6 +177,8 @@ Barcode search:
 ```-r``` will apply a custom RC mask. By default it assumes Illumina reads with mates on different strands, so it reverse-complements read with slave adapter so that output reads will be on master strand.
 
 ```--rc-barcodes``` also searches for both adapter sequences in reverse complement. Use it if unsure of your library structure.
+
+```--skip-undef``` will not store reads that miss adapter sequence to save drive space
 
 
 ### 2. Histogram
@@ -211,7 +217,7 @@ java -jar migec.jar AssembleBatch [options] checkout_output_folder histogram_out
 
 Performs a batch assembly for all FASTQ files produced by checkout, all assembly parameters are set according to **Histogram** output.
 
-One can specify a default mask telling for paired-end reads which mate(s) to assemble. The mask is provided by ```--assembly-mask <R1=[0,1]:R2=[0,1]>``` argument, i.e. to assemble only second mate use ```--assembly-mask 0:1```. This speeds-up the assembly. Also, by default the mask is ```1:1```, so for each MIG an output consensus pair is created only if both consensuses are successfully assembled. Remember that during **Checkout** reads get re-oriented so they are on the same strand, corresponding to the strand of *Master* barcode and the read with *Master* barcode is assigned with *_R1* index. 
+One can specify a default mask telling for paired-end reads which mate(s) to assemble. The mask is provided by ```--assembly-mask <R1=[0,1]:R2=[0,1]>``` argument, i.e. to assemble only second mate use ```--assembly-mask 0:1```. This speeds-up the assembly. Also, by default the mask is ```1:1```, so for each MIG an output consensus pair is created only if both consensuses are successfully assembled.  In case of ```0:0``` mask will process only overlapped reads. Remember that during **Checkout** reads get re-oriented so they are on the same strand, corresponding to the strand of *Master* barcode and the read with *Master* barcode is assigned with *_R1* index.
 
 A sample metadata file could also be provided with ```--sample-metadata <file_name>``` argument to guide the batch assembly. This file should have the following tab-separated table structure:
 
@@ -222,7 +228,9 @@ S0        | overlapped |
 S1        | unpaired   |
 S2        | paired     | 0:1
 
-Note that *S0* is present with two file types, as when performing read overlap **Checkout** stores non-overlapped reads in *_R1/_R2* files, which could be then incorporated into data processing
+Note that *S0* is present with two file types, as when performing read overlap **Checkout** stores non-overlapped reads in *_R1/_R2* files, which could be then incorporated into data processing.
+
+The ```--force-overseq X``` and ```--force-collision-filter``` will force a MIG size threshold of ```X``` and filtering of 1-mm UMI collisions for all samples being processed.
 
 
 ### 3. Assemble (Manual)
@@ -263,7 +271,7 @@ Automatic output file naming convention is used for compatibility with batch ope
 
 **Settings**
 
-The ```--assembly-mask <R1=[0,1]:R2=[0,1]>``` parameter indicates FASTQ files to be assembled in paired-end data. By default both reads are assembled.
+The ```--assembly-mask <R1=[0,1]:R2=[0,1]>``` parameter indicates FASTQ files to be assembled in paired-end data. By default both reads are assembled. In case of ```0:0``` mask will process only overlapped reads.
 
 The ```-c``` option indicates compressed output.
 
@@ -289,7 +297,7 @@ Performs CDR3 extraction and V/J segment determination for both raw (**Checkout*
 
 Several default **CdrBlast** parameters could be set,
 
-```--default-mask <R1=[0,1]:R2=[0,1]>``` - mask which specifies for which read(s) in paired-end data to perform CDR3 extraction
+```--default-mask <R1=[0,1]:R2=[0,1]>``` - mask which specifies for which read(s) in paired-end data to perform CDR3 extraction. In case of ```0:0``` mask will process only overlapped reads
 ```--default-species``` - default species to be used for all samples, *human* (used by default) or *mouse*
 ```--default-file-types``` - default file types (paired, overlapped or single) to be processed for each sample. If several file types are specified, the corresponding raw and assembled files will be combined and used as an input to CdrBlast
 ```--default-quality-threshold <Phred=[2..40],CQS=[2..40]>``` - quality threshold pair, default for all samples. First threshold in pair is used for raw sequence quality (sequencing quality phred) and the second one is used for assembled sequence quality (CQS score, the fraction of reads in MIG that contain dominant letter at a given position)
@@ -337,7 +345,7 @@ to concatenate and process two or more FASTQ files at once:
 java -jar migec.jar CdrBlast -R TRA ./checkout/S1_R2.fastq.gz ./checkout/S2_R2.fastq.gz ./cdrblast/S12_raw.cdrblast.txt
 ```
 
-Gene parameter ```-R``` is required, supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Species could be provided with ```-S``` parameter, by default uses *human*, supported species are *HomoSapines*, *MusMusculus* and others. Assembled data should be passed to the script with ```-a``` option.
+Gene parameter ```-R``` is required, supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Species could be provided with ```-S``` parameter, by default uses *human*, supported species are *HomoSapines*, *MusMusculus* and others. Assembled data should be passed to the script with ```-a``` option. ```--same-sample``` option should be used if several assembled files are provided from the same sample, so duplicate UMIs will be discarded and not counted twice.
 
 To get a sorted output use ```-o``` option, otherwise sorting will be performed at **FilterCdrBlastResults** step. Note that both raw and assembled data should be processed to apply the last step of filtration.
 
