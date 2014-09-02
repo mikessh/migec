@@ -87,7 +87,7 @@ If insufficient amount memory is allocated, the Java Virtual Machine could drop 
 An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM Unix server. First *barcodes.txt* should be created containing adapter sequences, see **Checkout** section for guidelines. Then, assuming that the corresponding FASTQ files are *IGH_SAMPLE_R1.fastq.gz* and *IGH_SAMPLE_R2.fastq.gz*, UMI- and multiplex index-containing adapter is near 5'UTR of V segment (so the CDR3 is in mate#2 after reads are oriented) and NCBI-BLAST+ is installed, run all 5 stages of the pipeline using the following command:
 
 ```
-export JAVA_OPTS="-Xmx14G" &&
+export JAVA_OPTS="-Xmx8G" &&
 java -jar migec.jar Checkout -cute --overlap barcodes.txt IGH_SAMPLE_R1.fastq.gz IGH_SAMPLE_R2.fastq.gz checkout/ &&
 java -jar migec.jar Histogram checkout/ histogram/ &&
 java -jar migec.jar AssembleBatch -c checkout/ histogram/ assemble/ &&
