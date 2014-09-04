@@ -229,6 +229,9 @@ def overlapReads = { String r1, String r2, String q1, String q2 ->
     String[] result = null
 
     for (int i = 0; i < maxOverlapOffset; i++) {
+        if (i + overlapSeedSize > r2.length())
+            return null
+
         def kmer = r2.substring(i, i + overlapSeedSize)
         def pattern = Pattern.compile(kmer)
         def matcher = pattern.matcher(r1)
@@ -243,7 +246,7 @@ def overlapReads = { String r1, String r2, String q1, String q2 ->
 
                 for (int j = 0; j < overlapFuzzySize; j++) {
                     def posInR1 = position + overlapSeedSize + j, posInR2 = i + overlapSeedSize + j
-                    if (posInR1 + 1 > r1.length()) {
+                    if (posInR1 + 1 > r1.length() || posInR2 + 1 > r2.length()) {
                         actualFuzzyOverlapSize = j + 1
                         alignedAll = false
                         break     // went to end of r1
