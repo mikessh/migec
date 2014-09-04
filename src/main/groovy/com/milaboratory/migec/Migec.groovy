@@ -107,7 +107,7 @@ else {
             writer.println("[StackTrace-Short]")
             writer.println(e.stackTrace.findAll { it.toString().contains("com.milaboratory.migec") }.join("\n"))
             writer.println("[StackTrace-Full]")
-            writer.println(e.stackTrace.join("\n"))
+            e.printStackTrace(new PrintWriter(writer))
         }
         System.exit(-1)
     }
