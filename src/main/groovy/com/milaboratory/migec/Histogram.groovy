@@ -159,11 +159,13 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                         int collThreshold = 0, overseqThreshold = 0,
                             overseqThresholdEmp = (int) Math.pow(2.0, overseqPeak / 2.0)
 
-                        if (overseqPeak <= overseqPeakLow) {
+                        //if (overseqPeak <= overseqPeakLow) {
                             // empirical
                             overseqThreshold = overseqThresholdEmp
                             collThreshold = overseqThresholdEmp
-                        } else {
+                        //}
+                        /* DEPRCATED
+                        else {
                             // by percentile
                             double p = (overseqPeak <= overseqPeakHigh) ? percLowOverseq : percHighOverseq
 
@@ -189,7 +191,7 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                 }
                             }
                             overseqThreshold = (int) Math.pow(2.0, overseqThreshold)
-                        }
+                        } */
 
                         oWriter.println(row + "\t" + Util.toString(overseqHist))
                         cWriter.println(row + "\t" + Util.toString(collisionHist))
