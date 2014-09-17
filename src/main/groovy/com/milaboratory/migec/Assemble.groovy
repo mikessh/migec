@@ -228,7 +228,8 @@ def writeThread = new Thread({  // Writing thread, listening to queue
 writeThread.start()
 
 def nMigs = new AtomicInteger(),
-    nReadsInMigs = new AtomicInteger(), nCollisions = new AtomicInteger()
+        nReadsInMigs = new AtomicInteger(), nDroppedReads = new AtomicInteger(),
+    nCollisions = new AtomicInteger()
 def nGoodMigs = new AtomicInteger[3], nReadsInGoodMigs = new AtomicInteger[3]
 nGoodMigs[0] = new AtomicInteger()
 nGoodMigs[1] = new AtomicInteger()
@@ -359,8 +360,10 @@ GParsPool.withPool THREADS, {
                         data[1] = x
                         data[2] = y
                         migAlignmentData.put(read.key, data)
-                    } else
+                    } else {
                         count -= read.value // drop it
+                        nDroppedReads.incrementAndGet()
+                    }
                 }
 
                 // Still good?
@@ -452,7 +455,8 @@ def logLine = [assemblyIndices[0] ? new File(inputFileName1).absolutePath : '-',
 
                nGoodMigs[0].get(), nGoodMigs[1].get(), nGoodMigs[2].get(), nMigs.get(),
 
-               nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(), nReadsInMigs.get()].join("\t")
+               nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(), nReadsInMigs.get(),
+               nDroppedReads.get()].join("\t")
 
 
 if (logFileName) {
