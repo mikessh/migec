@@ -674,7 +674,9 @@ inputFileNames.each { inputFileName ->
 
                     if (cdr3FastqFile)
                         writerCdr3Fastq.writeLine(header + " CDR3:" + clonotypeData.cdr3Seq + ":" +
-                                clonotypeData.cdrFrom + " V:" + clonotypeData.vAllele.alleleId + "\n" +
+                                clonotypeData.cdrFrom +
+                                " V:" + clonotypeData.vAllele.alleleId +
+                                " J:" + clonotypeData.jAllele.alleleId +"\n" +
                                 seq + "\n+\n" + oldQual)
 
                     if (writerCdr3Umi)
