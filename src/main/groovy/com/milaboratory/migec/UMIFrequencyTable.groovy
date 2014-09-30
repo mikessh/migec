@@ -77,6 +77,7 @@ while ((header = reader.readLine()) != null) {
     if (++n % 500000 == 0)
         println "[${new Date()} $scriptName] $n reads processed"
 }
+println "[${new Date()} $scriptName] Finished processing $n reads"
 
 new File(outputFileName).withPrintWriter { pw ->
     umiMap.entrySet().collect().sort { -it.value }.each { pw.println(it.key + "\t" + it.value) }

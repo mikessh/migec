@@ -48,7 +48,7 @@ cli.S(longOpt: "default-species", args: 1, argName: "species",
 cli._(longOpt: "default-file-types", args: 1, argName: "type1,..",
         "Accepted file types, default for all samples, " +
                 "comma-separated list of file types to be processed for a given sample, allowed values: ${Util.FILE_TYPES.join(", ")}")
-cli._(longOpt: "default-quality-threshold", args: 1, argName: "Phred,CQS",
+cli.q(longOpt: "default-quality-threshold", args: 1, argName: "Phred,CQS",
         "Quality threshold pair, default for all samples, comma-separated pair " +
                 "of quality threshold values for Phred and CQS quality thresholds respectively [default = 25, 30]")
 
