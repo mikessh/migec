@@ -1,3 +1,7 @@
 target/
 *.iml
+benchmark/
+migec-v*/
+migec-v*.*
+*.sh
 .idea/
