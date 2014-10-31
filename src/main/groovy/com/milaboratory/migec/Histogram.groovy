@@ -129,6 +129,7 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                 // Calculate 1-mm collisions
                                 char[] umi = umiEntry.key.toCharArray()
 
+                                loops:
                                 for (int i = 0; i < umi.length; i++) {
                                     for (int j = 0; j < 4; j++) {
                                         char prevChar, nt = Util.NTS[j]
@@ -139,6 +140,7 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                             if (otherCount != null && thisCount < otherCount) {
                                                 collisionHist.addAndGet(bin, thisCount)
                                                 collisionHistUnits.incrementAndGet(bin)
+                                                break loops // let's not over-count collisions
                                             }
                                             umi[i] = prevChar
                                         }
