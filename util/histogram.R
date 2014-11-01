@@ -27,7 +27,7 @@ for (units in c("", "-units")) {
    print(
       ggplot(df, aes(x=x,y=value))+geom_smooth()+
          scale_x_log10(name = "MIG size, reads", expand=c(0,0), limits=c(1, 10000), breaks = c(1:10,100,1000,10000), labels = c("1", rep("", 8), 10, 100, 1000, 10000), oob=scales::rescale_none)+
-         scale_y_continuous(name = "",expand=c(0,0), limits = c(0, max(df.m$value)), oob=scales::rescale_none)+theme_bw()+theme(panel.grid.minor = element_blank()) + facet_grid(s~.)
+         scale_y_continuous(name = "",expand=c(0,0), limits = c(0, max(df$value)), oob=scales::rescale_none)+theme_bw()+theme(panel.grid.minor = element_blank()) + facet_grid(s~.)
    )
    
    dev.off()  
