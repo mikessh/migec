@@ -345,7 +345,7 @@ to concatenate and process two or more FASTQ files at once:
 java -jar migec.jar CdrBlast -R TRA ./checkout/S1_R2.fastq.gz ./checkout/S2_R2.fastq.gz ./cdrblast/S12_raw.cdrblast.txt
 ```
 
-Gene parameter ```-R``` is required, supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Species could be provided with ```-S``` parameter, by default uses *human*, supported species are *HomoSapines*, *MusMusculus* and others. Assembled data should be passed to the script with ```-a``` option. ```--same-sample``` option should be used if several assembled files are provided from the same sample, so duplicate UMIs will be discarded and not counted twice.
+Gene parameter ```-R``` is required, supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Species could be provided with ```-S``` parameter, by default uses *HomoSapiens*, supported species are *HomoSapiens*, *MusMusculus* and others. Assembled data should be passed to the script with ```-a``` option. ```--same-sample``` option should be used if several assembled files are provided from the same sample, so duplicate UMIs will be discarded and not counted twice.
 
 To get a sorted output use ```-o``` option, otherwise sorting will be performed at **FilterCdrBlastResults** step. Note that both raw and assembled data should be processed to apply the last step of filtration.
 
