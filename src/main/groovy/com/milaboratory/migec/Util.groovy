@@ -272,10 +272,17 @@ class Util {
     }
 
     static BufferedWriter getWriter(String outfile, boolean compressed) {
+        getWriter(outfile, compressed, false)
+    }
+
+    static BufferedWriter getWriter(String outfile, boolean compressed, boolean append) {
         if (compressed)
             outfile += ".gz"
+
+        def fos = new FileOutputStream(outfile, append)
+
         new BufferedWriter(new OutputStreamWriter(compressed ?
-                new GZIPOutputStream(new FileOutputStream(outfile)) : new FileOutputStream(outfile)))
+                new GZIPOutputStream(fos) : fos))
     }
 
     static BufferedWriter getWriter(String outfile) {

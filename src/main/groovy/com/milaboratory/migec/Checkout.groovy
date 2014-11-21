@@ -51,6 +51,8 @@ cli.m(args: 1,
         argName: 'LQ:E0:E1', "Low quality threshold : Ratio of low-quality errors : Ratio of high-quality errors. " +
         "Used to calculate the maximum number of allowed mismatches when performing alignment to full barcode, " +
         "ratios are scaled to full barcode length. Default: $mm")
+cli._(longOpt: 'append', 'Will append to existing directory. ' +
+        'Useful when samples were previously split using Illumina indices')
 cli.c('Compressed output')
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
@@ -61,12 +63,13 @@ if (opt == null || opt.arguments().size() < 2) {
 
 def scriptName = getClass().canonicalName
 boolean compressed = opt.c, oriented = opt.o, extractUMI = opt.u, addRevComplBc = opt."rc-barcodes",
-        trimBc = opt.t, removeTS = opt.e, overlap = opt.'overlap', noUndef = opt.'skip-undef'
+        trimBc = opt.t, removeTS = opt.e, overlap = opt.'overlap', noUndef = opt.'skip-undef',
+        append = opt.'append'
 int trimSizeThreshold = (opt.'max-trim-nts' ?: mtrim).toInteger()
 int firstReadsToTake = (opt.'first' ?: "-1").toInteger()
 int maxOverlapOffset = (opt.'overlap-max-offset' ?: omf).toInteger(),
-        overlapFuzzySize = (opt.'overlap-match-size' ?: oms).toInteger(),
-        overlapSeedSize = (opt.'overlap-seed-size' ?: oss).toInteger()
+    overlapFuzzySize = (opt.'overlap-match-size' ?: oms).toInteger(),
+    overlapSeedSize = (opt.'overlap-seed-size' ?: oss).toInteger()
 boolean allowPartialOverlap = opt.'overlap-allow-partial'
 def rcReadMask = (opt.r ?: rcm).split(":").collect { Integer.parseInt(it) > 0 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
@@ -388,11 +391,11 @@ new File(outputDir).mkdir()
     def writerTrio = new BufferedWriter[3]
 
     writerTrio[0] = Util.getWriter(paired ? "$outputDir/${sampleId}_R1.fastq" :
-            "$outputDir/${sampleId}_R0.fastq", compressed)
+            "$outputDir/${sampleId}_R0.fastq", compressed, append)
     if (paired) {
-        writerTrio[1] = Util.getWriter("$outputDir/${sampleId}_R2.fastq", compressed)
+        writerTrio[1] = Util.getWriter("$outputDir/${sampleId}_R2.fastq", compressed, append)
         if (overlap)
-            writerTrio[2] = Util.getWriter("$outputDir/${sampleId}_R12.fastq", compressed)
+            writerTrio[2] = Util.getWriter("$outputDir/${sampleId}_R12.fastq", compressed, append)
     }
 
     writers.put(sampleId, writerTrio)
@@ -616,28 +619,46 @@ writers.values().each { // don't forget to flush
 
 def fastqPrefix = compressed ? "fastq.gz" : "fastq"
 
-new File("$outputDir/checkout.filelist.txt").withPrintWriter { pw ->
-    pw.println("#SAMPLE_ID\tSAMPLE_TYPE\tCHECKOUT_FASTQ1\tCHECKOUT_FASTQ2")
-    new HashSet(sampleIds).each { String sampleId -> // only unique
-        pw.println(sampleId +
+def filelistFile = new File("$outputDir/checkout.filelist.txt")
+def filelistExists = filelistFile.exists()
+def filelistWriter = filelistFile.newWriter(append)
+
+def existingSampleIdList = new HashSet<String>()
+if (!filelistExists) {
+    filelistWriter.println("#SAMPLE_ID\tSAMPLE_TYPE\tCHECKOUT_FASTQ1\tCHECKOUT_FASTQ2")
+} else if (append) {
+    new File("$outputDir/checkout.filelist.txt").splitEachLine("\t") {
+        existingSampleIdList.add(it[0])
+    }
+}
+
+new HashSet(sampleIds).each { String sampleId -> // only unique
+    if (!existingSampleIdList.contains(sampleId)) {
+        filelistWriter.println(sampleId +
                 (paired ? "\tpaired\t" : "\tunpaired\t") +
                 (paired ? new File("$outputDir/${sampleId}_R1.$fastqPrefix").absolutePath :
                         new File("$outputDir/${sampleId}_R0.$fastqPrefix").absolutePath)
                 + "\t" +
                 (paired ? new File("$outputDir/${sampleId}_R2.$fastqPrefix").absolutePath : "-"))
         if (overlap)
-            pw.println(sampleId + "\toverlapped\t" +
+            filelistWriter.println(sampleId + "\toverlapped\t" +
                     new File("$outputDir/${sampleId}_R12.$fastqPrefix").absolutePath + "\t-")
     }
 }
 
-new File("$outputDir/checkout.log.txt").withPrintWriter { pw ->
-    pw.println("#MATCH_TYPE\t" + counters.collect { it.key }.join("\t"))
-    pw.println("Master\t" + counters.collect { it.value[0] }.join("\t"))
-    if (paired) {
-        pw.println("Master+slave\t" + counters.collect { it.value[1] }.join("\t"))
-        if (overlap)
-            pw.println("Overlapped\t" + counters.collect { it.value[2] }.join("\t"))
-    }
+filelistWriter.close()
+
+def logFile = new File("$outputDir/checkout.log.txt")
+def logExists = logFile.exists()
+def logWriter = logFile.newWriter(append)
+if (!logExists) {
+    logWriter.println("#INPUT_FILE_1\tINPUT_FILE_2\tSAMPLE\tMASTER\tMASTER+SLAVE\tOVERLAPPED")
 }
+
+counters.each {
+    logWriter.println(inputFileName1 + "\t" + inputFileName2 + "\t" + it.key + "\t" + it.value.collect().join("\t"))
+}
+
+logWriter.close()
+
 println "[${new Date()} $scriptName] Finished"
