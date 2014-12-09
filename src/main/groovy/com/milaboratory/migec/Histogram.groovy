@@ -62,6 +62,10 @@ def BASE_HEADER = "#SAMPLE_ID\tSAMPLE_TYPE",
             "OVERSEQ_THRESHOLD\tCOLLISION_THRESHOLD\t" +
             "UMI_QUAL_THRESHOLD\tUMI_LEN"
 
+def maxUmiSz = -1
+def umiPwmUnitsTotal = new AtomicIntegerArray(4000), umiPwmReadsTotal = new AtomicIntegerArray(4000), // todo: consider including guava and long array, possible overflow
+    umiGoodUnitsTotal = new AtomicInteger(), umiGoodReadsTotal = new AtomicInteger()
+
 new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
     oWriter.println(HEADER)
 
@@ -85,8 +89,7 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                             samples.each { sampleEntry ->
                                 println "[${new Date()} $scriptName] Processing ${sampleEntry[0]} (${sampleEntry[1]})"
 
-                                final
-                                def umiPwmUnits = new AtomicIntegerArray(4000), umiPwmReads = new AtomicIntegerArray(4000), // todo: consider including guava and long array, possible overflow
+                                def umiPwmUnits = new AtomicIntegerArray(4000), umiPwmReads = new AtomicIntegerArray(4000),
                                     umiGoodUnits = new AtomicInteger(), umiGoodReads = new AtomicInteger()
                                 int umiSz = -1
 
@@ -118,6 +121,8 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                     if (++nReads % 1000000 == 0)
                                         println "[${new Date()} $scriptName] Processed $nReads, ${umiCountMap.size()} UMIs so far"
                                 }
+
+                                maxUmiSz = Math.max(maxUmiSz, umiSz)
 
                                 println "[${new Date()} $scriptName] Processed $nReads, ${umiCountMap.size()} UMIs total"
 
@@ -160,10 +165,14 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                         if (good) {
                                             umiGoodReads.addAndGet(thisCount)
                                             umiGoodUnits.incrementAndGet()
+                                            umiGoodReadsTotal.addAndGet(thisCount)
+                                            umiGoodUnitsTotal.incrementAndGet()
                                             for (int i = 0; i < umi.length; i++) {
                                                 int x = 4 * i + Util.nt2code(umi[i])
                                                 umiPwmUnits.incrementAndGet(x)
                                                 umiPwmReads.addAndGet(x, thisCount)
+                                                umiPwmUnitsTotal.incrementAndGet(x)
+                                                umiPwmReadsTotal.addAndGet(x, thisCount)
                                             }
                                         }
 
@@ -244,6 +253,26 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                     }
                 }
             }
+        }
+    }
+}
+
+new File("$outputDir/pwm-summary-units.txt").withPrintWriter { pwPwmUnits ->
+
+    new File("$outputDir/pwm-summary.txt").withPrintWriter { pwPwm ->
+        def PWM_HEADER = ESTIMATES_HEADER = "#NT\t" + (1..maxUmiSz).join("\t")
+        pwPwmUnits.println(PWM_HEADER)
+        pwPwm.println(PWM_HEADER)
+        for (int i = 0; i < 4; i++) {
+            pwPwmUnits.print(Util.code2nt(i))
+            pwPwm.print(Util.code2nt(i))
+            for (int j = 0; j < maxUmiSz; j++) {
+                int x = 4 * j + i
+                pwPwmUnits.print("\t" + umiPwmUnitsTotal.get(x) / (double) umiGoodUnitsTotal.get())
+                pwPwm.print("\t" + umiPwmReadsTotal.get(x) / (double) umiGoodReadsTotal.get())
+            }
+            pwPwmUnits.println()
+            pwPwm.println()
         }
     }
 }

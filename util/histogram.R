@@ -1,3 +1,11 @@
+#
+# Plots a fancy oversequencing histogram from tables pre-computed by Histogram util
+#
+# usage:
+# $cd histogram_output_dir/
+# $RScript histogram.R
+#
+
 require(ggplot2); require(reshape)
 
 build_df <- function(stat, units, sweep_df = NULL) {
