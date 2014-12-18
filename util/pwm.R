@@ -13,6 +13,7 @@ logo <- function(prefix) {
    df<-read.table(paste(prefix,".txt",sep=""))
    rownames(df)<-df[,1]
    df<-df[,2:ncol(df)]
+   df[, ] <- apply(df[, ], 2, as.numeric)
 
    # build seqlogo
    df.p <- makePWM(df)
