@@ -21,12 +21,14 @@ import groovyx.gpars.GParsPool
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
 
+import static com.milaboratory.migec.Util.BLANK_PATH
+
 //========================
 //          CLI
 //========================
 def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_MIN_COUNT = "10", DEFAULT_PARENT_CHILD_RATIO = "0.1"
 def cli = new CliBuilder(usage:
-        'Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or -] output_dir/')
+        "Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or ${BLANK_PATH}] output_dir/")
 cli.q(args: 1, argName: 'read quality (phred)',
         "barcode region quality threshold. Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli._(longOpt: 'assembly-mask', args: 1, argName: 'X:Y, X=0/1, Y=0/1',
@@ -91,7 +93,7 @@ if (!(inputFileName1.endsWith(".fastq") || inputFileName1.endsWith(".fastq.gz"))
     outputFilePrefix1 = Util.getFastqPrefix(inputFileName1) + ".t" + minMigSize + (filterCollisions ? ".cf" : "")
 }
 
-if (inputFileName2 != "-") {
+if (inputFileName2 != BLANK_PATH) {
     if (!(inputFileName2.endsWith(".fastq") || inputFileName2.endsWith(".fastq.gz"))) {
         println "[ERROR] Bad file extension $inputFileName2. Either .fastq, .fastq.gz or \'-\' should be provided as R2 file."
         System.exit(-1)
@@ -106,7 +108,7 @@ def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
     anchorRegion = Integer.parseInt(opt.'assembly-anchor' ?: '10')
 
 // I/O parameters
-boolean paired = inputFileName2 != "-"
+boolean paired = inputFileName2 != BLANK_PATH
 def assemblyIndices = [true, false]
 boolean bothReads = false
 if (paired) {

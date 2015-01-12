@@ -147,8 +147,9 @@ TMP_FOLDER_FILE.mkdirs()
 //if (!DEBUG)
 //    TMP_FOLDER_FILE.deleteOnExit()
 
-if (new File(outputFileName).parentFile)
-    new File(outputFileName).parentFile.mkdirs()
+def outputFile = null
+if (outputFileName != "-" && (outputFile = new File(outputFileName)).parentFile)
+    outputFile.parentFile.mkdirs()
 
 // BLAST SETTINGS
 int ALLELE_TAIL_INNER = 10, ALLELE_TAIL_OUTER = 6,
@@ -758,22 +759,23 @@ uniqueClonotypes.keySet().each {
     }
 }
 
-println "${timestamp()} Writing output"
-def outputFile = new File(outputFileName)
-outputFile.withPrintWriter { pw ->
-    pw.println("Count\tPercentage\t" +
-            "CDR3 nucleotide sequence\tCDR3 amino acid sequence\t" +
-            "V segments\tJ segments\tD segments\t" +
-            "Last V nucleotide position\t" +
-            "First D nucleotide position\tLast D nucleotide position\t" +
-            "First J nucleotide position\t" +
-            "Good events\tTotal events\tGood reads\tTotal reads")
+if (outputFile) {
+    println "${timestamp()} Writing output"
+    outputFile.withPrintWriter { pw ->
+        pw.println("Count\tPercentage\t" +
+                "CDR3 nucleotide sequence\tCDR3 amino acid sequence\t" +
+                "V segments\tJ segments\tD segments\t" +
+                "Last V nucleotide position\t" +
+                "First D nucleotide position\tLast D nucleotide position\t" +
+                "First J nucleotide position\t" +
+                "Good events\tTotal events\tGood reads\tTotal reads")
 
-    (doSort ? cloneMap.sort { -it.value[0] } : cloneMap).each {
-        if (it.value[0] > 0)
-            pw.println(it.value[0] + "\t" + (it.value[0] / goodEvents) + // percentage from good events only
-                    "\t" + it.key +
-                    "\t" + it.value.collect().join("\t"))
+        (doSort ? cloneMap.sort { -it.value[0] } : cloneMap).each {
+            if (it.value[0] > 0)
+                pw.println(it.value[0] + "\t" + (it.value[0] / goodEvents) + // percentage from good events only
+                        "\t" + it.key +
+                        "\t" + it.value.collect().join("\t"))
+        }
     }
 }
 
@@ -783,8 +785,10 @@ if (!DEBUG)
 //TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
 
 // Append to log and report to batch runner
-def logLine = [(assembledInput ? "asm" : "raw"), outputFile.absolutePath, inputFileNames.join(","),
-               goodEvents, mappedEvents, totalEvents, goodReads, mappedReads, totalReads].join("\t")
+def logLine = [(assembledInput ? "asm" : "raw"), outputFile ? outputFile.absolutePath : "-",
+               inputFileNames.join(","),
+               goodEvents, mappedEvents, totalEvents,
+               goodReads, mappedReads, totalReads].join("\t")
 
 if (logFileName) {
     def logFile = new File(logFileName)

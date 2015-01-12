@@ -22,9 +22,11 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
+import static com.milaboratory.migec.Util.BLANK_PATH
+
 def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10", omf = "5", oss = "5", oms = "10"
 def cli = new CliBuilder(usage:
-        'Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or -] output_dir/')
+        "Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or ${BLANK_PATH}] output_dir/'")
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
         'Default: scans both reads (if pair-end) for master barcode')
 cli.u('Save UMI region specified by capital N\'s in barcode sequence to the header')
@@ -158,7 +160,7 @@ def addBarcode = { String barcode, int slave ->
 new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
     // filter by input file name
     if (
-    (inputFileName2 == "-" && (sl.size() < 4 || sl[3] == "." || (inputFileName1.contains(sl[3])))) ||
+    (inputFileName2 == BLANK_PATH && (sl.size() < 4 || sl[3] == "." || (inputFileName1.contains(sl[3])))) ||
             (sl.size() < 5 ||
                     ((sl[3] == "." || inputFileName1.contains(sl[3])) && (sl[4] == "." || inputFileName2.contains(sl[4]))))
     ) {
@@ -646,7 +648,7 @@ new HashSet(sampleIds).each { String sampleId -> // only unique
                 (paired ? new File("$outputDir/${sampleId}_R1.$fastqPrefix").absolutePath :
                         new File("$outputDir/${sampleId}_R0.$fastqPrefix").absolutePath)
                 + "\t" +
-                (paired ? new File("$outputDir/${sampleId}_R2.$fastqPrefix").absolutePath : "-"))
+                (paired ? new File("$outputDir/${sampleId}_R2.$fastqPrefix").absolutePath : BLANK_PATH))
         if (overlap)
             filelistWriter.println(sampleId + "\toverlapped\t" +
                     new File("$outputDir/${sampleId}_R12.$fastqPrefix").absolutePath + "\t-")

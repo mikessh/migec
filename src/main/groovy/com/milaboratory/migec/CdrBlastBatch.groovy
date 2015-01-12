@@ -1,5 +1,7 @@
 package com.milaboratory.migec
 
+import static com.milaboratory.migec.Util.BLANK_PATH
+
 /**
  Copyright 2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
@@ -18,7 +20,8 @@ package com.milaboratory.migec
 
 def scriptName = getClass().canonicalName
 
-def cli = new CliBuilder(usage: "$scriptName [options] [checkout_dir/ or -] [assemble_dir/ or -] output_dir/\n" +
+def cli = new CliBuilder(usage: "$scriptName [options] " +
+        "[checkout_dir/ or ${BLANK_PATH}] [assemble_dir/ or ${BLANK_PATH}] output_dir/\n" +
         "Either --sample-metadata or -R argument is required.")
 cli.p(args: 1, "Number of threads to use")
 cli._(longOpt: "sample-metadata", args: 1, argName: "file",
@@ -85,7 +88,7 @@ if (!sampleInfoFileName && !opt.R) {
     System.exit(-1)
 }
 
-boolean processRaw = checkoutDir != "-", processAssembled = assembleDir != "-"
+boolean processRaw = checkoutDir != BLANK_PATH, processAssembled = assembleDir != BLANK_PATH
 if (!processRaw && !processAssembled) {
     println "[ERROR] At least one of assembled or raw (checkout) data directories should be specified"
     System.exit(-1)

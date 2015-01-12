@@ -33,6 +33,8 @@ class Util {
         script.binding.setVariable("args", argArray)
         script.run()
     }
+    
+    static final String BLANK_PATH = "_"
 
     static final List<String> FILE_TYPES = ["paired", "unpaired", "overlapped"],
                               MASKS = ["0:1", "1:0", "1:1", "0:0"]
