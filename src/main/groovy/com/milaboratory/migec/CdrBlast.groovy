@@ -161,7 +161,7 @@ String BLAST_FLAGS = "-lcase_masking"
 int TOP_SEQS = 1,
     MIN_SEGMENT_IDENT = 7,
     MIN_CDR_LEN = 7, // at least 1 nt + conserved AAs
-    MAX_CDR_LEN = 70
+    MAX_CDR_LEN = 300 // there are some IGH with 35+ AAs in CDR3
 
 // LOGGING
 String logFileName = opt.'log-file' ?: null

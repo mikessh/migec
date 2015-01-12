@@ -16,8 +16,6 @@
 
 package com.milaboratory.migec
 
-import java.util.zip.GZIPInputStream
-
 //========================
 //          CLI
 //========================
@@ -38,10 +36,7 @@ if (new File(outputFileName).parentFile)
 //========================
 //      MISC UTILS
 //========================
-def getReader = { String fname ->
-    new BufferedReader(new InputStreamReader(fname.endsWith(".gz") ? new GZIPInputStream(new FileInputStream(fname)) :
-            new FileInputStream(fname)))
-}
+
 
 def getUmiEntry = { String header ->
     def splitHeader = header.split(" ")
@@ -58,7 +53,7 @@ def getUmiEntry = { String header ->
 //========================
 println "[${new Date()} $scriptName] Reading data from $inputFileName, collecting UMI headers"
 def header
-def reader = getReader(inputFileName)
+def reader = Util.getReader(inputFileName)
 def umiMap = new HashMap<String, Integer>()
 def n = 0
 while ((header = reader.readLine()) != null) {
@@ -82,3 +77,4 @@ println "[${new Date()} $scriptName] Finished processing $n reads"
 new File(outputFileName).withPrintWriter { pw ->
     umiMap.entrySet().collect().sort { -it.value }.each { pw.println(it.key + "\t" + it.value) }
 }
+

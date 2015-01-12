@@ -37,8 +37,8 @@ Please cite the tool as:
   SusScrofa            | IGL, IGK
   BosTaurus            | TRD          
   MusSpretus           | IGL
-  GallusGallus           | TRB
-  AnasPlatyrhynchos           | TRB
+  GallusGallus         | TRB
+  AnasPlatyrhynchos    | TRB
 
 
 ### INSTALLATION AND RUNNING
@@ -168,7 +168,7 @@ General:
 
 ```--overlap``` will try to overlap reads (paired-end data only), non-overlapping and overlapping reads will be placed to *_R1/_R2* and *_R12* FASTQ files respectively. While overlapping the nucleotide with higher quality will be taken thus improving overall data quality.
 
-```-overlap-max-offset X``` controls to which extent overlapping region is searched. If the read-through extent is high (reads are embedded) should be set to ~40.
+```--overlap-max-offset X``` controls to which extent overlapping region is searched. If the read-through extent is high (reads are embedded) should be set to ~40.
 
 Barcode search:
 
