@@ -28,26 +28,45 @@ if (opt == null || opt.arguments().size() < 2) {
     System.exit(-1)
 }
 
-def options = args[0..-3], barcodesFileName = args[-2], outputPath = args[-1]
+def options = args[0..-3], barcodesFileName = args[-2], outputDir = args[-1]
 
 def scriptName = getClass().canonicalName
 
 if (!options.contains("--append"))
     options.add("--append")
 
+boolean anyMissing = false
 def filesHash = new HashSet<String>()
 new File(barcodesFileName).splitEachLine("\t") { splitLine ->
     if (!splitLine[0].startsWith("#") && splitLine.size() > 3 && splitLine[3] != BLANK_PATH) {
         def fastq1 = splitLine[3], fastq2 = splitLine.size() > 4 ? splitLine[4] : BLANK_PATH
         filesHash.add([fastq1, fastq2].join(" "))
+
+        [new File(fastq1), new File(fastq2)].each {
+            if (!it.exists()) {
+                println "${it.absolutePath} not found"
+                anyMissing = true
+            }
+        }
     }
+}
+
+if (anyMissing) {
+    println "[ERROR] There were some missing FASTQ files.. Terminating"
+    System.exit(-1)
 }
 
 println "[${new Date()} $scriptName] Will run Checkout for the following fastq pairs:\n" +
         "${filesHash.collect().join("\n")}\n" +
         "barcodes: $barcodesFileName\n" +
-        "output path: $outputPath"
+        "output path: $outputDir"
+
+// Clear existing logs
+[new File("$outputDir/checkout.filelist.txt"), new File("$outputDir/checkout.log.txt")].each {
+    if (it.exists())
+        it.delete()
+}
 
 filesHash.each {
-    Util.run(new Checkout(), [options, barcodesFileName, it, outputPath].flatten().join(" "))
+    Util.run(new Checkout(), [options, barcodesFileName, it, outputDir].flatten().join(" "))
 }

@@ -29,6 +29,7 @@ def printHelp = {
     println ""
     println "where SCRIPT_NAME is one of the following:"
     println "Checkout"
+    println "CheckoutBatch"
     println "Histogram"
     println "Assemble"
     println "AssembleBatch"
@@ -55,6 +56,8 @@ def getScript = { String scriptName ->
     switch (scriptName.toUpperCase()) {
         case "CHECKOUT":
             return new Checkout()
+        case "CHECKOUTBATCH":
+            return new CheckoutBatch()
         case "HISTOGRAM":
             return new Histogram()
         case "ASSEMBLE":

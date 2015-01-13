@@ -160,9 +160,9 @@ def addBarcode = { String barcode, int slave ->
 new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
     // filter by input file name
     if (
-    (inputFileName2 == BLANK_PATH && (sl.size() < 4 || sl[3] == BLANK_PATH || (inputFileName1.contains(sl[3])))) ||
+    (inputFileName2 == BLANK_PATH && (sl.size() < 4 || sl[3] == BLANK_PATH || (inputFileName1 == sl[3]))) ||
             (sl.size() < 5 ||
-                    ((sl[3] == BLANK_PATH || inputFileName1.contains(sl[3])) && (sl[4] == BLANK_PATH || inputFileName2.contains(sl[4]))))
+                    ((sl[3] == BLANK_PATH || inputFileName1 == sl[3]) && (sl[4] == BLANK_PATH || inputFileName2 == sl[4])))
     ) {
         if (!sl[0].startsWith("#")) {
             sampleIds.add(sl[0])

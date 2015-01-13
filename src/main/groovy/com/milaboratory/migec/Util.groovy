@@ -34,7 +34,7 @@ class Util {
         script.run()
     }
     
-    static final String BLANK_PATH = "_"
+    static final String BLANK_PATH = "."
 
     static final List<String> FILE_TYPES = ["paired", "unpaired", "overlapped"],
                               MASKS = ["0:1", "1:0", "1:1", "0:0"]
