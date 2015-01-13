@@ -57,7 +57,7 @@ cli._(longOpt: 'append', 'Will append to existing directory. ' +
         'Useful when samples were previously split using Illumina indices')
 cli.c('Compressed output')
 def opt = cli.parse(args)
-if (opt == null || opt.arguments().size() < 2) {
+if (opt == null || opt.arguments().size() < 4) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(-1)
@@ -160,9 +160,9 @@ def addBarcode = { String barcode, int slave ->
 new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
     // filter by input file name
     if (
-    (inputFileName2 == BLANK_PATH && (sl.size() < 4 || sl[3] == "." || (inputFileName1.contains(sl[3])))) ||
+    (inputFileName2 == BLANK_PATH && (sl.size() < 4 || sl[3] == BLANK_PATH || (inputFileName1.contains(sl[3])))) ||
             (sl.size() < 5 ||
-                    ((sl[3] == "." || inputFileName1.contains(sl[3])) && (sl[4] == "." || inputFileName2.contains(sl[4]))))
+                    ((sl[3] == BLANK_PATH || inputFileName1.contains(sl[3])) && (sl[4] == BLANK_PATH || inputFileName2.contains(sl[4]))))
     ) {
         if (!sl[0].startsWith("#")) {
             sampleIds.add(sl[0])
