@@ -19,7 +19,7 @@ package com.milaboratory.migec
 import static com.milaboratory.migec.Util.BLANK_PATH
 
 def cli = new CliBuilder(usage:
-        "CheckoutBatch [options, see Checkout] barcode_file output_dir/'")
+        "CheckoutBatch [options, see Checkout] barcode_file output_dir/")
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
@@ -28,7 +28,7 @@ if (opt == null || opt.arguments().size() < 2) {
     System.exit(-1)
 }
 
-def options = args[0..-3], barcodesFileName = args[-2], outputDir = args[-1]
+def options = args.size() > 2 ? args[0..-3] : [], barcodesFileName = args[-2], outputDir = args[-1]
 
 def scriptName = getClass().canonicalName
 
