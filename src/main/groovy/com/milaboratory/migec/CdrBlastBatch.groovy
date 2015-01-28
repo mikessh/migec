@@ -36,6 +36,8 @@ cli._(longOpt: "no-sort",
                 "Could be used for full pipeline as FilterCdrBlastResults will provide final clonotype table in sorted format.")
 cli._(longOpt: "all-segments",
         "Use full V/D/J segment library (including pseudogens, etc).")
+cli._(longOpt: "all-alleles",
+        "Use full list of alleles (uses only major *01 alleles by default)")
 cli._(longOpt: "print-library",
         "Prints out allowed species-gene pairs. " +
                 "To account non-functional segment data use together with --all-segments")
@@ -64,10 +66,10 @@ if (opt == null) {
 }
 
 // SEGMENTS
-boolean includeNonFuncitonal = opt.'all-segments'
+boolean includeNonFuncitonal = opt.'all-segments', includeAlleles = opt.'all-alleles'
 if (opt.'print-library') {
     println "CDR3 extraction is possible for the following data (segments include non-functional = $includeNonFuncitonal):"
-    Util.listAvailableSegments(includeNonFuncitonal)
+    Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
     System.exit(0)
 }
 
@@ -172,11 +174,11 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     qualityThreshold = qualityThreshold ? qualityThreshold.split(",") : null
     // todo: estimate q threshold by HistQ
 
-    if (!Util.isAvailable(species, chain, includeNonFuncitonal)) {
+    if (!Util.isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
         println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
                 "(include non-functional = $includeNonFuncitonal). " +
                 "Possible variants are:\n"
-        Util.listAvailableSegments(includeNonFuncitonal)
+        Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
         System.exit(-1)
     }
     if (!Util.MASKS.any { mask == it }) {

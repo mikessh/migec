@@ -47,6 +47,8 @@ cli._(longOpt: "same-sample", "Assembled data only (-a). Input files come from t
         "each UMI will be counted once.")
 cli._(longOpt: "all-segments",
         "Use full V/D/J segment library (including pseudogens, etc).")
+cli._(longOpt: "all-alleles",
+        "Use full list of alleles (uses only major *01 alleles by default)")
 cli._(longOpt: "print-library",
         "Prints out allowed species-gene pairs. " +
                 "To account non-functional segment data use together with --all-segments")
@@ -82,10 +84,10 @@ if (opt.h) {
 }
 
 // SEGMENTS STUFF
-boolean includeNonFuncitonal = opt.'all-segments'
+boolean includeNonFuncitonal = opt.'all-segments', includeAlleles = opt.'all-alleles'
 if (opt.'print-library') {
     println "CDR3 extraction is possible for the following data (segments include non-functional = $includeNonFuncitonal):"
-    Util.listAvailableSegments(includeNonFuncitonal)
+    Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
     System.exit(0)
 }
 
@@ -102,11 +104,11 @@ if (!chain) {
     System.exit(-1)
 }
 
-if (!Util.isAvailable(species, chain, includeNonFuncitonal)) {
+if (!Util.isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
     println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
             "(include non-functional = $includeNonFuncitonal). " +
             "Possible variants are:\n"
-    Util.listAvailableSegments(includeNonFuncitonal)
+    Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
     System.exit(-1)
 }
 
@@ -199,7 +201,7 @@ def segments = new HashMap<String, Segment>(), alleles = new HashMap<String, All
 def vAlleles = new ArrayList<Allele>(), jAlleles = new ArrayList<Allele>()
 def collapseAlleleMap = new HashMap<String, Allele>()
 
-def resFile = Util.getSegmentsFile(includeNonFuncitonal)
+def resFile = Util.getSegmentsFile(includeNonFuncitonal, includeAlleles)
 
 resFile.splitEachLine("\t") {
     if (species.toUpperCase() == it[0].toUpperCase() &&

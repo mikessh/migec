@@ -33,7 +33,7 @@ class Util {
         script.binding.setVariable("args", argArray)
         script.run()
     }
-    
+
     static final String BLANK_PATH = "."
 
     static final List<String> FILE_TYPES = ["paired", "unpaired", "overlapped"],
@@ -61,20 +61,18 @@ class Util {
      * Immune gene segment utils
      */
 
-    static void listAvailableSegments(boolean includeNonFunctional) {
+    static void listAvailableSegments(boolean includeNonFunctional, boolean includeAllAlleles) {
         println "SPECIES\tGENE"
-        new InputStreamReader(Migec.class.classLoader.getResourceAsStream("segments" +
-                (includeNonFunctional ? "_all" : "") + ".metadata")).splitEachLine("\t") { splitLine ->
+        getSegmentMetadataFile(includeNonFunctional, includeAllAlleles).splitEachLine("\t") { splitLine ->
             if (!splitLine[0].startsWith("#") && splitLine[-1] == "1") {
                 println "${splitLine[0]}\t${splitLine[1]}"
             }
         }
     }
 
-    static boolean isAvailable(String species, String gene, boolean includeNonFunctional) {
+    static boolean isAvailable(String species, String gene, boolean includeNonFunctional, boolean includeAllAlleles) {
         boolean result = false
-        new InputStreamReader(Migec.class.classLoader.getResourceAsStream("segments" +
-                (includeNonFunctional ? "_all" : "") + ".metadata")).splitEachLine("\t") { splitLine ->
+        getSegmentMetadataFile(includeNonFunctional, includeAllAlleles).splitEachLine("\t") { splitLine ->
             if (!splitLine[0].startsWith("#") && splitLine[-1] == "1" &&
                     splitLine[0].toUpperCase() == species.toUpperCase() &&
                     splitLine[1].toUpperCase() == gene.toUpperCase())
@@ -83,9 +81,26 @@ class Util {
         result
     }
 
-    static InputStreamReader getSegmentsFile(boolean includeNonFunctional) {
-        new InputStreamReader(Migec.class.classLoader.getResourceAsStream("segments" +
-                (includeNonFunctional ? "_all" : "") + ".txt"))
+    private static getResourceAsStream(String resourceName) {
+        new InputStreamReader(Migec.class.classLoader.getResourceAsStream(resourceName))
+    }
+
+    private static getSegmentFilePrefix(boolean includeNonFunctional, boolean includeAllAlleles) {
+        "segments" +
+                (includeNonFunctional ? ".all" : "") +
+                (includeAllAlleles ? ".minor" : "")
+    }
+
+    static InputStreamReader getSegmentsFile(boolean includeNonFunctional, boolean includeAllAlleles) {
+        getResourceAsStream(
+                getSegmentFilePrefix(includeNonFunctional, includeAllAlleles) +
+                        ".txt")
+    }
+
+    static InputStreamReader getSegmentMetadataFile(boolean includeNonFunctional, boolean includeAllAlleles) {
+        getResourceAsStream(
+                getSegmentFilePrefix(includeNonFunctional, includeAllAlleles) +
+                        ".metadata")
     }
 
     /*
