@@ -16,6 +16,8 @@
 
 package com.milaboratory.migec
 
+import com.milaboratory.migec.alignment.CdrReadData
+
 import java.util.zip.GZIPInputStream
 
 
@@ -74,11 +76,6 @@ def getReader = { String fname ->
             new FileInputStream(fname)))
 }
 
-class CdrReadData {
-    def seqs = new ArrayList<String>()
-    def cdrFroms = new ArrayList<Integer>()
-    int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE
-}
 
 def cdrDataMap = new HashMap<String, CdrReadData>()
 def reader = getReader(inputFileName)
