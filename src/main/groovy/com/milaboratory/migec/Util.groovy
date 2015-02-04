@@ -20,6 +20,7 @@ import java.util.zip.GZIPOutputStream
  limitations under the License.
  */
 class Util {
+    static final int IO_BUF_SIZE = 524288
     /*
      * Execution utils
      */
@@ -285,7 +286,7 @@ class Util {
 
     static BufferedReader getReader(String fname) {
         new BufferedReader(new InputStreamReader(fname.endsWith(".gz") ? new GZIPInputStream(new FileInputStream(fname)) :
-                new FileInputStream(fname)))
+                new FileInputStream(fname)), IO_BUF_SIZE)
     }
 
     static BufferedWriter getWriter(String outfile, boolean compressed) {
@@ -299,7 +300,7 @@ class Util {
         def fos = new FileOutputStream(outfile, append)
 
         new BufferedWriter(new OutputStreamWriter(compressed ?
-                new GZIPOutputStream(fos) : fos))
+                new GZIPOutputStream(fos) : fos), IO_BUF_SIZE)
     }
 
     static BufferedWriter getWriter(String outfile) {
