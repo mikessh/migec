@@ -97,7 +97,7 @@ java -jar migec.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 
 ## THE PIPELINE
 
-All routines in the pipeline are available in "manual" and "batch" variants. Batch variants are designed to automatically handles several input samples with minimal shell script glue between analysis steps. If the "barcodes" file is set properly, all pipeline could be run in five lines:
+All routines in the pipeline are available in "manual" and "batch" variants. Batch variants are designed to automatically handle several input samples with minimal shell scripting glue between analysis steps. If the "barcodes" file is set properly, all pipeline could be run in five lines:
 
 ```bash
 MIGEC="java -Xmx8G -jar migec.jar"
@@ -223,7 +223,7 @@ Barcode search:
 
 ```--rc-barcodes``` also searches for both adapter sequences in reverse complement. Use it if unsure of your library structure.
 
-```--skip-undef``` will not store reads that miss adapter sequence to save drive space
+```--skip-undef``` will not store reads that miss adapter sequence to save drive space. **NOTE** When there is a huge number of unassigned/unused reads this option greatly speeds up de-multiplexing. However, take care to carefully investigate the reasons behind low barcode extraction rate if it is a case.
 
 
 ### 2. Histogram
