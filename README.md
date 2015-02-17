@@ -84,20 +84,65 @@ If insufficient amount memory is allocated, the Java Virtual Machine could drop 
 
 ### USAGE EXAMPLE
 
-An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM Unix server. First *barcodes.txt* should be created containing adapter sequences, see **Checkout** section for guidelines. Then, assuming that the corresponding FASTQ files are *IGH_SAMPLE_R1.fastq.gz* and *IGH_SAMPLE_R2.fastq.gz*, UMI- and multiplex index-containing adapter is near 5'UTR of V segment (so the CDR3 is in mate#2 after reads are oriented) and NCBI-BLAST+ is installed, run all 5 stages of the pipeline using the following command:
+An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM Unix server. Such sequencing read length allows complete IGH sequencing, thus mate pairs overlap. First *barcodes.txt* should be created containing adapter sequences, see **Checkout** section for guidelines. Then, assuming that the corresponding FASTQ files are *IGH_SAMPLE_R1.fastq.gz* and *IGH_SAMPLE_R2.fastq.gz*, UMI- and multiplex index-containing adapter is near 5'UTR of V segment (so the CDR3 is in mate#2 after reads are oriented) and NCBI-BLAST+ is installed, run all 5 stages of the pipeline using the following command:
 
-```
-export JAVA_OPTS="-Xmx8G" &&
-java -jar migec.jar Checkout -cute --overlap barcodes.txt IGH_SAMPLE_R1.fastq.gz IGH_SAMPLE_R2.fastq.gz checkout/ &&
-java -jar migec.jar Histogram checkout/ histogram/ &&
-java -jar migec.jar AssembleBatch -c checkout/ histogram/ assemble/ &&
-java -jar migec.jar CdrBlastBatch -R IGH checkout/ assemble/ cdrblast/ &&
+```bash
+export JAVA_OPTS="-Xmx8G"
+java -jar migec.jar Checkout -cute --overlap barcodes.txt IGH_SAMPLE_R1.fastq.gz IGH_SAMPLE_R2.fastq.gz checkout/
+java -jar migec.jar Histogram checkout/ histogram/
+java -jar migec.jar AssembleBatch -c checkout/ histogram/ assemble/
+java -jar migec.jar CdrBlastBatch -R IGH checkout/ assemble/ cdrblast/
 java -jar migec.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 ``` 
 
 ## THE PIPELINE
 
-### 1. Checkout
+All routines in the pipeline are available in "manual" and "batch" variants. Batch variants are designed to automatically handles several input samples with minimal shell script glue between analysis steps. If the "barcodes" file is set properly, all pipeline could be run in five lines:
+
+```bash
+MIGEC="java -Xmx8G -jar migec.jar"
+$MIGEC CheckoutBatch -cute barcodes.txt checkout/
+$MIGEC AssembleBatch -cute checkout/ histogram/ assemble/
+$MIGEC CdrBlastBatch -R IGH checkout/ assemble/ cdrblast/
+$MIGEC FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
+```
+
+### 1. Checkout (Batch)
+
+**Description**
+
+A script to perform de-multiplexing and UMI tag extraction for a set of FASTQ files that were previously split using Illumina sample indices.
+
+**Usage**
+
+General:
+
+```
+java -jar migec.jar CheckoutBatch [options] barcodes_file output_dir
+```
+
+The barcodes file specifies sample multiplexing and UMI (NNN.. region) extraction rules. It has the same structure as for manual Checkout, with additional two columns that specify input FASTQ file names.
+
+
+Sample ID | Master barcode sequence     | Slave barcode sequence | Read#1 FASTQ          | Read#2 FASTQ          |
+----------|-----------------------------|------------------------|-----------------------|-----------------------|
+S0        | acgtacgtAGGTTAcadkgag       |                        |                       |                       |
+S1        | acgtacgtGGTTAAcadkgag       | ctgkGTTCaat            | ILM1_R1_L001.fastq.gz | ILM1_R2_L001.fastq.gz |
+S1        | acgtacgtAAGGTTcadkgagNNNNNN |                        | ILM2_R1_L001.fastq.gz | ILM2_R2_L001.fastq.gz |
+S3        | acgtacgtTAAGGTcadkgagNNNNNN | NNNNNNctgkGTTCaat      | ILM1_R1_L001.fastq.gz | ILM1_R2_L001.fastq.gz |
+
+The following rules apply:
+
+* All specified FASTQ files are sequentially processed using Checkout
+* If no FASTQ file is specified for a given barcode, it will be searched in all FASTQ files
+* CheckoutBatch will properly aggregate reads from multiple FASTQ files that have the same sample id
+* Still there should not be the case when a FASTQ file has the same barcode specified more than once
+
+**Parameters**
+
+Same as in manual version of Checkout, see below.
+
+### 1. Checkout (Manual)
 
 **Description**
 
@@ -168,7 +213,7 @@ General:
 
 ```--overlap``` will try to overlap reads (paired-end data only), non-overlapping and overlapping reads will be placed to *_R1/_R2* and *_R12* FASTQ files respectively. While overlapping the nucleotide with higher quality will be taken thus improving overall data quality.
 
-```--overlap-max-offset X``` controls to which extent overlapping region is searched. If the read-through extent is high (reads are embedded) should be set to ~40.
+```--overlap-max-offset X``` controls to which extent overlapping region is searched. **IMPORTANT** If the read-through extent is high (reads are embedded) should be set to ~40.
 
 Barcode search:
 
@@ -231,6 +276,8 @@ S2        | paired     | 0:1
 Note that *S0* is present with two file types, as when performing read overlap **Checkout** stores non-overlapped reads in *_R1/_R2* files, which could be then incorporated into data processing.
 
 The ```--force-overseq X``` and ```--force-collision-filter``` will force a MIG size threshold of ```X``` and filtering of 1-mm UMI collisions for all samples being processed.
+
+**IMPORTANT** In most cases, the automatic MIG size threshold selected by Histogram routine is ok. However we strongly recommend manual inspection of Histogram output files and considering to manually specify an appropriate MIG size threshold for input samples.
 
 
 ### 3. Assemble (Manual)
@@ -325,7 +372,7 @@ General:
 java -jar migec.jar CdrBlast [options] -R gene file1.fastq[.gz] [file2.fastq[.gz] ...] output_file 
 ```
 
-Standard, assuming for example that library contains T-cell Receptor Alpha Chain sequences
+Standard, assuming an example of a library containing T-cell Receptor Alpha Chain sequences
 
 in case of MIG-assembled data:
 
@@ -385,6 +432,8 @@ The ```-s``` option tells to include CDR3s represented by single MIGs. Those are
 
 Now the file *S1.cdrblast.txt* contains a filtered and sorted CDR3/V/J clonotype table.
 
+## Post-processing
+
 You could additionally build a graph of hypermutations for the sample using
 
 ```
@@ -394,3 +443,5 @@ java -jar migec.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
 which will generate files that allow fast network construction using Cytoscape's network from table and import table routines for further data exploration.
 
 Note that translated CDR3 sequences are obtained by simultaneously translating codons in two directions: from V and J segments to the middle of CDR3. If a frameshift is detected, the incomplete codon is added in lower case, with missing nucleotides marked as ```?```; stop codons are marked by ```*```. CDR3 that contain either frameshift or stop codon are non-functional and are filtered by default. To include them into your output use ```-n``` option.
+
+We also recommend to try out our new [VDJtools](https://github.com/mikessh/vdjtools) software suite to perform post analysis of clonotype tables generated by MiGEC.
