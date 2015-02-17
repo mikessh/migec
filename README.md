@@ -18,13 +18,13 @@ Please cite the tool as:
 
 - Assembly of consensuses for original molecules that entered library preparation by grouping reads with identical molecular identifiers
 
-- Extraction of CDR3 regions and determination of V/J genes for human and mouse immune receptors (TRA/TRB/TRG/TRD and IGH/IGL/IGK)
+- Extraction of CDR3 regions and determination of V/(D)/J genes for human and mouse immune receptors (TRA/TRB/TRG/TRD and IGH/IGL/IGK)
 
 - Additional filtering of hot-spot errors
 
 - Flexible and straightforward batch processing 
 
-- Currently all species-gene pairs that have germline sequences (based on IMGT) that allow CDR3 identification are supported
+- Currently all species-gene pairs that have germline sequences (based on [IMGT](http://www.imgt.org/)) that allow CDR3 identification are supported
 
   Species              | Gene
   ---------------------|-----------------------------------
@@ -97,7 +97,7 @@ java -jar migec.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 
 ## THE PIPELINE
 
-All routines in the pipeline are available in "manual" and "batch" variants. Batch variants are designed to automatically handle several input samples with minimal shell scripting glue between analysis steps. If the "barcodes" file is set properly, all pipeline could be run in five lines:
+All routines in the pipeline are available in "manual" and "batch" variants. Batch variants are designed to automatically handle several input samples with minimal shell scripting glue between analysis steps. If the "barcodes" file is set properly, the entire pipeline can be fit in five command lines:
 
 ```bash
 MIGEC="java -Xmx8G -jar migec.jar"
@@ -121,7 +121,7 @@ General:
 java -jar migec.jar CheckoutBatch [options] barcodes_file output_dir
 ```
 
-The barcodes file specifies sample multiplexing and UMI (NNN.. region) extraction rules. It has the same structure as for manual Checkout, with additional two columns that specify input FASTQ file names.
+The barcodes file specifies sample multiplexing and UMI (NNN.. region) extraction rules. It has the same structure as for "manual" Checkout (see section below), with additional two columns that specify input FASTQ file names.
 
 
 Sample ID | Master barcode sequence     | Slave barcode sequence | Read#1 FASTQ          | Read#2 FASTQ          |
@@ -340,7 +340,7 @@ General:
 java -jar migec.jar CdrBlastBatch [options] -R gene [checkout_output_folder or -] [assemble_output_folder or -] output_folder
 ```
 
-Performs CDR3 extraction and V/J segment determination for both raw (**Checkout** output) and assembled-data. Gene parameter ```-R``` is required unless metadata (```--sample-metadata```) is provided that specifies gene for each sample; supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and IGL*. If either of *assembly_output_folder* or *checkout_output_folder* is not specified, the processing will be done solely for the remaining input, this is useful e.g. if one wants quickly process the assembled data. Otherwise only samples and file types (paired, overlapped or single) that are present in both outputs will be used. Processing both raw and assembled data is required for second stage error correction (removal of hot-spot errors). 
+Performs CDR3 extraction and V/J segment determination for both raw (**Checkout** output) and assembled-data. Gene parameter ```-R``` is required unless metadata (```--sample-metadata```) is provided that specifies gene for each sample; supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and *IGL*. If either of *assembly_output_folder* or *checkout_output_folder* is not specified, the processing will be done solely for the remaining input, this is useful e.g. if one wants quickly process the assembled data. Otherwise only samples and file types (paired, overlapped or single) that are present in both outputs will be used. Processing both raw and assembled data is required for second stage error correction (removal of hot-spot errors). 
 
 Several default **CdrBlast** parameters could be set,
 
