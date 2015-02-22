@@ -173,18 +173,18 @@ df.1 <- subset(df, variable == "umi.fraction.assembled")
 plotAsm(df.1) + scale_y_continuous(labels = percent_format(), expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
 ```
 
-The fraction of reads contained within assembled MIGs when compared to total number of reads. This number should be high for a high-quality experiment.
-
 **FigIII.3**
+
+The fraction of reads contained within assembled MIGs when compared to total number of reads. This number should be high for a high-quality experiment.
 
 ```{r, echo=FALSE, message=FALSE}
 df.1 <- subset(df, variable == "reads.fraction.assembled")
 plotAsm(df.1) + scale_y_continuous(labels = percent_format(), expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
 ```
 
-The fraction of reads that were dropped during consensus assembly. Reads are being dropped if they are found to be substantially different from reads that form the core of consensus sequence. High numbers indicate low sequencing quality and/or presence of library preparation artifacts.
-
 **FigIII.4**
+
+The fraction of reads that were dropped during consensus assembly. Reads are being dropped if they are found to be substantially different from reads that form the core of consensus sequence. High numbers indicate low sequencing quality and/or presence of library preparation artifacts.
 
 ```{r, echo=FALSE, message=FALSE}
 df.1 <- subset(df, variable == "reads.dropped.within.mig")
