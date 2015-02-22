@@ -135,7 +135,7 @@ df <- melt(df)
 
 plotAsm <- function(dd) {
   ggplot(dd, aes(x=sample, fill = sample, y=value)) +
-    geom_bar(stat='identity', size = 1) + coord_flip() +
+    geom_bar(stat='identity', size = 1) + coord_flip() +    
     scale_fill_manual(values = pal) + guides(fill = F) +
     xlab("") + ylab("") +
     theme_bw()
@@ -146,7 +146,7 @@ Below is a plot showing the total number of assembled MIGs per sample. The numbe
 
 
 ```{r, echo=FALSE}
-plotAsm(subset(df, variable == "migs.assembled"))
+plotAsm(subset(df, variable == "migs.assembled")) + scale_y_continuous(expand = c(0, 0))
 ```
 
 Next comes the plot showing the fraction of UMIs that have resulted in assembled consensuses.
@@ -154,21 +154,21 @@ Next comes the plot showing the fraction of UMIs that have resulted in assembled
 > This value is typically low, as it accounts for UMIs filtered due to not passing MIG size threshold. Such UMIs are mostly sequencing errors which generate a high amount of artificial UMI diversity.
 
 ```{r, echo=FALSE}
-plotAsm(subset(df, variable == "umi.fraction.assembled")) + scale_y_continuous(labels = percent_format())
+plotAsm(subset(df, variable == "umi.fraction.assembled")) + scale_y_continuous(labels = percent_format(), expand = c(0, 0))
 ```
 
 The fraction of reads contained within assembled MIGs when compared to total number of reads. This number should be high for a high-quality experiment.
 
 
 ```{r, echo=FALSE}
-plotAsm(subset(df, variable == "reads.fraction.assembled")) + scale_y_continuous(labels = percent_format())
+plotAsm(subset(df, variable == "reads.fraction.assembled")) + scale_y_continuous(labels = percent_format(), expand = c(0, 0))
 ```
 
 The fraction of reads that were dropped during consensus assembly. Reads are being dropped if they are found to be substantially different from reads that form the core of consensus sequence. High numbers indicate low sequencing quality and/or presence of library preparation artifacts.
 
 
 ```{r, echo=FALSE}
-plotAsm(subset(df, variable == "reads.dropped.within.mig")) + scale_y_continuous(labels = percent_format())
+plotAsm(subset(df, variable == "reads.dropped.within.mig")) + scale_y_continuous(labels = percent_format(), expand = c(0, 0))
 remove(df)
 ```
 
@@ -201,29 +201,29 @@ plotCdr <- function(dd) {
   ggplot(dd, aes(x=sample, fill = sample, y=value)) +
     geom_bar(stat='identity', size = 1) + coord_flip() +
     scale_fill_manual(values = pal) + guides(fill = F) +
-    xlab("") + ylab("") + facet_grid(.~type+metric) + 
+    xlab("") + ylab("") + 
     theme_bw()
 }
 ```
 
 The plot below shows the total number of MIGs that contain good-quality CDR3 region in assembled reads
 
-> Panels show assembled (**asm**) and unprocessed (**raw**) data. Values are given in number of molecules (**mig**, assembled samples only) and the corresponding read count (**read**)
-
 ```{r, echo=FALSE}
-plotCdr(subset(df, variable == "final.count" & type == "asm" & metric == "mig"))
+plotCdr(subset(df, variable == "final.count" & type == "asm" & metric == "mig")) + scale_y_continuous(expand = c(0, 0))
 ```
 
 Total number of reads that contain good-quality CDR3 region in raw reads
 
 ```{r, echo=FALSE}
-plotCdr(subset(df, variable == "final.count" & type == "asm" & metric == "mig"))
+plotCdr(subset(df, variable == "final.count" & type == "asm" & metric == "mig")) + scale_y_continuous(expand = c(0, 0))
 ```
 
 Mapping rate, the fraction of reads/MIGs that contain a CDR3 region
 
+> Panels show assembled (**asm**) and unprocessed (**raw**) data. Values are given in number of molecules (**mig**, assembled samples only) and the corresponding read count (**read**)
+
 ```{r, echo=FALSE}
-plotCdr(subset(df, variable == "map.rate")) + scale_y_continuous(labels = percent_format())
+plotCdr(subset(df, variable == "map.rate")) + scale_y_continuous(labels = percent_format(), expand = c(0, 0)) + facet_grid(.~type+metric)
 ```
 
 Good-quality CDR3 sequence rate, the fraction of CDR3-containing reads/MIGs that pass quality filter
@@ -231,9 +231,73 @@ Good-quality CDR3 sequence rate, the fraction of CDR3-containing reads/MIGs that
 > Note that while raw data is being filtered based on Phred quality score, consensus quality score (CQS, the ratio of major variant) is used for assembled data
 
 ```{r, echo=FALSE}
-plotCdr(subset(df, variable == "qual.rate")) + scale_y_continuous(labels = percent_format())
+plotCdr(subset(df, variable == "qual.rate")) + scale_y_continuous(labels = percent_format(), expand = c(0, 0)) + facet_grid(.~type+metric)
+remove(df.r)
+remove(df.m)
+remove(df)
 ```
 
 ### Step V: CdrBlastFitler
 
-This section contains the result of hot-spot error filtering stage and final statistics
+This section contains the result of hot-spot error filtering stage, non-functional clonotype filtering (**if enabled**) and final statistics
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+df <- read.table("cdrfinal/cdrblastfilter.log.txt", header=T, comment ="")
+df <- data.frame(sample = df$X.SAMPLE_ID, 
+                 clones.count = df$CLONOTYPES_TOTAL - df$CLONOTYPES_FILTERED,
+                 migs.count = df$EVENTS_TOTAL - df$EVENTS_FILTERED,
+                 clones.filter.rate = df$CLONOTYPES_FILTERED / df$CLONOTYPES_TOTAL,
+                 migs.filter.rate = df$EVENTS_FILTERED / df$EVENTS_TOTAL,
+                 clones.nc.rate = df$NON_FUNCTIONAL_CLONOTYPES / df$CLONOTYPES_TOTAL,
+                 migs.nc.rate = df$NON_FUNCTIONAL_EVENTS / df$EVENTS_TOTAL
+                 )
+
+df$sample <-factor(df$sample, levels=df[order(df$clones.count), "sample"])
+
+plotCdrFinal.1 <- function(dd) {
+  ggplot(dd, aes(x=sample, fill = sample, y=value)) +
+    geom_bar(stat='identity', size = 1) + coord_flip() +
+    scale_y_continuous(expand = c(0, 0)) +
+    scale_fill_manual(values = pal) + guides(fill = F) +
+    xlab("") + ylab("") + 
+    theme_bw()
+}
+
+plotCdrFinal.2 <- function(dd) {
+  ggplot(dd, aes(x=sample, fill = sample, y=value)) +
+    geom_bar(stat='identity', size = 1) + coord_flip() +    
+    scale_fill_manual(values = pal) + guides(fill = F) +
+    xlab("") + ylab("") + facet_grid(.~variable) + 
+    theme_bw() + scale_y_continuous(labels = percent_format(), expand = c(0, 0))
+}
+```
+
+Below is the plot of sample diversity, i.e. the number of clonotypes in a given sample
+
+```{r, echo=FALSE}
+df.1 <- data.frame(sample = df$sample, value = df$clones.count)
+plotCdrFinal.1(df.1)
+```
+
+Total number of molecules (MIGs) in final clonotype tables
+
+```{r, echo=FALSE}
+df.1 <- data.frame(sample = df$sample, value = df$migs.count)
+plotCdrFinal.1(df.1)
+```
+
+Rate of hot-spot error filtering, in terms of clonotypes (**clone** panel) and MIGs (**mig** panel)
+
+```{r, echo=FALSE, message=FALSE}
+df.2 <- data.frame(sample = df$sample, mig = df$migs.filter.rate, clone = df$clones.filter.rate)
+df.2 <- melt(df.2)
+plotCdrFinal.2(df.2)
+```
+
+Rate of non-coding CDR3 sequences, in terms of clonotypes (**clone** panel) and MIGs (**mig** panel)
+
+```{r, echo=FALSE, message=FALSE}
+df.2 <- data.frame(sample = df$sample, mig = df$migs.filter.rate, clone = df$clones.filter.rate)
+df.2 <- melt(df.2)
+plotCdrFinal.2(df.2)
+```
