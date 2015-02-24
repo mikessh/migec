@@ -96,6 +96,7 @@ if (args.length == 0)
 else {
     def script = getScript(args[0])
     try {
+        Util.CMD_LINE = "migec-${version}.jar ${args.join(" ")}"
         Util.run(script, args.length > 1 ? args[1..-1].join(" ") : "")
     } catch (Exception e) {
         println "[ERROR] $e.message, see _migec_error.log for details"
@@ -104,7 +105,7 @@ else {
             writer.println("[Script]")
             writer.println(args[0])
             writer.println("[CommandLine]")
-            writer.println("executing migec-${version}.jar ${args.join(" ")}")
+            writer.println("executing $Util.CMD_LINE")
             writer.println("[Message]")
             writer.println(e.message)
             writer.println("[StackTrace-Short]")

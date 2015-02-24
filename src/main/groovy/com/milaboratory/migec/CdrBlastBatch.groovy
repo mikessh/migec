@@ -330,3 +330,5 @@ logFile.withPrintWriter { pw ->
         }
     }
 }
+
+Util.printCmd(outputPath + "/cdrblast.cmd.txt")

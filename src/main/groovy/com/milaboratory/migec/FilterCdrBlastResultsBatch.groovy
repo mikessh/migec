@@ -118,3 +118,7 @@ logFile.withPrintWriter { pw ->
         }
     }
 }
+
+Util.printCmd(outputDir + "/cdrblastfilter.cmd.txt")
+if (opt.n)
+    new File(outputDir + "/cdrblastfilter.nc.txt").withPrintWriter { it.println() }

@@ -171,3 +171,5 @@ logFile.withPrintWriter { pw ->
         }
     }
 }
+
+Util.printCmd(outputPath + "/assemble.cmd.txt")

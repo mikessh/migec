@@ -276,3 +276,5 @@ new File("$outputDir/pwm-summary-units.txt").withPrintWriter { pwPwmUnits ->
         }
     }
 }
+
+Util.printCmd("$outputDir/histogram.cmd.txt")

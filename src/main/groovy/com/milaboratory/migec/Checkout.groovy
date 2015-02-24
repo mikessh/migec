@@ -670,4 +670,6 @@ counters.each {
 
 logWriter.close()
 
+Util.printCmd(outputDir + "/checkout.cmd.txt")
+
 println "[${new Date()} $scriptName] Finished"

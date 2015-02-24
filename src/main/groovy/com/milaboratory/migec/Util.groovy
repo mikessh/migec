@@ -20,6 +20,7 @@ import java.util.zip.GZIPOutputStream
  limitations under the License.
  */
 class Util {
+    static String CMD_LINE
     static final int IO_BUF_SIZE = 524288
     /*
      * Execution utils
@@ -33,6 +34,14 @@ class Util {
         println "Executing ${script.class.canonicalName} ${argArray.join(" ")}"
         script.binding.setVariable("args", argArray)
         script.run()
+    }
+
+    static void printCmd(String fileName) {
+        def cmdFile = new File(fileName)
+
+        cmdFile.absoluteFile.parentFile.mkdirs()
+
+        cmdFile.withPrintWriter { it.println(CMD_LINE) }
     }
 
     static final String BLANK_PATH = ".", BLANK_FIELD = "."
@@ -327,7 +336,7 @@ class Util {
         def splitHeader = header.split(" ")
         def umiEntry = splitHeader.find { it.startsWith("UMI:") }
         if (umiEntry == null) {
-            println "[ERROR] no UMI header in input. Terminating"
+            println "[ERROR] no UMI header in input ($header). Terminating"
             System.exit(-1)
         }
         String umi = umiEntry.split(":")[1] // quality can contain :
