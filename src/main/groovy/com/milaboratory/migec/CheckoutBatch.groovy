@@ -56,10 +56,14 @@ if (anyMissing) {
     System.exit(-1)
 }
 
+def fileList = filesHash.collect().sort()
+
 println "[${new Date()} $scriptName] Will run Checkout for the following fastq pairs:\n" +
-        "${filesHash.collect().join("\n")}\n" +
+        "${fileList.join("\n")}\n" +
         "barcodes: $barcodesFileName\n" +
         "output path: $outputDir"
+
+new File(outputDir).deleteDir()
 
 // Clear existing logs
 [new File("$outputDir/checkout.filelist.txt"), new File("$outputDir/checkout.log.txt")].each {
@@ -67,6 +71,8 @@ println "[${new Date()} $scriptName] Will run Checkout for the following fastq p
         it.delete()
 }
 
-filesHash.each {
+fileList.each {
     Util.run(new Checkout(), [options, barcodesFileName, it, outputDir].flatten().join(" "))
 }
+
+Util.printCmd(outputDir + "/checkout.cmd.txt")
