@@ -734,7 +734,7 @@ uniqueClonotypes.keySet().each {
 if (outputFile) {
     println "${timestamp()} Writing output"
     outputFile.withPrintWriter { pw ->
-        pw.println("Count\tPercentage\t" +
+        pw.println("Count\tFraction\t" +
                 "CDR3 nucleotide sequence\tCDR3 amino acid sequence\t" +
                 "V segments\tJ segments\tD segments\t" +
                 "Last V nucleotide position\t" +
