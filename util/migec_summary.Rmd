@@ -4,11 +4,15 @@ output:
   html_document:
     highlight: tango
     theme: united
-    toc: yes
+    toc: yes    
     toc_depth: 3
 ---
 
-Below are summary statistics for all MiGEC analysis steps
+> Working directory: `r format(getwd())`
+>
+> Created: `r format(Sys.time(), '%d %B, %Y')`
+
+---
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 # Modify these fields to set directories
@@ -26,33 +30,38 @@ This section summarizes the efficiency of sample barcode matching and unique mol
 
 Command line:
 
+
+```{r, echo=FALSE} 
+message(ifelse(!(is.null(checkout_path)), readLines(paste(checkout_path, "/checkout.cmd.txt", sep = "/")), "none"))
+```
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 require(ggplot2); require(reshape);
 
 # load and groom data
 if (!is.null(checkout_path)) {
-
-print(readLines(paste(checkout_path, "/checkout.cmd.txt", sep = "/")))
-
-df <- read.table(paste(checkout_path, "/checkout.log.txt", sep = "/"), header=T, comment ="")
+df <- read.table(paste(checkout_path, "/checkout.log.txt", sep = "/"), header=T, comment ="", row.names = NULL)
 df <- df[,3:6]
 df[,2:4] <- apply(df[, 2:4], 2, as.numeric)
 df[,1] <- as.character(df[, 1])
 df <- replace(df, is.na(df), 0)
-colnames(df) <- c("sample", "master", "master.and.slave", "overlapped")
+colnames(df) <- c("sample", "master", "slave", "overlapped")
 
 # summary
-df <- aggregate(cbind(master, master.and.slave, overlapped) ~ sample, data=df, FUN=sum)
+df <- aggregate(cbind(master, slave, overlapped) ~ sample, data=df, FUN=sum)
 
 #print(df)
 
-nomaster <- df[df$sample=='undef-m',]
-noslave <- df[df$sample=='undef-m',]
+total <- sum(df[,3])
 found <- df[1,]
-found[,2:4]<-colSums(df[,2:4])-nomaster[,2:4]-noslave[,2:4]
+found[,2:4]<-colSums(df[,2:4])
+missing <- df[df$sample=='undef-m',]
+found[,2:4] <- found[,2:4] - missing[,2:4]
+missing[,3] <- df[df$sample=='undef-s',][,3]
+found[,3] <- found[,3] - missing[,3]
 
-df.s <-rbind(found, nomaster, noslave)
-df.s[,1]<-c('found','no.master','no.master.and.slave')
+df.s <-rbind(found, missing)
+df.s[,1]<-c('found','missing')
 df.s <- melt(df.s)
 
 df <- df[- grep("undef", df$sample),]
@@ -60,11 +69,20 @@ df <- melt(df)
 }
 ```
 
-### FigI.1 Total extraction efficiency
+### Fig.1 Total extraction efficiency
 
-Overall extraction efficiency, showing the success rate of finding the **master** (main barcode containing sample-specific sequence) and **slave** (auxiallary barcode, used to protect from contamination) barcodes, as well as read overlapping (if enabled, **overlapped**).
+Overall extraction efficiency, showing the success rate of finding the 
+
+* **master**, main barcode containing sample-specific sequence
+
+* **slave**, auxiallary barcode, used to protect from contamination, only checked if **master** is detected 
+
+and the rate of read overlapping, **overlapped** (if enabled).
 
 ```{r, echo=FALSE, message=FALSE}
+percent <- function(x) {
+  paste(as.character(round(x*1000)/10),"%",sep="")
+}
 p<-"Nothing to plot"
 if (!is.null(checkout_path)) {
 p<-ggplot(df.s, aes(x=sample,y=value,fill=variable)) + 
@@ -72,13 +90,14 @@ p<-ggplot(df.s, aes(x=sample,y=value,fill=variable)) +
   scale_y_continuous(expand = c(0, 0), limits=c(0,max(df.s$value)*1.2)) + xlab("") + ylab("reads") +
   scale_fill_brewer(palette="Paired") +  
   geom_text(position = position_dodge(width=1), angle=90, size = 3, hjust = -0.1, aes(label=value)) +
+  geom_text(position = position_dodge(width=1), vjust=-1, size = 3, aes(y=0,label=percent(value/total))) +
   theme_bw()
 remove(df.s)
 }
 p
 ```
 
-### FigI.2 Extraction efficiency by sample
+### Fig.2 Extraction efficiency by sample
 
 Distribution of reads recovered by sample
 
@@ -97,19 +116,19 @@ remove(df)
 p
 ```
 
+---
+
 ## Step II: Histogram
 
 This section contains data on sequencing depth based on counting the number of reads tagged with the same UMI, i.e. reads that belong to the same Molecular Identifier Group (MIG).
 
-Command line:
+Command line: 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-if (!(is.null(histogram_path))) {
-print(readLines(paste(histogram_path, "/histogram.cmd.txt", sep = "/")))
-}
+```{r, echo=FALSE} 
+message(ifelse(!(is.null(histogram_path)), readLines(paste(histogram_path, "/histogram.cmd.txt", sep = "/")), "none"))
 ```
 
-### FigII.1 UMI coverage plot
+### Fig.3 UMI coverage plot
 
 Below is the plot of MIG size distribution that was used to select MIG size threshold for assembly (shown by dashed lines, in case assembly was performed).
 
@@ -173,6 +192,7 @@ remove(df.n)
 p
 ```
 
+---
 
 ## Step III: Assemble
 
@@ -180,11 +200,15 @@ This section contains information on the assembly of MIG consensuses from raw re
 
 Command line:
 
+```{r, echo=FALSE} 
+message(ifelse(!(is.null(assemble_path)), readLines(paste(assemble_path, "/assemble.cmd.txt", sep = "/")), "none"))
+```
+
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 require(scales)
 
 if (!is.null(assemble_path)) {
-print(readLines(paste(assemble_path, "/assemble.cmd.txt", sep = "/")))
 df <- read.table(paste(assemble_path, "/assemble.log.txt", sep = "/"), header=T, comment ="")
 df <- data.frame(sample <- df$X.SAMPLE_ID, 
                  migs.assembled <- df$MIGS_GOOD_TOTAL,
@@ -197,7 +221,16 @@ df <- melt(df)
 
 pal <- colorRampPalette(brewer.pal(9, "GnBu"))(length(unique(df$sample)))
 
-plotAsm <- function(dd) {
+plotAsm.1 <- function(dd) {
+  ggplot(dd, aes(x=sample, fill = sample, y=value)) +
+    geom_bar(stat='identity', size = 0.2, colour = "gray30") + 
+    geom_text(position = position_dodge(width=1), size = 3, hjust = -0.1, aes(label=value)) +
+    coord_flip() +    
+    scale_fill_manual(values = pal) + guides(fill = F) +
+    xlab("") + ylab("") +
+    theme_bw()
+}
+plotAsm.2 <- function(dd) {
   ggplot(dd, aes(x=sample, fill = sample, y=value)) +
     geom_bar(stat='identity', size = 0.2, colour = "gray30") + 
     geom_text(position = position_dodge(width=1), size = 3, hjust = -0.1, aes(label=round(value*1000)/10)) +
@@ -209,7 +242,7 @@ plotAsm <- function(dd) {
 }
 ```
 
-### FigIII.1 Number of assembled MIGs
+### Fig.4 Number of assembled MIGs
 
 Below is a plot showing the total number of assembled MIGs per sample. The number of MIGs should be interpreted as the total number of starting molecules that have been successfully recovered.
 
@@ -217,12 +250,12 @@ Below is a plot showing the total number of assembled MIGs per sample. The numbe
 p<-"Nothing to plot"
 if (!is.null(assemble_path)) {
 df.1 <- subset(df, variable == "migs.assembled")
-p<-plotAsm(df.1) + scale_y_continuous(expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
+p<-plotAsm.1(df.1) + scale_y_continuous(expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
 }
 p
 ```
 
-### FigIII.2 Overall assembly efficiency
+### Fig.5 Overall assembly efficiency
 
 Next comes the plot showing the fraction of UMIs that have resulted in assembled consensuses.
 
@@ -232,12 +265,12 @@ Next comes the plot showing the fraction of UMIs that have resulted in assembled
 p<-"Nothing to plot"
 if (!is.null(assemble_path)) {
 df.1 <- subset(df, variable == "umi.fraction.assembled")
-p<-plotAsm(df.1) + scale_y_continuous(labels = percent_format(), expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
+p<-plotAsm.2(df.1) + scale_y_continuous(labels = percent_format(), expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
 }
 p
 ```
 
-### FigIII.3 Fraction of assembled reads
+### Fig.6 Fraction of assembled reads
 
 The fraction of reads contained within assembled MIGs when compared to total number of reads. This number should be high for a high-quality experiment.
 
@@ -245,12 +278,12 @@ The fraction of reads contained within assembled MIGs when compared to total num
 p<-"Nothing to plot"
 if (!is.null(assemble_path)) {
 df.1 <- subset(df, variable == "reads.fraction.assembled")
-p<-plotAsm(df.1) + scale_y_continuous(labels = percent_format(), expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
+p<-plotAsm.2(df.1) + scale_y_continuous(labels = percent_format(), expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
 }
 p
 ```
 
-### FigIII.4 Fraction of reads not fitting MIG consensus
+### Fig.7 Fraction of reads not fitting MIG consensus
 
 The fraction of reads that were dropped during consensus assembly. Reads are being dropped if they are found to be substantially different from reads that form the core of consensus sequence. High numbers indicate low sequencing quality and/or presence of library preparation artifacts.
 
@@ -258,12 +291,14 @@ The fraction of reads that were dropped during consensus assembly. Reads are bei
 p<-"Nothing to plot"
 if (!is.null(assemble_path)) {
 df.1 <- subset(df, variable == "reads.dropped.within.mig")
-p<-plotAsm(df.1) + scale_y_continuous(labels = percent_format(), expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
+p<-plotAsm.2(df.1) + scale_y_continuous(labels = percent_format(), expand = c(0, 0), limits=c(0,max(df.1$value)*1.2))
 remove(df.1)
 remove(df)
 }
 p
 ```
+
+---
 
 ## Step IV: CdrBlast
 
@@ -271,9 +306,13 @@ This section contains results of the V(D)J segment mapping and CDR3 extraction a
 
 Command line:
 
+```{r, echo=FALSE} 
+message(ifelse(!(is.null(cdrblast_path)), readLines(paste(cdrblast_path, "/cdrblast.cmd.txt", sep = "/")), "none"))
+```
+
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 if (!is.null(cdrblast_path)) {
-print(readLines(paste(cdrblast_path, "/cdrblast.cmd.txt", sep = "/")))
 df <- read.table(paste(cdrblast_path, "/cdrblast.log.txt", sep = "/"), header=T, comment ="")
 
 df.m <- data.frame(sample = df$X.SAMPLE_ID, type = df$DATA_TYPE,
@@ -318,7 +357,7 @@ plotCdr.2 <- function(dd) {
 }
 ```
 
-### FigIV.1 Number of CDR3-containing MIGs
+### Fig.8 Number of CDR3-containing MIGs
 
 The plot below shows the total number of MIGs that contain good-quality CDR3 region in the consensus sequence
 
@@ -331,20 +370,20 @@ p<-plotCdr.1(df.s) + scale_y_continuous(expand = c(0, 0), limits=c(0,max(df.s$va
 p
 ```
 
-### FigIV.2 Number of CDR3-containing reads
+### Fig.9 Number of CDR3-containing reads
 
 Total number of reads that contain good-quality CDR3 region in raw reads
 
 ```{r, echo=FALSE, message=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrblast_path)) {
-df.s <- subset(df, variable == "final.count" & type == "asm" & metric == "mig")
+df.s <- subset(df, variable == "final.count" & type == "asm" & metric == "read")
 p<-plotCdr.1(df.s) + scale_y_continuous(expand = c(0, 0), limits=c(0,max(df.s$value)*1.2))
 }
 p
 ```
 
-### FigIV.3 CDR3 extraction rate
+### Fig.10 CDR3 extraction rate
 
 Mapping rate, the fraction of reads/MIGs that contain a CDR3 region
 
@@ -359,7 +398,7 @@ p<-plotCdr.2(df.s) + scale_y_continuous(labels = percent_format(), expand = c(0,
 p
 ```
 
-### FigIV.4 Low-quality CDR3 filtering rate
+### Fig.11 Low-quality CDR3 filtering rate
 
 Good-quality CDR3 sequence rate, the fraction of CDR3-containing reads/MIGs that pass quality filter
 
@@ -378,16 +417,22 @@ remove(df)
 p
 ```
 
+---
+
 ## Step V: CdrBlastFitler
 
 This section contains the result of hot-spot error filtering stage, non-functional clonotype filtering (**if enabled**) and final statistics.
 
 Command line:
 
+```{r, echo=FALSE} 
+message(ifelse(!(is.null(cdrfinal_path)), readLines(paste(cdrfinal_path, "/cdrblastfilter.cmd.txt", sep = "/")), "none"))
+```
+
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 if (!is.null(cdrfinal_path)) {
 nc_filter_enabled <- file.exists(paste(cdrfinal_path, "/cdrblastfilter.nc.txt", sep = "/"))
-print(readLines(paste(cdrfinal_path, "/cdrblastfilter.cmd.txt", sep = "/")))
 df <- read.table(paste(cdrfinal_path, "/cdrblastfilter.log.txt", sep = "/"), header=T, comment ="")
 df <- data.frame(sample = df$X.SAMPLE_ID, 
                  clones.count = df$CLONOTYPES_TOTAL - 
@@ -425,7 +470,7 @@ plotCdrFinal.2 <- function(dd) {
 }
 ```
 
-### FigV.1 Number of clonotypes found
+### Fig.12 Number of clonotypes found
 
 Below is the plot of sample diversity, i.e. the number of clonotypes in a given sample
 
@@ -438,7 +483,7 @@ p<-plotCdrFinal.1(df.1)
 p
 ```
 
-### FigV.2 Final number of TCR/Ig molecules
+### Fig.13 Final number of TCR/Ig molecules
 
 Total number of molecules (MIGs) in final clonotype tables
 
@@ -451,9 +496,11 @@ p <- plotCdrFinal.1(df.1)
 p
 ```
 
-### FigV.3 Rate of hot-spot error filtering
+### Fig.14 Rate of hot-spot and singleton error filtering
 
-Rate of hot-spot error filtering, in terms of clonotypes (**clone** panel) and MIGs (**mig** panel)
+Rate of hot-spot and singleton error filtering, in terms of clonotypes (**clone** panel) and MIGs (**mig** panel).
+
+> As clonotypes represented by a single MIG (singletons) have insufficient info to apply MiGEC-style error filtering, a simple frequency-based filtering is used for them.
 
 ```{r, echo=FALSE, message=FALSE}
 p <- "Nothing to plot"
@@ -465,14 +512,14 @@ p<-plotCdrFinal.2(df.2)
 p
 ```
 
-### FigV.4 Fraction of non-coding clonotypes
+### Fig.15 Fraction of non-coding clonotypes
 
 Rate of non-coding CDR3 sequences, in terms of clonotypes (**clone** panel) and MIGs (**mig** panel)
 
 ```{r, echo=FALSE, message=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrfinal_path)) {
-df.2 <- data.frame(sample = df$sample, mig = df$migs.filter.rate, clone = df$clones.filter.rate)
+df.2 <- data.frame(sample = df$sample, mig = df$migs.nc.rate, clone = df$clones.nc.rate)
 df.2 <- melt(df.2)
 p<-plotCdrFinal.2(df.2)
 }
