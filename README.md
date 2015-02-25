@@ -97,13 +97,14 @@ java -jar migec.jar FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 
 ## THE PIPELINE
 
-All routines in the pipeline are available in "manual" and "batch" variants. Batch variants are designed to automatically handle several input samples with minimal shell scripting glue between analysis steps. If the "barcodes" file is set properly, the entire pipeline can be fit in five command lines:
+All routines in the pipeline are available in "manual" and "batch" variants. Batch variants are designed to automatically handle several input samples with minimal shell scripting glue between analysis steps. If the "barcodes" file is set properly, the entire pipeline can be fit in five command lines, e.g.:
 
 ```bash
 MIGEC="java -Xmx8G -jar migec.jar"
-$MIGEC CheckoutBatch -cute barcodes.txt checkout/
-$MIGEC AssembleBatch -cute checkout/ histogram/ assemble/
-$MIGEC CdrBlastBatch -R IGH checkout/ assemble/ cdrblast/
+$MIGEC CheckoutBatch -cu barcodes.txt checkout/
+$MIGEC Histogram checkout/ histogram/
+$MIGEC AssembleBatch -c checkout/ histogram/ assemble/
+$MIGEC CdrBlastBatch -R TRB checkout/ assemble/ cdrblast/
 $MIGEC FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 ```
 
