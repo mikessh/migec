@@ -122,7 +122,7 @@ if (!Util.isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
 }
 
 // SYSTEM
-def DEBUG = opt.'debug',
+def DEBUG = opt.'debug', DEBUG_MAX_MESSAGES = 10,
     THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors(),
     SCRIPT_NAME = getClass().canonicalName
 
@@ -420,6 +420,9 @@ def vRefNotInAlign = new AtomicInteger(0), jRefNotInAlign = new AtomicInteger(0)
     shortCdr = new AtomicInteger(0), longCdr = new AtomicInteger(0)
 def badExamples = new AtomicInteger(0), goodExamples = new AtomicInteger(0)
 
+def debugMessagesGood = Collections.synchronizedList(new ArrayList<String>()),
+    debugMessagesBad = Collections.synchronizedList(new ArrayList<String>())
+
 GParsPool.withPool THREADS, {
     seqMap.eachParallel { entry ->
         String seq = entry.key
@@ -449,7 +452,7 @@ GParsPool.withPool THREADS, {
             boolean vRefInAlign = vRef + 1 >= vMapping.aFrom && vRef - 1 <= vMapping.aTo,
                     jRefInAlign = jRef + 1 >= jMapping.aFrom && jRef - 1 <= jMapping.aTo
 
-            boolean bad = false
+            boolean bad = true
 
             int cdrFrom, cdrTo, cdrLen
 
@@ -501,6 +504,8 @@ GParsPool.withPool THREADS, {
 
                     // Unique read identifier -> CDR3 extraction result
                     readId2ClonotypeData.put(id, clonotypeData)
+                    
+                    bad = false
                 } else {
                     if (cdrFrom < 0)
                         cdrStartOut.incrementAndGet()
@@ -518,42 +523,51 @@ GParsPool.withPool THREADS, {
                     jRefNotInAlign.incrementAndGet()
                 if (vRC != jRC)
                     badOrientation.incrementAndGet()
-                bad = true
             }
 
             if (DEBUG) {
-                if (bad) {
-                    if (badExamples.get() < 5) {
-                        println ">BAD"
-                        println((vRC == jRC && vRC) ? Util.revCompl(seq) : seq)
-                        if (!vRefInAlign)
-                            println vAllele.alleleId + "\t" +
-                                    (vRC ? Util.revCompl(vAllele.seq.toUpperCase()) :
-                                            vAllele.seq.toUpperCase()) + "\t" +
-                                    "aFrom=$vMapping.aFrom aTo=$vMapping.aTo ref=$vRef"
+                if (bad && badExamples.get() < DEBUG_MAX_MESSAGES) {
+                    def message = ((vRC == jRC && vRC) ? Util.revCompl(seq) : seq) + "\n"
 
-                        if (!jRefInAlign)
-                            println jAllele.alleleId + "\t" +
-                                    (vRC ? Util.revCompl(jAllele.seq.toUpperCase()) :
-                                            jAllele.seq.toUpperCase()) + "\t" +
-                                    "aFrom=$jMapping.aFrom aTo=$jMapping.aTo ref=$jRef"
-                        badExamples.incrementAndGet()
-                    }
-                } else if (goodExamples.get() < 5) {
-                    println ">GOOD"
-                    println seq // already reversed
-                    println seq.substring(cdrFrom, cdrTo)
-                    println vAllele.alleleId + "\t" +
+                    if (!vRefInAlign)
+                        message += vAllele.alleleId + "\t" +
+                                (vRC ? Util.revCompl(vAllele.seq.toUpperCase()) : vAllele.seq.toUpperCase()) + "\t" +
+                                "aFrom=$vMapping.aFrom aTo=$vMapping.aTo ref=$vRef\n"
+
+                    if (!jRefInAlign)
+                        message += jAllele.alleleId + "\t" +
+                                (vRC ? Util.revCompl(jAllele.seq.toUpperCase()) : jAllele.seq.toUpperCase()) + "\t" +
+                                "aFrom=$jMapping.aFrom aTo=$jMapping.aTo ref=$jRef\n"
+
+                    debugMessagesBad.add(message)
+
+                    badExamples.incrementAndGet()
+                } else if (goodExamples.get() < DEBUG_MAX_MESSAGES) {
+                    def message = seq + "\n"// already reversed
+
+                    message += seq.substring(cdrFrom, cdrTo) + "\n"
+
+                    message += vAllele.alleleId + "\t" +
                             vAllele.seq.toUpperCase() + "\t" +
-                            "qTo=$vMapping.qTo qFrom=$vMapping.qFrom aTo=$vMapping.aTo aFrom=$vMapping.aFrom ref=$vRef"
-                    println jAllele.alleleId + "\t" +
+                            "qTo=$vMapping.qTo qFrom=$vMapping.qFrom aTo=$vMapping.aTo aFrom=$vMapping.aFrom ref=$vRef\n"
+
+                    message += jAllele.alleleId + "\t" +
                             Util.revCompl(jAllele.seq.toUpperCase()) + "\t" +
-                            "qTo=$jMapping.qTo qFrom=$jMapping.qFrom aTo=$jMapping.aTo aFrom=$jMapping.aFrom ref=$jRef"
+                            "qTo=$jMapping.qTo qFrom=$jMapping.qFrom aTo=$jMapping.aTo aFrom=$jMapping.aFrom ref=$jRef\n"
+
+                    debugMessagesGood.add(message)
+
                     goodExamples.incrementAndGet()
                 }
             }
         }
     }
+}
+
+if (DEBUG) {
+    println "Reporting $DEBUG_MAX_MESSAGES good and bad alignments"
+    debugMessagesGood.eachWithIndex { it, ind -> print ">GOOD$ind\n$it" }
+    debugMessagesBad.eachWithIndex { it, ind -> print ">BAD$ind\n$it" }
 }
 
 println "${timestamp()} Done. ${readId2ClonotypeData.size()} CDRs mapped, " +
