@@ -130,7 +130,7 @@ message(ifelse(!(is.null(histogram_path)), readLines(paste(histogram_path, "/his
 
 ### Fig.3 UMI coverage plot
 
-Below is the plot of MIG size distribution that was used to select MIG size threshold for assembly (shown by dashed lines, in case assembly was performed).
+Below is the plot of MIG size distribution that was used to estimate MIG size threshold for assembly (shown by dashed lines).
 
 > Note that the distribution is itself weighted by the number of reads to highlight the mean coverage value and to reflect the percent of reads that will be retained for a given MIG size threshold.
 
@@ -141,14 +141,10 @@ p<-"Nothing to plot"
 if (!(is.null(histogram_path))) {
 df <- read.table(paste(histogram_path, "/overseq.txt", sep = "/"), header=T, comment ="")
 
-if (!is.null(assemble_path)) {
-df.a <- read.table(paste(assemble_path, "/assemble.log.txt", sep = "/"), header=T, comment ="")
-df.a <- aggregate(MIG_COUNT_THRESHOLD ~ X.SAMPLE_ID, data=df.a, FUN=max)
+df.a <- read.table(paste(histogram_path, "/estimates.txt", sep = "/"), header=T, comment ="")
+df.a <- aggregate(OVERSEQ_THRESHOLD ~ X.SAMPLE_ID, data=df.a, FUN=max)
 df <- merge(df, df.a, by = "X.SAMPLE_ID")
-df$MIG_COUNT_THRESHOLD <- as.character(df$MIG_COUNT_THRESHOLD)
-} else {
-  df$MIG_COUNT_THRESHOLD <- rep("0", nrow(df))
-}
+df$OVERSEQ_THRESHOLD <- as.character(df$OVERSEQ_THRESHOLD)
 
 # compute peak values
 df$peak <- numeric(nrow(df))
@@ -160,11 +156,11 @@ for (i in 1:nrow(df)) {
 df$peak <- as.character(df$peak)
 
 # groom data
-df <- melt(df, ids = c(X.SAMPLE_ID, SAMPLE_TYPE, peak, MIG_COUNT_THRESHOLD))
+df <- melt(df, ids = c(X.SAMPLE_ID, SAMPLE_TYPE, peak, OVERSEQ_THRESHOLD))
 df$peak <- as.numeric(df$peak)
 df$variable <- as.character(df$variable)
 df$variable <- as.numeric(gsub('X', '', df$variable))
-df$MIG_COUNT_THRESHOLD <- as.numeric(df$MIG_COUNT_THRESHOLD)
+df$OVERSEQ_THRESHOLD <- as.numeric(df$OVERSEQ_THRESHOLD)
 colnames(df) <- c("sample", "sample.type", "threshold", "peak", "mig.size", "count")
 
 # summarize by sample type, normalize within sample
@@ -255,7 +251,7 @@ p<-plotAsm.1(df.1) + scale_y_continuous(expand = c(0, 0), limits=c(0,max(df.1$va
 p
 ```
 
-### Fig.5 Overall assembly efficiency
+### Fig.5 Frequency of productive UMI tags
 
 Next comes the plot showing the fraction of UMIs that have resulted in assembled consensuses.
 
@@ -498,7 +494,7 @@ p
 
 ### Fig.14 Rate of hot-spot and singleton error filtering
 
-Rate of hot-spot and singleton error filtering, in terms of clonotypes (**clone** panel) and MIGs (**mig** panel).
+Rate of hot-spot and singleton error filtering, in terms of clonotypes (**clone** panel) and MIGs (**mig** panel). Hot-spot errors are indentified by checking whether a given variant is frequently corrected during MIG consensus assembly.
 
 > As clonotypes represented by a single MIG (singletons) have insufficient info to apply MiGEC-style error filtering, a simple frequency-based filtering is used for them.
 
