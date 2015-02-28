@@ -38,6 +38,7 @@ def printHelp = {
     println "FilterCdrBlastResults"
     println "FilterCdrBlastResultsBatch"
     println "CreateCdrHypermGraph"
+    println "Report"
     println ""
     println ""
     println "[Miscellaneous]"
@@ -74,6 +75,8 @@ def getScript = { String scriptName ->
             return new FilterCdrBlastResultsBatch()
         case "CREATECDRHYPERMGRAPH":
             return new CreateCdrHypermGraph()
+        case "REPORT":
+            return new Report()
         case "-H":
         case "H":
         case "-HELP":
