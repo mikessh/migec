@@ -35,10 +35,6 @@ int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availablePr
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
 def inputDir = opt.arguments()[0]
 
-double percLowOverseq = 0.25, percHighOverseq = 0.10
-int overseqPeakLow = 4, // 16
-    overseqPeakHigh = 7 // 256
-
 def scriptName = getClass().canonicalName
 int nBins = 17
 
@@ -63,7 +59,7 @@ def BASE_HEADER = "#SAMPLE_ID\tSAMPLE_TYPE",
             "UMI_QUAL_THRESHOLD\tUMI_LEN"
 
 def maxUmiSz = -1
-def umiPwmUnitsTotal = new AtomicIntegerArray(4000), umiPwmReadsTotal = new AtomicIntegerArray(4000), // todo: consider including guava and long array, possible overflow
+def umiPwmUnitsTotal = new AtomicIntegerArray(4000), umiPwmReadsTotal = new AtomicIntegerArray(4000),
     umiGoodUnitsTotal = new AtomicInteger(), umiGoodReadsTotal = new AtomicInteger()
 
 new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
@@ -185,44 +181,36 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
 
                                 def row = sampleEntry[0..1].join("\t")
 
-                                int overseqPeak = (0..<nBins).max { overseqHist.get(it) }
+                                def estimateHist = new double[nBins]
 
-                                int collThreshold = 0, overseqThreshold = 0,
-                                    overseqThresholdEmp = (int) Math.pow(2.0, overseqPeak / 2.0)
+                                // check if there is any over-sequencing at all
+                                boolean overSeqPresent = (0..2).sum { overseqHist.get(it) } <
+                                        2.0 * (3..<nBins).sum { overseqHist.get(it) }
 
-                                //if (overseqPeak <= overseqPeakLow) {
-                                // EMPIRICAL
-                                overseqThreshold = overseqThresholdEmp
-                                collThreshold = overseqThresholdEmp
-                                //}
-                                /* DEPRCATED
-                                else {
-                                    // by percentile
-                                    double p = (overseqPeak <= overseqPeakHigh) ? percLowOverseq : percHighOverseq
+                                int collThreshold, overseqThreshold
 
-                                    int cumulativeCollisionReads = collisionHist.get(0),
-                                        cumulativeOverseqReads = overseqHist.get(0)
-
-                                    for (int i = 1; i < nBins; i++) {
-                                        cumulativeCollisionReads += collisionHist.get(i)
-
-                                        if (cumulativeCollisionReads / (double) nReads >= 1 - p) {
-                                            collThreshold = i - 1
-                                            break
+                                if (overSeqPresent) {
+                                    // Find peak
+                                    // smooth first
+                                    (0..<nBins).each { i ->
+                                        def avg = 0, n = 0
+                                        (-1..1).each { j ->
+                                            int ii = i + j
+                                            if (ii > -1 && ii < nBins) {
+                                                avg += overseqHist.get(ii)
+                                                n++
+                                            }
                                         }
+                                        estimateHist[i] = avg / n
                                     }
-                                    collThreshold = (int) Math.pow(2.0, collThreshold)
+                                    // look for maximum in appropriate range
+                                    def overseqPeak = (3..10).max { estimateHist[it] }
+                                    overseqThreshold = Math.round(Math.pow(2.0, overseqPeak / 2.0))
+                                } else {
+                                    overseqThreshold = 1 // assemble all
+                                }
 
-                                    for (int i = 1; i < nBins; i++) {
-                                        cumulativeOverseqReads += overseqHist.get(i)
-
-                                        if (cumulativeOverseqReads / (double) nReads >= p) {
-                                            overseqThreshold = i - 1
-                                            break
-                                        }
-                                    }
-                                    overseqThreshold = (int) Math.pow(2.0, overseqThreshold)
-                                } */
+                                collThreshold = overseqThreshold // for now
 
                                 oWriter.println(row + "\t" + Util.toString(overseqHist))
                                 cWriter.println(row + "\t" + Util.toString(collisionHist))
