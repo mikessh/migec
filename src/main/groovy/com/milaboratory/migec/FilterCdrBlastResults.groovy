@@ -21,12 +21,15 @@ import groovyx.gpars.GParsPool
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-def R_A_T = "1.0"
+def R_A_T = "1.0", S_F_R = "20.0"
 def cli = new CliBuilder(usage:
         'FilterCdrBlastResults [options] inputAssembledResult inputRawResult outputResult')
 cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
-cli.s("Include clonotypes that are represented by single events (have only one associated MIG)")
+cli.s(longOpt: "singleton-filter", args: 1, argName:
+        "Filter singletons, i.e. clonotypes that are represented by a single MIG")
+cli._(longOpt: "singleton-filter-ratio", args: 1, argName:
+        "Parent-to-child ratio for frequency-based filtering of singleton clonotypes [default = $S_F_R]")
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
 cli.p(args: 1, "number of threads to use. Default: all available processors")
@@ -42,12 +45,23 @@ if (opt == null || opt.arguments().size() < 3) {
     System.exit(-1)
 }
 
+// SYSTEM
+def scriptName = getClass().canonicalName
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 
-double unitFilterRatio1mm = 20, unitFilterRatio2mm = unitFilterRatio1mm * unitFilterRatio1mm
+// LOGGING
+String logFileName = opt.'log-file' ?: null
+boolean overwriteLog = opt.'log-overwrite'
+String sampleName = opt.'log-sample-name' ?: "N/A"
 
+// OPTIONS
 boolean collapse = opt.'collapse'
+def filterUnits = opt.s, filterNonFunctional = !opt.n, includeNonCanonical = opt.c
 
+// FILES
+def asmInputFileName = opt.arguments()[0], rawInputFileName = opt.arguments()[1], outputFileName = opt.arguments()[2]
+
+// PARSING
 int NT_SEQ_COL = 2, AA_SEQ_COL = 3, V_COL = 4, J_COL = 5, D_COL = 6,
     READ_COUNT_COL = 13, READ_TOTAL_COL = 14, EVENT_COUNT_COL = 11, EVENT_TOTAL_COL = 12,
     DATA_FROM = 2, DATA_TO = 14
@@ -56,16 +70,12 @@ def getCdrKey = { List<String> splitLine ->
     collapse ? splitLine[NT_SEQ_COL] : splitLine[[NT_SEQ_COL, V_COL, J_COL, D_COL]].join("\t")
 }
 
-def scriptName = getClass().canonicalName
+// PARAMETERS
+double unitFilterRatio1mm = (opt.'singleton-filter-ratio' ?: S_F_R).toDouble(),
+       unitFilterRatio2mm = unitFilterRatio1mm * unitFilterRatio1mm
 def readAccumulationThreshold = Double.parseDouble(opt.r ?: R_A_T)
-def filterUnits = !opt.s, filterNonFunctional = !opt.n, includeNonCanonical = opt.c
-def asmInputFileName = opt.arguments()[0], rawInputFileName = opt.arguments()[1], outputFileName = opt.arguments()[2]
 
-// LOGGING
-String logFileName = opt.'log-file' ?: null
-boolean overwriteLog = opt.'log-overwrite'
-String sampleName = opt.'log-sample-name' ?: "N/A"
-
+// Read raw data
 if (new File(outputFileName).parentFile)
     new File(outputFileName).parentFile.mkdirs()
 
@@ -75,12 +85,11 @@ int n = 0
 println "[${new Date()} $scriptName] Reading raw clonotypes from $rawInputFileName.."
 new File(rawInputFileName).splitEachLine("\t") { splitLine ->
     if (splitLine[0].isInteger()) {
-        //if (!filterNonFunctional || splitLine[AA_SEQ_COL].matches("[a-zA-Z]+")) {
         def cdrKey = getCdrKey(splitLine)
 
         rawReadCounts.put(cdrKey, (rawReadCounts[splitLine[NT_SEQ_COL]] ?: 0) +
                 Integer.parseInt(splitLine[READ_COUNT_COL]))
-        //}
+        
         totalRawReads += Integer.parseInt(splitLine[READ_TOTAL_COL])
 
         if (++n % 500000 == 0)
@@ -88,6 +97,7 @@ new File(rawInputFileName).splitEachLine("\t") { splitLine ->
     }
 }
 
+// Read assembled data
 // IMPORTANT:
 // Set V and J segments for a given CDR3nt as the ones with top count, i.e. collapse by CDR3
 def cdr2signature = new HashMap<String, String>()
@@ -102,8 +112,6 @@ new File(asmInputFileName).splitEachLine("\t") { splitLine ->
         int goodEvents = Integer.parseInt(splitLine[EVENT_COUNT_COL]), eventsTotal = Integer.parseInt(splitLine[EVENT_TOTAL_COL]),
             goodReads = Integer.parseInt(splitLine[READ_COUNT_COL]), readsTotal = Integer.parseInt(splitLine[READ_TOTAL_COL])
 
-        //if ((!filterNonFunctional || splitLine[AA_SEQ_COL].matches(/[a-zA-Z]+/))
-        //        && (includeNonCanonical || splitLine[AA_SEQ_COL].matches(/^C(.+)[FW]$/))) {
         if (includeNonCanonical || splitLine[AA_SEQ_COL].matches(/^C(.+)[FW]$/)) {
             if (!splitLine[AA_SEQ_COL].matches(/[a-zA-Z]+/))
                 nonFunctionalCdrs.add(cdrKey)
@@ -128,9 +136,9 @@ new File(asmInputFileName).splitEachLine("\t") { splitLine ->
     }
 }
 
-println "[${new Date()} $scriptName] Filtering.."
+// Filtering routine
+// At least 1 good event & read accumulation > 100% (by default)
 
-// Filter: at least 1 good event & read accumulation > 100% (by default)
 def passFilter = { String cdrKey, int[] counters, Integer rawReads ->
     boolean unitFilterPassed = true
 
@@ -196,6 +204,9 @@ def passFilter = { String cdrKey, int[] counters, Integer rawReads ->
                             counters[2] > readAccumulationThreshold *
                             rawReads * totalConsensusReads / totalRawReads))
 }
+
+// Filtering procedure
+println "[${new Date()} $scriptName] Filtering.."
 
 int readsTotal = 0, readsFiltered = 0, eventsTotal = 0, eventsFiltered = 0, clonotypesFiltered = 0, clonotypesTotal = 0
 

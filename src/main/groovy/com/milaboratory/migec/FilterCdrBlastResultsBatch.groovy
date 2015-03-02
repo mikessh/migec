@@ -1,5 +1,3 @@
-package com.milaboratory.migec
-
 /**
  Copyright 2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
@@ -16,14 +14,20 @@ package com.milaboratory.migec
  limitations under the License.
  */
 
-def R_A_T = "1.0"
+package com.milaboratory.migec
+
+def R_A_T = "1.0", S_F_R = "20.0"
 def scriptName = getClass().canonicalName
 def cli = new CliBuilder(usage: "$scriptName [options] cdrblast_dir/ output_dir/")
-cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that have a ratio of (reads after correction) / " +
+cli.r(args: 1, argName: 'read accumulation threshold',
+        "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
 cli._(longOpt: 'collapse', "Collapse clonotypes by CDR3 and use top V and J chains")
 cli.p(args: 1, "number of threads to use. Default: all available processors")
-cli.s("Include clonotypes that are represented by single events (have only one associated MIG)")
+cli.s(longOpt: "singleton-filter", args: 1, argName:
+        "Perform frequency-based filtering of singletons, i.e. clonotypes that are represented by a single MIG")
+cli._(longOpt: "singleton-filter-ratio", args: 1, argName:
+        "Parent-to-child ratio for frequency-based filtering of singleton clonotypes [default = $S_F_R]")
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
 
@@ -38,6 +42,8 @@ if (opt == null || opt.arguments().size() < 2) {
 def baseArgs = [["-r", opt.r ?: R_A_T]]
 if (opt.s)
     baseArgs = [baseArgs, ["-s"]]
+if (opt.'--singleton-filter-ratio')
+    baseArgs = [baseArgs, ["--singleton-filter-ratio", opt.'--singleton-filter-ratio' ?: S_F_R]]
 if (opt.n)
     baseArgs = [baseArgs, ["-n"]]
 if (opt.c)
@@ -91,7 +97,7 @@ if (onlyInAssembled.size() > 0) {
 }
 
 if (onlyInRaw.size() == rawSampleMap.size()) {
-    println "[ERROR] Np samples have both raw and assembled data analyzed by CdrBlast. Terminating"
+    println "[ERROR] No samples have both raw and assembled data analyzed by CdrBlast. Terminating"
     System.exit(-1)
 }
 
