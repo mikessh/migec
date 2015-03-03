@@ -24,9 +24,9 @@ cli.r(args: 1, argName: 'read accumulation threshold',
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
 cli._(longOpt: 'collapse', "Collapse clonotypes by CDR3 and use top V and J chains")
 cli.p(args: 1, "number of threads to use. Default: all available processors")
-cli.s(longOpt: "singleton-filter", args: 1, argName:
+cli.s(longOpt: "singleton-filter",
         "Perform frequency-based filtering of singletons, i.e. clonotypes that are represented by a single MIG")
-cli._(longOpt: "singleton-filter-ratio", args: 1, argName:
+cli._(longOpt: "singleton-filter-ratio", args: 1, argName: "float>1.0",
         "Parent-to-child ratio for frequency-based filtering of singleton clonotypes [default = $S_F_R]")
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")

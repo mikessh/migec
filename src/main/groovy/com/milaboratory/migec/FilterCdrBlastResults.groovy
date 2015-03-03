@@ -26,9 +26,9 @@ def cli = new CliBuilder(usage:
         'FilterCdrBlastResults [options] inputAssembledResult inputRawResult outputResult')
 cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
-cli.s(longOpt: "singleton-filter", args: 1, argName:
-        "Filter singletons, i.e. clonotypes that are represented by a single MIG")
-cli._(longOpt: "singleton-filter-ratio", args: 1, argName:
+cli.s(longOpt: "singleton-filter",
+        "Perform frequency-based filtering of singletons, i.e. clonotypes that are represented by a single MIG")
+cli._(longOpt: "singleton-filter-ratio", args: 1, argName: "float>1.0",
         "Parent-to-child ratio for frequency-based filtering of singleton clonotypes [default = $S_F_R]")
 cli.n("Include non-functional CDR3s")
 cli.c("Include CDR3s that do not begin with a conserved C or end with a conserved W/F")
