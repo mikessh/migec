@@ -318,12 +318,8 @@ class Util {
                 new GZIPOutputStream(new FileOutputStream(outfile)) : new FileOutputStream(outfile)))
     }
 
-    static String getFileName(String fullFileName) {
-        fullFileName.split("/")[-1]
-    }
-
     static String getFastqPrefix(String fileName) {
-        fileName.split("/")[-1].replaceAll(/\.fastq(?:\.gz)?$/, "")
+        new File(fileName).name.replaceAll(/\.fastq(?:\.gz)?$/, "")
     }
 
     /*

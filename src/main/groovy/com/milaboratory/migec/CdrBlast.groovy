@@ -551,8 +551,7 @@ GParsPool.withPool THREADS, {
                             vAllele.seq.toUpperCase() + "\t" +
                             "qTo=$vMapping.qTo qFrom=$vMapping.qFrom aTo=$vMapping.aTo aFrom=$vMapping.aFrom ref=$vRef\n"
 
-                    message += jAllele.alleleId + "\t" +
-                            Util.revCompl(jAllele.seq.toUpperCase()) + "\t" +
+                    message += jAllele.alleleId + "\t" + Util.revCompl(jAllele.seq.toUpperCase()) + "\t" +
                             "qTo=$jMapping.qTo qFrom=$jMapping.qFrom aTo=$jMapping.aTo aFrom=$jMapping.aFrom ref=$jRef\n"
 
                     debugMessagesGood.add(message)
@@ -576,8 +575,8 @@ println "${timestamp()} Done. ${readId2ClonotypeData.size()} CDRs mapped, " +
 if (DEBUG) {
     println "reverseFound=" + reverseFound.get() + " (${(int) (reverseFound.get() / seqMap.size() * 100)}%)"
     println "badOrientation=" + badOrientation.get()
-    println "vRefNotInAlign=" + vRefNotInAlign.get()
-    println "jRefNotInAlign=" + jRefNotInAlign.get()
+    println "vRefNotInAlignment=" + vRefNotInAlign.get()
+    println "jRefNotInAlignment=" + jRefNotInAlign.get()
     println "cdrStartOut=" + cdrStartOut.get()
     println "cdrEndOut=" + cdrEndOut.get()
     println "shortCdr3=" + shortCdr.get() + " (<$MIN_CDR_LEN nt)"
