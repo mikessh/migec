@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/mikessh/oncomigec.svg?branch=master)](https://travis-ci.org/mikessh/oncomigec)
+[![Build Status](https://travis-ci.org/mikessh/migec.svg?branch=master)](https://travis-ci.org/mikessh/migec)
 
 # MiGEC: Molecular Identifier Group-based Error Correction pipeline  
 
