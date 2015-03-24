@@ -120,7 +120,7 @@ A script to perform de-multiplexing and UMI tag extraction for a set of FASTQ fi
 
 General:
 
-```
+```bash
 java -jar migec.jar CheckoutBatch [options] barcodes_file output_dir
 ```
 
@@ -155,26 +155,26 @@ A script to perform de-multiplexing and UMI tag extraction
 
 General:
 
-```
-java -jar migec.jar Checkout [options] barcodes_file R1.fastq[.gz] [- or R2.fastq[.gz]] output_dir
+```bash
+java -jar migec.jar Checkout [options] barcodes_file R1.fastq[.gz] [. or R2.fastq[.gz]] output_dir
 ```
 
 For paired-end data:
 
-```
+```bash
 java -jar migec.jar Checkout -cute barcodes.txt R1.fastq.gz R2.fastq.gz ./checkout/
 ```
 
 For unpaired library:
 
-```
-java -jar migec.jar Checkout -cute barcodes.txt R.fastq.gz - ./checkout/
+```bash
+java -jar migec.jar Checkout -cute barcodes.txt R.fastq.gz . ./checkout/
 ```
 
 For overlapping paired reads:
 
-```
-java -jar migec.jar Checkout -cute --overlap barcodes.txt R1.fastq.gz R2.fastq.gz - ./checkout/
+```bash
+java -jar migec.jar Checkout -cute --overlap barcodes.txt R1.fastq.gz R2.fastq.gz . checkout/
 ```
 
 accepted *barcodes.txt* format is a tab-delimited table with the following structure: 
@@ -239,8 +239,8 @@ A script to generate over-sequencing statistics
 
 General:
 
-```
-java -jar migec.jar Histogram ./checkout/ ./histogram/
+```bash
+java -jar migec.jar Histogram checkout/ histogram/
 ```
 
 Running this script will generate several files in *histogram* folder, the one important for basic data processing is *overseq.txt*. The header of table contains MIG sizes (in log2 scale), while each row corresponds to a de-multiplexed sample contains the number of reads in MIGs of a given size (cumulative abundance). 
@@ -261,13 +261,13 @@ A script to perform UMI-guided assembly
  
 General:
 
-```
-java -jar migec.jar AssembleBatch [options] checkout_output_folder histogram_output_folder output_folder
+```bash
+java -jar migec.jar AssembleBatch [options] checkout_output_folder/ histogram_output_folder/ output_folder/
 ```
 
 Performs a batch assembly for all FASTQ files produced by checkout, all assembly parameters are set according to **Histogram** output.
 
-One can specify a default mask telling for paired-end reads which mate(s) to assemble. The mask is provided by ```--assembly-mask <R1=[0,1]:R2=[0,1]>``` argument, i.e. to assemble only second mate use ```--assembly-mask 0:1```. This speeds-up the assembly. Also, by default the mask is ```1:1```, so for each MIG an output consensus pair is created only if both consensuses are successfully assembled.  In case of ```0:0``` mask will process only overlapped reads. Remember that during **Checkout** reads get re-oriented so they are on the same strand, corresponding to the strand of *Master* barcode and the read with *Master* barcode is assigned with *_R1* index.
+One can specify a default mask telling for paired-end reads which mate(s) to assemble. The mask is provided by ```--default-mask <R1=[0,1]:R2=[0,1]>``` argument, i.e. to assemble only second mate use ```--assembly-mask 0:1```. This speeds-up the assembly. Also, by default the mask is ```1:1```, so for each MIG an output consensus pair is created only if both consensuses are successfully assembled.  In case of ```0:0``` mask will process only overlapped reads. Remember that during **Checkout** reads get re-oriented so they are on the same strand, corresponding to the strand of *Master* barcode and the read with *Master* barcode is assigned with *_R1* index.
 
 A sample metadata file could also be provided with ```--sample-metadata <file_name>``` argument to guide the batch assembly. This file should have the following tab-separated table structure:
 
@@ -295,26 +295,26 @@ A script to perform UMI-guided assembly
 
 General:
 
-```
-java -jar migec.jar Assemble [options] R1.fastq[.gz] [- or R2.fastq[.gz]] output_folder
+```bash
+java -jar migec.jar Assemble [options] R1.fastq[.gz] [. or R2.fastq[.gz]] output_folder
 ```
 
 Unpaired and overlapped FASTQ:
 
-```
-java -jar migec.jar Assemble -c ./checkout/S1_R0.fastq.gz - ./assembly/
+```bash
+java -jar migec.jar Assemble -c checkout/S1_R0.fastq.gz . assembly/
 ```
 
 Paired FASTQ:
 
-```
-java -jar migec.jar Assemble -c ./checkout/S1_R1.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/
+```bash
+java -jar migec.jar Assemble -c checkout/S1_R1.fastq.gz checkout/S1_R2.fastq.gz ./assembly/
 ```
 
 Paired FASTQ with only second read to be assembled:
 
-```
-java -jar migec.jar Assemble -c --assembly-mask 0:1 ./checkout/S1_R1.fastq.gz ./checkout/S1_R2.fastq.gz ./assembly/
+```bash
+java -jar migec.jar Assemble -c --assembly-mask 0:1 checkout/S1_R1.fastq.gz checkout/S1_R2.fastq.gz assembly/
 ```
 
 All reads are grouped by their UMI and then read groups (aka molecular identifier groups, MIGs) with >10 reads (default value, see **Histogram** section for details on setting it) are assembled. Multiple alignment is performed and consensus sequence is generated. Note that for paired reads both consensuses should be successfully assembled, otherwise the pair is dropped.
@@ -341,8 +341,8 @@ A script to perform UMI-guided assembly
  
 General:
 
-```
-java -jar migec.jar CdrBlastBatch [options] -R gene [checkout_output_folder or -] [assemble_output_folder or -] output_folder
+```bash
+java -jar migec.jar CdrBlastBatch [options] -R gene [checkout_output_folder/ or .] [assemble_output_folder/ or .] output_folder
 ```
 
 Performs CDR3 extraction and V/J segment determination for both raw (**Checkout** output) and assembled-data. Gene parameter ```-R``` is required unless metadata (```--sample-metadata```) is provided that specifies gene for each sample; supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and *IGL*. If either of *assembly_output_folder* or *checkout_output_folder* is not specified, the processing will be done solely for the remaining input, this is useful e.g. if one wants quickly process the assembled data. Otherwise only samples and file types (paired, overlapped or single) that are present in both outputs will be used. Processing both raw and assembled data is required for second stage error correction (removal of hot-spot errors). 
@@ -373,7 +373,7 @@ A script to extract CDR3 sequences
 
 General:
 
-```
+```bash
 java -jar migec.jar CdrBlast [options] -R gene file1.fastq[.gz] [file2.fastq[.gz] ...] output_file 
 ```
 
@@ -381,20 +381,20 @@ Standard, assuming an example of a library containing T-cell Receptor Alpha Chai
 
 in case of MIG-assembled data:
 
-```
-java -jar migec.jar CdrBlast -a -R TRA ./assembly/S1_R2.fastq.gz ./cdrblast/S1_asm.cdrblast.txt 
+```bash
+java -jar migec.jar CdrBlast -a -R TRA assembly/S1_R2.fastq.gz cdrblast/S1_asm.cdrblast.txt 
 ```
       
 for raw data:
 
-```
-java -jar migec.jar CdrBlast -R TRA ./checkout/S1_R2.fastq.gz ./cdrblast/S1_raw.cdrblast.txt
+```bash
+java -jar migec.jar CdrBlast -R TRA checkout/S1_R2.fastq.gz cdrblast/S1_raw.cdrblast.txt
 ```
 
 to concatenate and process two or more FASTQ files at once:
 
-```
-java -jar migec.jar CdrBlast -R TRA ./checkout/S1_R2.fastq.gz ./checkout/S2_R2.fastq.gz ./cdrblast/S12_raw.cdrblast.txt
+```bash
+java -jar migec.jar CdrBlast -R TRA checkout/S1_R2.fastq.gz checkout/S2_R2.fastq.gz cdrblast/S12_raw.cdrblast.txt
 ```
 
 Gene parameter ```-R``` is required, supported genes are *TRA*, *TRB*, *TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Species could be provided with ```-S``` parameter, by default uses *HomoSapiens*, supported species are *HomoSapiens*, *MusMusculus* and others. Assembled data should be passed to the script with ```-a``` option. ```--same-sample``` option should be used if several assembled files are provided from the same sample, so duplicate UMIs will be discarded and not counted twice.
@@ -407,8 +407,8 @@ To get a sorted output use ```-o``` option, otherwise sorting will be performed 
 
 General:
 
-```
-java -jar migec.jar FilterCdrBlastResultsBatch [options] cdrblast_batch_folder output_folder
+```bash
+java -jar migec.jar FilterCdrBlastResultsBatch [options] cdrblast_batch_folder/ output_folder/
 ```
 
 Perform hot-spot error filtration for data process with **CdrBlastBatch**. Options are the same as for manual version below.
@@ -423,14 +423,14 @@ A script to filter erroneous CDR3 sequences produced due to hot-spot PCR and NGS
 
 General:
 
-```
+```bash
 java -jar migec.jar FilterCdrBlastResults [options] cdrblast_result_assembled_data cdrblast_result_raw_data output_file
 ```
 
 Example:
 
-```
-java -jar migec.jar FilterCdrBlastResults ./cdrblast/S1_asm.cdrblast.txt ./cdrblast/S1_raw.cdrblast.txt ./final/S1.cdrblast.txt
+```bash
+java -jar migec.jar FilterCdrBlastResults cdrblast/S1_asm.cdrblast.txt cdrblast/S1_raw.cdrblast.txt final/S1.cdrblast.txt
 ```
 
 The ```-s``` option tells to filter CDR3s represented by single MIGs. The rationale for this is that the deep repertoire profiling (at least with our protocol) can generate spurious singletons that are associated with reverse transcription errors and experimental artifacts. Filtering is a non-greedy procedure and filters single-MIG clonotypes only if a 1- or 2-mismatch parent clonotype exists at ratio 1:20 and 1:400 respectively. This is done to preserve diversity for samples with shallow sequencing, e.g. ran on MiSeq.
@@ -449,8 +449,8 @@ Now the file *S1.cdrblast.txt* contains a filtered and sorted CDR3/V/J clonotype
 
 You could additionally build a graph of hypermutations for the sample using
 
-```
-java -jar migec.jar CreateCdrHypermGraph ./final/S1.cdr3blast.txt ./net
+```bash
+java -jar migec.jar CreateCdrHypermGraph final/S1.cdr3blast.txt net
 ```
 
 which will generate files that allow fast network construction using Cytoscape's network from table and import table routines for further data exploration.
