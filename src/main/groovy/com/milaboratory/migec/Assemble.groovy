@@ -26,7 +26,7 @@ import static com.milaboratory.migec.Util.BLANK_PATH
 //========================
 //          CLI
 //========================
-def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_MIN_COUNT = "10", DEFAULT_PARENT_CHILD_RATIO = "0.1"
+def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_MIN_COUNT = "5", DEFAULT_PARENT_CHILD_RATIO = "0.1"
 def cli = new CliBuilder(usage:
         "Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or ${BLANK_PATH}] output_dir/")
 cli.q(args: 1, argName: 'read quality (phred)',
