@@ -82,7 +82,7 @@ double collisionRatioThreshold = Double.parseDouble(opt.'collision-ratio' ?: DEF
 def inputFileName1 = opt.arguments()[0],
     inputFileName2 = opt.arguments()[1],
     outputDir = opt.arguments()[2],
-    outputFilePrefix1 = '-', outputFilePrefix2 = '-'
+    outputFilePrefix1 = BLANK_PATH, outputFilePrefix2 = BLANK_PATH
 
 String logFileName = opt.'log-file' ?: null
 
@@ -95,7 +95,7 @@ if (!(inputFileName1.endsWith(".fastq") || inputFileName1.endsWith(".fastq.gz"))
 
 if (inputFileName2 != BLANK_PATH) {
     if (!(inputFileName2.endsWith(".fastq") || inputFileName2.endsWith(".fastq.gz"))) {
-        println "[ERROR] Bad file extension $inputFileName2. Either .fastq, .fastq.gz or \'-\' should be provided as R2 file."
+        println "[ERROR] Bad file extension $inputFileName2. Either .fastq, .fastq.gz or $BLANK_PATH should be provided as R2 file."
         System.exit(-1)
     } else {
         outputFilePrefix2 = Util.getFastqPrefix(inputFileName2) + ".t" + minMigSize + (filterCollisions ? ".cf" : "")
@@ -446,12 +446,12 @@ writeThread.join()
 
 println "[${new Date()} $scriptName] Finished"
 
-def logLine = [assemblyIndices[0] ? new File(inputFileName1).absolutePath : '-',
-               assemblyIndices[1] ? new File(inputFileName2).absolutePath : '-',
+def logLine = [assemblyIndices[0] ? new File(inputFileName1).absolutePath : BLANK_PATH,
+               assemblyIndices[1] ? new File(inputFileName2).absolutePath : BLANK_PATH,
                assemblyIndices[0] ? new File(outputDir).absolutePath + '/' +
-                       outputFilePrefix1 + ".fastq${compressed ? ".gz" : ""}" : '-',
+                       outputFilePrefix1 + ".fastq${compressed ? ".gz" : ""}" : BLANK_PATH,
                assemblyIndices[1] ? new File(outputDir).absolutePath + '/' +
-                       outputFilePrefix2 + ".fastq${compressed ? ".gz" : ""}" : '-',
+                       outputFilePrefix2 + ".fastq${compressed ? ".gz" : ""}" : BLANK_PATH,
 
                minMigSize,
 

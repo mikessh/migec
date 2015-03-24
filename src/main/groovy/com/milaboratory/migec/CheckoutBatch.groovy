@@ -71,6 +71,8 @@ new File(outputDir).deleteDir()
         it.delete()
 }
 
+new File(outputDir).mkdirs()
+
 fileList.each {
     Util.run(new Checkout(), [options, barcodesFileName, it, outputDir].flatten().join(" "))
 }

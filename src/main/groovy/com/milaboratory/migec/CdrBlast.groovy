@@ -27,6 +27,8 @@ import org.codehaus.groovy.runtime.ResourceGroovyMethods
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+import static com.milaboratory.migec.Util.BLANK_PATH
+
 //////////////
 //   CLI   //
 ////////////
@@ -159,7 +161,7 @@ TMP_FOLDER_FILE.mkdirs()
 //    TMP_FOLDER_FILE.deleteOnExit()
 
 def outputFile = null
-if (outputFileName != "-" && (outputFile = new File(outputFileName)).parentFile)
+if (outputFileName != BLANK_PATH && (outputFile = new File(outputFileName)).parentFile)
     outputFile.parentFile.mkdirs()
 
 // BLAST SETTINGS
@@ -504,7 +506,7 @@ GParsPool.withPool THREADS, {
 
                     // Unique read identifier -> CDR3 extraction result
                     readId2ClonotypeData.put(id, clonotypeData)
-                    
+
                     bad = false
                 } else {
                     if (cdrFrom < 0)
@@ -770,7 +772,7 @@ if (!DEBUG)
 //TMP_FOLDER_FILE.listFiles().each { it.deleteOnExit() }
 
 // Append to log and report to batch runner
-def logLine = [(assembledInput ? "asm" : "raw"), outputFile ? outputFile.absolutePath : "-",
+def logLine = [(assembledInput ? "asm" : "raw"), outputFile ? outputFile.absolutePath : BLANK_PATH,
                inputFileNames.join(","),
                goodEvents, mappedEvents, totalEvents,
                goodReads, mappedReads, totalReads].join("\t")

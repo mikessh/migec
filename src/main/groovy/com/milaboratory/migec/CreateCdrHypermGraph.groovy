@@ -20,6 +20,8 @@ import groovyx.gpars.GParsPool
 
 import java.util.concurrent.atomic.AtomicLong
 
+import static com.milaboratory.migec.Util.BLANK_FIELD
+
 def T = "10000"
 def cli = new CliBuilder(usage: 'CreateCdrHypermGraph file_with_cdrs path/to/output/dir')
 cli.p(args: 1, 'Number of threads. Default: all available processors.')
@@ -45,8 +47,8 @@ println "[${new Date()} $scriptName] Reading in clonotypes"
 new File(inputFileName).splitEachLine("\t") { line ->
     if (line[0].isInteger())
         cdr3Map.put(line[NT_SEQ_COL], [Double.parseDouble(line[PERC_COL]), line[AA_SEQ_COL],
-                line[V_GENE_COL], line[J_GENE_COL],
-                line[V_END_COL], line[J_START_COL]])
+                                       line[V_GENE_COL], line[J_GENE_COL],
+                                       line[V_END_COL], line[J_START_COL]])
 }
 
 def hypermGraph = Collections.synchronizedMap(new HashMap())
@@ -98,7 +100,7 @@ new File(outputPath + "/net.txt").withPrintWriter { pw1 ->
             String fromNt = it.key, toNt = it.value
             pw1.println(fromNt + "\t" + toNt)
             String aaseq1 = cdr3Map[fromNt][1], aaseq2 = cdr3Map[toNt][1]
-            def aaSubst = "-", codonSubst = "-"
+            def aaSubst = BLANK_FIELD, codonSubst = BLANK_FIELD
             for (int i = 0; i < aaseq1.size(); i++) {
                 String from = aaseq1.charAt(i), to = aaseq2.charAt(i)
                 if (from != to) {
@@ -112,7 +114,7 @@ new File(outputPath + "/net.txt").withPrintWriter { pw1 ->
                     codonSubst = fromNt.substring(ntPos, ntPos + 3) + "<>" + toNt.substring(ntPos, ntPos + 3)
                 }
             }
-            pw.println(it.key + " (pp) " + it.value + "\t" + (aaSubst != "-") + "\t" + aaSubst + "\t" + codonSubst)
+            pw.println(it.key + " (pp) " + it.value + "\t" + (aaSubst != BLANK_FIELD) + "\t" + aaSubst + "\t" + codonSubst)
         }
     }
 }

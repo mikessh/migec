@@ -80,7 +80,7 @@ def barcodesFileName = opt.arguments()[0],
     inputFileName2 = opt.arguments()[2],
     outputDir = opt.arguments()[3]
 def mmData = (opt.m ?: mm).split(":").collect { Double.parseDouble(it) }
-def paired = inputFileName2 != '-'
+def paired = inputFileName2 != BLANK_PATH
 
 if (overlap && !paired) {
     println "ERROR Overlap requested for unpaired reads"
@@ -392,7 +392,7 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
 def readQueue = new LinkedBlockingQueue<String[]>(4096)  // SINGLE: h1 r1 q1 ''       PAIRED: h1 r1 q1 h2 r2 q2 ''       ''
 def writeQueue = new LinkedBlockingQueue<String[]>(4096) // SINGLE: h1 r1 q1 sampleId PAIRED: h1 r1 q1 h2 r2 q2 sampleId overlapped
 
-def reader1 = Util.getReader(inputFileName1), reader2 = (inputFileName2 == '-') ? null : Util.getReader(inputFileName2)
+def reader1 = Util.getReader(inputFileName1), reader2 = (inputFileName2 == BLANK_PATH) ? null : Util.getReader(inputFileName2)
 def writers = new HashMap<String, BufferedWriter[]>()
 println "[${new Date()} $scriptName] Started processing for $inputFileName1, $inputFileName2"
 new File(outputDir).mkdir()
@@ -651,7 +651,7 @@ new HashSet(sampleIds).each { String sampleId -> // only unique
                 (paired ? new File("$outputDir/${sampleId}_R2.$fastqPrefix").absolutePath : BLANK_PATH))
         if (overlap)
             filelistWriter.println(sampleId + "\toverlapped\t" +
-                    new File("$outputDir/${sampleId}_R12.$fastqPrefix").absolutePath + "\t-")
+                    new File("$outputDir/${sampleId}_R12.$fastqPrefix").absolutePath + "\t$BLANK_PATH")
     }
 }
 

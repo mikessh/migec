@@ -1,5 +1,7 @@
 package com.milaboratory.migec
 
+import static com.milaboratory.migec.Util.BLANK_FIELD
+
 /**
  Copyright 2014 Mikhail Shugay (mikhail.shugay@gmail.com)
 
@@ -94,7 +96,7 @@ if (sampleFilterFileName) {
             }
 
             def sampleMask = splitLine.size() > 2 ? splitLine[2] : defaultMask
-            sampleMask = sampleMask == '-' ? defaultMask : sampleMask
+            sampleMask = sampleMask == BLANK_FIELD ? defaultMask : sampleMask
 
             if (sampleType.toUpperCase() == "paired" && !Util.MASKS.contains(sampleMask)) {
                 println "[ERROR] Bad assembly mask $sampleMask for paired reads. " +

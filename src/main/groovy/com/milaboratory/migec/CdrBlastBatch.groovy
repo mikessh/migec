@@ -1,5 +1,6 @@
 package com.milaboratory.migec
 
+import static com.milaboratory.migec.Util.BLANK_FIELD
 import static com.milaboratory.migec.Util.BLANK_PATH
 
 /**
@@ -167,9 +168,9 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     def splitLine = line.split("\t")
     def sampleId = splitLine[0],
         species = splitLine[1], chain = splitLine[2],
-        fileTypes = splitLine.length > 3 ? (splitLine[3] == '-' ? Util.FILE_TYPES.join(",") : splitLine[3]) : Util.FILE_TYPES.join(","),
-        mask = (splitLine.length > 4 ? (splitLine[4] == '-' ? "1:1" : splitLine[4]) : "1:1"),
-        qualityThreshold = splitLine.length > 5 ? (splitLine[5] == '-' ? null : splitLine[5]) : null
+        fileTypes = splitLine.length > 3 ? (splitLine[3] == BLANK_FIELD ? Util.FILE_TYPES.join(",") : splitLine[3]) : Util.FILE_TYPES.join(","),
+        mask = (splitLine.length > 4 ? (splitLine[4] == BLANK_FIELD ? "1:1" : splitLine[4]) : "1:1"),
+        qualityThreshold = splitLine.length > 5 ? (splitLine[5] == BLANK_FIELD ? null : splitLine[5]) : null
 
     qualityThreshold = qualityThreshold ? qualityThreshold.split(",") : null
     // todo: estimate q threshold by HistQ
@@ -257,13 +258,13 @@ logFile.withPrintWriter { pw ->
                             if (mask[0]) {
                                 rawFiles.add(correspondingFiles[0][0])
                                 assemblyFiles.add(correspondingFiles[1][0])
-                                if (correspondingFiles[1][0] != '-')
+                                if (correspondingFiles[1][0] != BLANK_PATH)
                                     zeroMask = false
                             }
                             if (mask[1]) {
                                 rawFiles.add(correspondingFiles[0][1])
                                 assemblyFiles.add(correspondingFiles[1][1])
-                                if (correspondingFiles[1][1] != '-')
+                                if (correspondingFiles[1][1] != BLANK_PATH)
                                     zeroMask = false
                             }
                             if (zeroMask) {
@@ -283,8 +284,8 @@ logFile.withPrintWriter { pw ->
             }
 
             // cleanup from masked files
-            assemblyFiles.removeAll { it == '-' }
-            rawFiles.removeAll { it == '-' }
+            assemblyFiles.removeAll { it == BLANK_PATH }
+            rawFiles.removeAll { it == BLANK_PATH }
 
             def baseArgs1 = [baseArgs, ["-R", chain], ["-S", species]]
 
