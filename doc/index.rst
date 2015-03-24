@@ -157,7 +157,8 @@ Table of contents:
 ==================
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
+
    checkout
    histogram
    assemble
