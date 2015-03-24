@@ -31,7 +31,7 @@ def cli = new CliBuilder(usage:
         "Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or ${BLANK_PATH}] output_dir/")
 cli.q(args: 1, argName: 'read quality (phred)',
         "barcode region quality threshold. Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
-cli._(longOpt: 'assembly-mask', args: 1, argName: 'X:Y, X=0/1, Y=0/1',
+cli._(longOpt: 'mask', args: 1, argName: 'X:Y, X=0/1, Y=0/1',
         "Mask for read(s) in pair that should be assembled. Default: \"$DEFAULT_ASSEMBLE_MASK\".")
 cli.p(args: 1,
         "number of threads to use. Default: all available processors")
@@ -112,7 +112,7 @@ boolean paired = inputFileName2 != BLANK_PATH
 def assemblyIndices = [true, false]
 boolean bothReads = false
 if (paired) {
-    def assemblyMask = (opt.'assembly-mask' ?: DEFAULT_ASSEMBLE_MASK).toString()
+    def assemblyMask = (opt.'mask' ?: DEFAULT_ASSEMBLE_MASK).toString()
     if (!Util.MASKS.any { it == assemblyMask }) {
         println "[ERROR] Bad mask $assemblyMask. Allowed masks for paired-end mode are ${Util.MASKS.join(", ")}"
         System.exit(-1)
@@ -121,7 +121,7 @@ if (paired) {
         println "[WARNING] Blank mask specified for paired-end data, skipping"
         System.exit(0)
     }
-    assemblyIndices = (opt.'assembly-mask' ?: DEFAULT_ASSEMBLE_MASK).split(":").collect { Integer.parseInt(it) > 0 }
+    assemblyIndices = (opt.'mask' ?: DEFAULT_ASSEMBLE_MASK).split(":").collect { Integer.parseInt(it) > 0 }
     bothReads = assemblyIndices[0] && assemblyIndices[1]
 }
 

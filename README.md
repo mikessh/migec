@@ -323,7 +323,7 @@ Automatic output file naming convention is used for compatibility with batch ope
 
 **Settings**
 
-The ```--assembly-mask <R1=[0,1]:R2=[0,1]>``` parameter indicates FASTQ files to be assembled in paired-end data. By default both reads are assembled. In case of ```0:0``` mask will process only overlapped reads.
+The ```--default-mask <R1=[0,1]:R2=[0,1]>``` parameter indicates FASTQ files to be assembled in paired-end data. By default both reads are assembled. In case of ```0:0``` mask will process only overlapped reads.
 
 The ```-c``` option indicates compressed output.
 
