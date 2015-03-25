@@ -16,27 +16,7 @@ is set properly, the entire pipeline can be written as following:
     $MIGEC CdrBlastBatch -R TRB checkout/ assemble/ cdrblast/
     $MIGEC FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
     
-Manual usage example
-~~~~~~~~~~~~~~~~~~~~
-
-An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM
-Unix server. Such sequencing read length allows complete IGH sequencing,
-thus mate pairs overlap. First *barcodes.txt* should be created
-containing adapter sequences, see the section below for guidelines.
-Then, assuming that the corresponding FASTQ files are
-*IGH\_SAMPLE\_R1.fastq.gz* and *IGH\_SAMPLE\_R2.fastq.gz*, UMI- and
-multiplex index-containing adapter is near 5'UTR of V segment (so the
-CDR3 is in mate#2 after reads are oriented) and NCBI-BLAST+ is
-installed, run all 5 stages of the pipeline using the following command:
-
-.. code:: bash
-
-    $MIGEC Checkout -cute --overlap barcodes.txt IGH_S1-10_R1.fastq.gz IGH_S1-10_R2.fastq.gz checkout/
-    $MIGEC Histogram checkout/ histogram/
-    $MIGEC Assemble -c --mask 0:0 checkout/S1_R12.fastq.gz . assembly/
-    $MIGEC CdrBlast -R IGH checkout/S1_R12.fastq.gz cdrblast/S1_raw.txt
-    $MIGEC CdrBlast -a -R IGH assembly/S1_R12.fastq.gz cdrblast/S1_asm.txt
-    $MIGEC FilterCdrBlastResults cdrblast/S1_asm.txt cdrblast/S1_raw.txt cdrfinal/S1.txt
+-----------
     
 De-multiplexing
 ~~~~~~~~~~~~~~~
@@ -198,10 +178,15 @@ slave adapter so that output reads will be on master strand.
 complement. Use it if unsure of your library structure.
 
 ``--skip-undef`` will not store reads that miss adapter sequence to save
-drive space. **NOTE** When there is a huge number of unassigned/unused
-reads this option greatly speeds up de-multiplexing. However, take care
-to carefully investigate the reasons behind low barcode extraction rate
-if it is a case.
+drive space. 
+
+.. note::
+
+    When there is a huge number of unassigned/unused reads ``--skip-undef`` option 
+    greatly speeds up de-multiplexing. However, take care to carefully investigate 
+    the reasons behind low barcode extraction rate if it is a case.
+
+-----------
 
 MIG statistics
 ~~~~~~~~~~~~~~
@@ -242,10 +227,12 @@ A simple plotting routine written in R can facilitate visualization of
 MIG size distributions, available
 `here <https://github.com/mikessh/migec/tree/master/util>`__.
 
+-----------
+
 Consensus assembly
 ~~~~~~~~~~~~~~~~~~
 
-Assemble-match
+Assemble-batch
 ^^^^^^^^^^^^^^
 
 **Description**
@@ -298,10 +285,11 @@ The ``--force-overseq X`` and ``--force-collision-filter`` will force a
 MIG size threshold of ``X`` and filtering of 1-mm UMI collisions for all
 samples being processed.
 
-**IMPORTANT** In most cases, the automatic MIG size threshold selected
-by Histogram routine is ok. However we strongly recommend manual
-inspection of Histogram output files and considering to manually specify
-an appropriate MIG size threshold for input samples.
+.. warning::
+
+    In most cases, the automatic MIG size threshold selected by Histogram routine is ok. 
+    However we strongly recommend manual inspection of Histogram output files and considering 
+    to manually specify an appropriate MIG size threshold for input samples.
 
 Assemble-manual
 ^^^^^^^^^^^^^^^
@@ -362,11 +350,15 @@ set according to Histogram script output to separate two peaks:
 over-sequenced MIGs and erroneous MIGs that cluster around MIG size of
 1.
 
-To inspect the effect of such single-mismatch erroneous UMI sub-variants
-see "collisions" output of Histogram script. Such collision events could
-interfere with real MIGs when over-sequencing is relatively low. In this
-case collisions could be filtered during MIG consensus assembly using
-``--filter-collisions`` option.
+.. note::
+    
+    To inspect the effect of such single-mismatch erroneous UMI sub-variants
+    see "collisions" output of Histogram script. Such collision events could
+    interfere with real MIGs when over-sequencing is relatively low. In this
+    case collisions could be filtered during MIG consensus assembly using
+    ``--filter-collisions`` option.
+
+-----------
 
 V(D)J junction mapping
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -376,15 +368,8 @@ CdrBlast-batch
 
 **Description**
 
-A script to perform UMI-guided assembly
-
-**Usage**
-
-General:
-
-.. code:: bash
-
-    java -jar migec.jar CdrBlastBatch [options] -R gene [checkout_output_folder/ or .] [assemble_output_folder/ or .] output_folder
+A script to extract CDR3 sequences. Will properly combine reads coming from 
+paired and overlapped data and perform analysis for both raw and assembled data.
 
 Performs CDR3 extraction and V/J segment determination for both raw
 (**Checkout** output) and assembled-data. Gene parameter ``-R`` is
@@ -398,6 +383,14 @@ types (paired, overlapped or single) that are present in both outputs
 will be used. Processing both raw and assembled data is required for
 second stage error correction (removal of hot-spot errors).
 
+**Usage**
+
+General:
+
+.. code:: bash
+
+    java -jar migec.jar CdrBlastBatch [options] -R gene [checkout_output_folder/ or .] [assemble_output_folder/ or .] output_folder
+
 Several default **CdrBlast** parameters could be set,
 
 ``--default-mask <R1=[0,1]:R2=[0,1]>`` - mask which specifies for which
@@ -408,6 +401,7 @@ default species to be used for all samples, *human* (used by default) or
 overlapped or single) to be processed for each sample. If several file
 types are specified, the corresponding raw and assembled files will be
 combined and used as an input to CdrBlast
+
 ``--default-quality-threshold <Phred=[2..40],CQS=[2..40]>`` - quality
 threshold pair, default for all samples. First threshold in pair is used
 for raw sequence quality (sequencing quality phred) and the second one
@@ -432,12 +426,14 @@ structure:
 | S2          | mouse     | TRB    | paired               | 0:1    | 20,25                    |
 +-------------+-----------+--------+----------------------+--------+--------------------------+
 
+See section below for more details.
+
 CdrBlast-manual
 ^^^^^^^^^^^^^^^
 
 **Description**
 
-A script to extract CDR3 sequences
+A script to map V-(D)-J junctions, extract CDR3 sequences and assemble clonotypes.
 
 **Usage**
 
@@ -480,6 +476,14 @@ To get a sorted output use ``-o`` option, otherwise sorting will be
 performed at **FilterCdrBlastResults** step. Note that both raw and
 assembled data should be processed to apply the last step of filtration.
 
+.. note::
+
+    In order to use all alleles, not just the major (*01 ones), use the
+    ``--all-alleles`` option. To include non-coding segments (V segment 
+    pseudogenes) use the ``--all-segments`` option.
+
+-----------
+
 Result filtering
 ~~~~~~~~~~~~~~~~
 
@@ -494,8 +498,6 @@ includes frequency-based filtering of singleton clonotypes (i.e.
 clonotypes represeted by a single MIG).
 
 **Usage**
-
-General:
 
 .. code:: bash
 
@@ -544,3 +546,27 @@ Other options:
 
 Now the file *S1.cdrblast.txt* contains a filtered and sorted CDR3/V/J
 clonotype table.
+
+-----------
+
+Manual usage example
+~~~~~~~~~~~~~~~~~~~~
+
+An example for a 300bp paired-end MiSeq run of IGH library on a 16Gb RAM
+Unix server. Such sequencing read length allows complete IGH sequencing,
+thus mate pairs overlap. First *barcodes.txt* should be created
+containing adapter sequences, see the section below for guidelines.
+Then, assuming that the corresponding FASTQ files are
+*IGH\_SAMPLE\_R1.fastq.gz* and *IGH\_SAMPLE\_R2.fastq.gz*, UMI- and
+multiplex index-containing adapter is near 5'UTR of V segment (so the
+CDR3 is in mate#2 after reads are oriented) and NCBI-BLAST+ is
+installed, run all 5 stages of the pipeline using the following command:
+
+.. code:: bash
+
+    $MIGEC Checkout -cute --overlap barcodes.txt IGH_S1-10_R1.fastq.gz IGH_S1-10_R2.fastq.gz checkout/
+    $MIGEC Histogram checkout/ histogram/
+    $MIGEC Assemble -c --mask 0:0 checkout/S1_R12.fastq.gz . assembly/
+    $MIGEC CdrBlast -R IGH checkout/S1_R12.fastq.gz cdrblast/S1_raw.txt
+    $MIGEC CdrBlast -a -R IGH assembly/S1_R12.fastq.gz cdrblast/S1_asm.txt
+    $MIGEC FilterCdrBlastResults cdrblast/S1_asm.txt cdrblast/S1_raw.txt cdrfinal/S1.txt
