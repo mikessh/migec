@@ -52,8 +52,14 @@ Table of contents:
 ==================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    install
    pipeline
+   checkout
+   histogram
+   assemble
+   cdrblast
+   cdrfinal
+   report
    post
