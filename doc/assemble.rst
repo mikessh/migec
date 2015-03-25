@@ -60,7 +60,9 @@ samples being processed.
 
     In most cases, the automatic MIG size threshold selected by Histogram routine is ok. 
     However we strongly recommend manual inspection of Histogram output files and considering 
-    to manually specify an appropriate MIG size threshold for input samples.
+    to manually specify an appropriate MIG size threshold for input samples. Our experience
+    also shows that it is a good practice to set an identical size threshold for all samples
+    in a batch.
 
 .. _assemblemanual:
 
