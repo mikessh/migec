@@ -14,7 +14,8 @@ To ran a specific script from the pipeline, say **Checkout**, execute
     java -jar MIGEC-$VERSION.jar Checkout [arguments]
 
 Where ``$VERSION`` stands for pipeline version (e.g. 1.2.1), this notation is 
-omitted in MIGEC routine documentation. 
+omitted in MIGEC routine documentation.
+
 To view the list of available scripts execute:
 
 .. code:: bash
@@ -30,6 +31,8 @@ using `Maven <http://maven.apache.org/>`__ (requires Maven version 3.0)
     cd MIGEC/
     mvn clean install
     java -jar target/MIGEC-$VERSION.jar
+    
+This should show you the list of available MIGEC routines.
 
 .. note:: 
 

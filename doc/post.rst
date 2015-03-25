@@ -1,7 +1,7 @@
 Post-processing
 ---------------
 
-You could additionally build a graph of hypermutations for the sample
+You can additionally build a graph of hypermutations for the sample
 using
 
 .. code:: bash

@@ -57,11 +57,3 @@ Table of contents:
    install
    pipeline
    post
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
