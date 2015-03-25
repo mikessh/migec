@@ -39,10 +39,10 @@ installed, run all 5 stages of the pipeline using the following command:
     $MIGEC FilterCdrBlastResults cdrblast/S1_asm.txt cdrblast/S1_raw.txt cdrfinal/S1.txt
     
 De-multiplexing
----------------
+~~~~~~~~~~~~~~~
 
 Checkout-batch
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 **Description**
 
@@ -89,7 +89,7 @@ The following rules apply:
 Same as in manual version of Checkout, see below.
 
 Checkout-manual
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 **Description**
 
@@ -204,7 +204,7 @@ to carefully investigate the reasons behind low barcode extraction rate
 if it is a case.
 
 MIG statistics
---------------
+~~~~~~~~~~~~~~
 
 **Description**
 
@@ -243,10 +243,10 @@ MIG size distributions, available
 `here <https://github.com/mikessh/migec/tree/master/util>`__.
 
 Consensus assembly
-------------------
+~~~~~~~~~~~~~~~~~~
 
 Assemble-match
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 **Description**
 
@@ -304,7 +304,7 @@ inspection of Histogram output files and considering to manually specify
 an appropriate MIG size threshold for input samples.
 
 Assemble-manual
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 **Description**
 
@@ -369,10 +369,10 @@ case collisions could be filtered during MIG consensus assembly using
 ``--filter-collisions`` option.
 
 V(D)J junction mapping
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 CdrBlast-batch
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 **Description**
 
@@ -433,7 +433,7 @@ structure:
 +-------------+-----------+--------+----------------------+--------+--------------------------+
 
 CdrBlast-manual
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 **Description**
 
@@ -481,10 +481,10 @@ performed at **FilterCdrBlastResults** step. Note that both raw and
 assembled data should be processed to apply the last step of filtration.
 
 Result filtering
-----------------
+~~~~~~~~~~~~~~~~
 
 FilterCdrBlastResults-batch
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Description**
 
@@ -505,7 +505,7 @@ Perform hot-spot error filtration for data process with
 **CdrBlastBatch**. Options are the same as for manual version below.
 
 FilterCdrBlastResults-manual
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Usage**
 
