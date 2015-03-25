@@ -1,4 +1,4 @@
-MIGEC: Molecular Identifier Group-based Error Correction pipeline
+MIGEC: Molecular Identifier Guided Error Correction pipeline
 =================================================================
 
 FEATURES

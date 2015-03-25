@@ -16,8 +16,7 @@ results will be excluded from the report.
 .. note::
     
     Running this command requires installing dependencies for R markdown compilation,
-    see 
-    ` <http://rmarkdown.rstudio.com/>`__.
+    see http://rmarkdown.rstudio.com/
     
 Alternatively, you can install 
 `Rstudio <http://www.rstudio.com/>`__ 
