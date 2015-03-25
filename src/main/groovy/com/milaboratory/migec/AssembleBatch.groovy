@@ -21,7 +21,7 @@ import static com.milaboratory.migec.Util.BLANK_FIELD
 def DEFAULT_ASSEMBLE_MASK = "1:1"
 def cli = new CliBuilder(usage: 'AssembleBatch [options] checkout_dir/ histogram_dir/ output_dir/')
 cli.p(args: 1, 'number of threads to use')
-cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-info")
+cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-metadata")
 cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
         "A tab-delimited file indicating which samples to process and containing three columns:\n" +
                 "sample_name (tab) file_type (tab) mask\n" +
@@ -148,7 +148,7 @@ logFile.withPrintWriter { pw ->
                         baseArgs,
                         ['-m', overseqThreshold],
                         ['-q', umiQualThreshold],
-                        ['--assembly-mask', mask]
+                        ['--mask', mask]
                 ]
 
                 if (filterCollisions)
