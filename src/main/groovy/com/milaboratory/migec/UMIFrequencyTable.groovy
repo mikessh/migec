@@ -19,7 +19,7 @@ package com.milaboratory.migec
 //========================
 //          CLI
 //========================
-def cli = new CliBuilder(usage: 'UMIFrequencyTable [options] input.fastq[.gz] output')
+def cli = new CliBuilder(usage: 'UmiFrequencyTable [options] input.fastq[.gz] output')
 def scriptName = getClass().canonicalName
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
