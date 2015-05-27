@@ -28,11 +28,17 @@ def checkoutPath = opt.c ?: "checkout/", histogramPath = opt.h ?: "histogram/",
 
 def rmdLines = new InputStreamReader(this.class.classLoader.getResourceAsStream("migec_summary.Rmd")).readLines().join("\n")
 
-rmdLines = rmdLines.replace("__checkout__", checkoutPath)
-rmdLines = rmdLines.replace("__histogram__", histogramPath)
-rmdLines = rmdLines.replace("__assemble__", assemblePath)
-rmdLines = rmdLines.replace("__cdrblast__", cdrBlastPath)
-rmdLines = rmdLines.replace("__cdrfinal__", cdrFinalPath)
+def replacePath = { String module, String path ->
+    new File(path).exists() ?
+            rmdLines.replace("__${module}__", path) :
+            rmdLines.replace("\"__${module}__\"", "NULL")
+}
+
+rmdLines = replacePath("checkout", checkoutPath)
+rmdLines = replacePath("histogram", histogramPath)
+rmdLines = replacePath("assemble", assemblePath)
+rmdLines = replacePath("cdrblast", cdrBlastPath)
+rmdLines = replacePath("cdrfinal", cdrFinalPath)
 
 if (new File(outputPath).isDirectory())
     outputPath += "/migec_summary.Rmd"
@@ -48,11 +54,23 @@ def scriptOutputPath = outputPath + ".generate.R"
 new File(scriptOutputPath).withPrintWriter { pw ->
     pw.println(
             "require(\"rmarkdown\")\n" +
-            "render(\"$outputPath\")"
+                    "render(\"$outputPath\")"
     )
 }
 
-"Rscript $scriptOutputPath".execute().waitFor()
+def proc = "Rscript $scriptOutputPath".execute()
 
-new File(scriptOutputPath).delete()
-new File(outputPath).delete()
+proc.in.eachLine {
+    println(it)
+}
+
+proc.out.close()
+proc.waitFor()
+
+if (proc.exitValue()) {
+    println "[ERROR] See log below:\n${proc.getErrorStream()}"
+    println "[NOTE] Intermediate files were not deleted"
+} else {
+    new File(scriptOutputPath).delete()
+    new File(outputPath).delete()
+}

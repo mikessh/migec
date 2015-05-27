@@ -22,6 +22,9 @@ histogram_path = "__histogram__"
 assemble_path  = "__assemble__"
 cdrblast_path  = "__cdrblast__"
 cdrfinal_path  = "__cdrfinal__"
+
+# packages
+require(plyr); require(RColorBrewer); require(ggplot2); require(reshape); require(scales)
 ```
 
 ## Step I: Checkout
@@ -36,8 +39,6 @@ message(ifelse(!(is.null(checkout_path)), readLines(paste(checkout_path, "/check
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-require(ggplot2); require(reshape);
-
 # load and groom data
 if (!is.null(checkout_path)) {
 df <- read.table(paste(checkout_path, "/checkout.log.txt", sep = "/"), header=T, comment ="", row.names = NULL)
@@ -135,8 +136,6 @@ Below is the plot of MIG size distribution that was used to estimate MIG size th
 > Note that the distribution is itself weighted by the number of reads to highlight the mean coverage value and to reflect the percent of reads that will be retained for a given MIG size threshold.
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-require(plyr); require(RColorBrewer)
-
 p<-"Nothing to plot"
 if (!(is.null(histogram_path))) {
 df <- read.table(paste(histogram_path, "/overseq.txt", sep = "/"), header=T, comment ="")
@@ -202,8 +201,6 @@ message(ifelse(!(is.null(assemble_path)), readLines(paste(assemble_path, "/assem
 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-require(scales)
-
 if (!is.null(assemble_path)) {
 df <- read.table(paste(assemble_path, "/assemble.log.txt", sep = "/"), header=T, comment ="")
 df <- data.frame(sample <- df$X.SAMPLE_ID, 
@@ -317,7 +314,7 @@ df.m <- data.frame(sample = df$X.SAMPLE_ID, type = df$DATA_TYPE,
                  map.rate = df$EVENTS_MAPPED / df$EVENTS_TOTAL)
 
 df.m$metric <- as.factor("mig")
-df.m <- df.m[- grep("raw", df.m$type),]
+df.m <- subset(df.m, df.m$type == "asm")
 lvl <- df.m[order(df.m$final.count), "sample"]
 
 df.r <- data.frame(sample = df$X.SAMPLE_ID, type = df$DATA_TYPE,
