@@ -17,7 +17,7 @@ List of MIGEC batch routines:
 If the "barcodes" file is set properly, 
 the entire pipeline can be written as following:
 
-.. code:: bash
+.. code-block:: bash
 
     MIGEC="java -Xmx8G -jar MIGEC-$VERSION.jar"
     $MIGEC CheckoutBatch -cu barcodes.txt checkout/
@@ -47,7 +47,7 @@ multiplex index-containing adapter is near 5'UTR of V segment (so the
 CDR3 is in mate#2 after reads are oriented) and NCBI-BLAST+ is
 installed, run all 5 stages of the pipeline using the following command:
 
-.. code:: bash
+.. code-block:: bash
 
     $MIGEC Checkout -cute --overlap barcodes.txt IGH_S1-10_R1.fastq.gz IGH_S1-10_R2.fastq.gz checkout/
     $MIGEC Histogram checkout/ histogram/
@@ -55,3 +55,8 @@ installed, run all 5 stages of the pipeline using the following command:
     $MIGEC CdrBlast -R IGH checkout/S1_R12.fastq.gz cdrblast/S1_raw.txt
     $MIGEC CdrBlast -a -R IGH assembly/S1_R12.fastq.gz cdrblast/S1_asm.txt
     $MIGEC FilterCdrBlastResults cdrblast/S1_asm.txt cdrblast/S1_raw.txt cdrfinal/S1.txt
+    
+.. note::
+    
+    As dot (`.`) is reserved by MIGEC to specify empty metadata fields and 
+    unused arguments, use `./` in case you want to point to current directory.
