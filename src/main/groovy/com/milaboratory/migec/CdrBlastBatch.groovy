@@ -138,6 +138,10 @@ if (processAssembled) {
 def sampleInfoMap = new HashMap()
 List<String> sampleInfoLines = []
 
+def defaultMask = opt.'default-mask' ?: "1:1", defaultSpecies = opt.'default-species' ?: "homosapiens",
+    defaultFileTypes = opt.'default-file-types' ?: Util.FILE_TYPES.join(","),
+    defaultQualityThreshold = opt.'default-quality-threshold' ?: "25,30", defaultChain = opt.R
+
 if (sampleInfoFileName) {
     // Read sample metadata
     def chainsFile = new File(sampleInfoFileName)
@@ -150,10 +154,6 @@ if (sampleInfoFileName) {
     sampleInfoLines = chainsFile.readLines()
 } else {
     // Or generate it from default parameters
-    def defaultMask = opt.'default-mask' ?: "1:1", defaultSpecies = opt.'default-species' ?: "homosapiens",
-        defaultFileTypes = opt.'default-file-types' ?: Util.FILE_TYPES.join(","),
-        defaultQualityThreshold = opt.'default-quality-threshold' ?: "25,30", defaultChain = opt.R
-
     def defaultParameters = [defaultSpecies, defaultChain,
                              defaultFileTypes, defaultMask, defaultQualityThreshold].join("\t")
 
@@ -166,14 +166,20 @@ if (sampleInfoFileName) {
 // CHECK SAMPLE METADATA
 sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     def splitLine = line.split("\t")
+
+    if (splitLine.length < 3) {
+        println "[ERROR] Bad metadata line $line. Missing required fields."
+        System.exit(-1)
+    }
+
     def sampleId = splitLine[0],
         species = splitLine[1], chain = splitLine[2],
-        fileTypes = splitLine.length > 3 ? (splitLine[3] == BLANK_FIELD ? Util.FILE_TYPES.join(",") : splitLine[3]) : Util.FILE_TYPES.join(","),
-        mask = (splitLine.length > 4 ? (splitLine[4] == BLANK_FIELD ? "1:1" : splitLine[4]) : "1:1"),
-        qualityThreshold = splitLine.length > 5 ? (splitLine[5] == BLANK_FIELD ? null : splitLine[5]) : null
-
-    qualityThreshold = qualityThreshold ? qualityThreshold.split(",") : null
-    // todo: estimate q threshold by HistQ
+        fileTypes = splitLine.length > 3 ?
+                (splitLine[3] == BLANK_FIELD ? defaultFileTypes : splitLine[3]) : defaultFileTypes,
+        mask = (splitLine.length > 4 ?
+                (splitLine[4] == BLANK_FIELD ? defaultMask : splitLine[4]) : defaultMask),
+        qualityThreshold = (splitLine.length > 5 ?
+                (splitLine[5] == BLANK_FIELD ? defaultQualityThreshold : splitLine[5]) : defaultQualityThreshold).split(",")
 
     if (!Util.isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
         println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
