@@ -336,12 +336,13 @@ class Util {
             System.exit(-1)
         }
         String umi = umiEntry.split(":")[1] // quality can contain :
-        for (int i = umiEntry.length() - umi.length(); i < umiEntry.length(); i++)
-            if (qualFromSymbol(umiEntry.charAt(i)) < umiQualThreshold)
+        for (int i = umiEntry.length() - umi.length(); i < umiEntry.length(); i++) {
+            if (qualFromSymbol(umiEntry.charAt(i)) < umiQualThreshold) {
                 return null
-        if (umi =~ /^[ATGC]+$/)
-            umi
-        null
+            }
+        }
+
+        umi =~ /^[ATGC]+$/ ? umi : null
     }
 
     /*
