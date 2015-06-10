@@ -339,7 +339,9 @@ class Util {
         for (int i = umiEntry.length() - umi.length(); i < umiEntry.length(); i++)
             if (qualFromSymbol(umiEntry.charAt(i)) < umiQualThreshold)
                 return null
-        umi
+        if (umi =~ /^[ATGC]+$/)
+            umi
+        null
     }
 
     /*
