@@ -139,7 +139,7 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                         char[] umi = umiEntry.key.toCharArray()
                                         boolean good = true
 
-                                        loops:
+                                        //loops:
                                         for (int i = 0; i < umi.length; i++) {
                                             char prevChar = umi[i]
                                             for (int j = 0; j < 4; j++) {
@@ -151,10 +151,17 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                                         collisionHist.addAndGet(bin, thisCount)
                                                         collisionHistUnits.incrementAndGet(bin)
                                                         good = false
-                                                        break loops // let's not over-count collisions
+                                                        break
+                                                        //break loops // let's not over-count collisions
                                                     }
                                                 }
                                             }
+
+                                            // Looks like groovy compiler sometimes fails
+                                            // with break-label
+                                            if (!good)
+                                                break
+                                            
                                             umi[i] = prevChar
                                         }
 
