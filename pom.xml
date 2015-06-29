@@ -4,7 +4,7 @@
 
     <groupId>com.milaboratory</groupId>
     <artifactId>migec</artifactId>
-    <version>1.2.1a</version>
+    <version>1.2.1b-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>migec</name>
