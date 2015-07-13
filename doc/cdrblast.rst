@@ -56,15 +56,15 @@ A sample metadata file could also be provided with
 extraction. This file should have the following tab-separated table
 structure:
 
-+-------------+-----------+--------+----------------------+--------+--------------------------+
-| Sample ID   | Species   | Gene   | File types           | Mask   | Quality threshold pair   |
-+=============+===========+========+======================+========+==========================+
-| S0          | human     | TRA    | paired, overlapped   | 1:0    | 25,30                    |
-+-------------+-----------+--------+----------------------+--------+--------------------------+
-| S1          | human     | TRB    | unpaired             | -      | 25,30                    |
-+-------------+-----------+--------+----------------------+--------+--------------------------+
-| S2          | mouse     | TRB    | paired               | 0:1    | 20,25                    |
-+-------------+-----------+--------+----------------------+--------+--------------------------+
++-------------+-----------+---------+----------------------+--------+--------------------------+
+| Sample ID   | Species   | Gene    | File types           | Mask   | Quality threshold pair   |
++=============+===========+=========+======================+========+==========================+
+| S0          | human     | TRA     | paired, overlapped   | 1:0    | 25,30                    |
++-------------+-----------+---------+----------------------+--------+--------------------------+
+| S1          | human     | TRB     | unpaired             | -      | 25,30                    |
++-------------+-----------+---------+----------------------+--------+--------------------------+
+| S2          | mouse     | TRB,TRA | paired               | 0:1    | 20,25                    |
++-------------+-----------+--------=+----------------------+--------+--------------------------+
 
 See section below for more details.
 
@@ -107,7 +107,8 @@ to concatenate and process two or more FASTQ files at once:
     java -jar migec.jar CdrBlast -R TRA checkout/S1_R2.fastq.gz checkout/S2_R2.fastq.gz cdrblast/S12_raw.cdrblast.txt
 
 Gene parameter ``-R`` is required, supported genes are *TRA*, *TRB*,
-*TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Species could be provided with
+*TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Several chains can be specified, 
+for example ``-R TRA,TRB`` or ``-R IGH,IGL``. Species could be provided with
 ``-S`` parameter, by default uses *HomoSapiens*, supported species are
 *HomoSapiens*, *MusMusculus* and others. Assembled data should be passed
 to the script with ``-a`` option. ``--same-sample`` option should be
