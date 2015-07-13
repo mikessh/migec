@@ -210,11 +210,11 @@ def vAlleles = new ArrayList<Allele>(), jAlleles = new ArrayList<Allele>(),
     dAlleles = new ArrayList<Allele>()
 def collapseAlleleMap = new HashMap<String, Allele>()
 
-def resFile = Util.getSegmentsFile(includeNonFuncitonal, includeAlleles)
-
 chains.each { chain ->
     println "${timestamp()} Loading ${chain} Variable and Joining segment data"
 
+    def resFile = Util.getSegmentsFile(includeNonFuncitonal, includeAlleles)
+    
     resFile.splitEachLine("\t") {
         if (species.toUpperCase() == it[0].toUpperCase() &&
                 chain.toUpperCase() == it[1].toUpperCase()) { // Take only alleles of a given chain and species
