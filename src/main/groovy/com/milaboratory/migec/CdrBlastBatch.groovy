@@ -181,13 +181,15 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
         qualityThreshold = (splitLine.length > 5 ?
                 (splitLine[5] == BLANK_FIELD ? defaultQualityThreshold : splitLine[5]) : defaultQualityThreshold).split(",")
 
+    /*
+    This will be checked at CdrBlast side
     if (!Util.isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
         println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
                 "(include non-functional = $includeNonFuncitonal). " +
                 "Possible variants are:\n"
         Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
         System.exit(-1)
-    }
+    }*/
     if (!Util.MASKS.any { mask == it }) {
         println "[ERROR] Bad mask $mask on line $line. Supported masks are ${Util.MASKS.join(", ")}"
         System.exit(-1)
