@@ -35,8 +35,9 @@ import static com.milaboratory.migec.Util.BLANK_PATH
 def cli = new CliBuilder(usage: "CdrBlast [options] reads1.fastq[.gz] [reads2.fastq[.gz] ...] output_file\n" +
         "NOTE: NCBI-BLAST+ package required")
 cli.h("usage")
-cli.R(args: 1, argName: "gene",
+cli.R(args: 1, argName: "gene[,gene2,...]",
         "Receptor gene: 'TRA', 'TRB', 'TRG', 'TRD',  'IGL', 'IGK' or 'IGH' [required]. " +
+                "Can be a comma-separated list of genes. " +
                 "Use --print-library to print the list of allowed species-gene combinations.")
 cli.S(args: 1, argName: "species",
         "Species: 'HomoSapiens'[default], 'MusMusculus', ... " +
@@ -108,19 +109,23 @@ if (!opt.R) {
     System.exit(-1)
 }
 
-String chain = opt.R, species = opt.S ?: "HomoSapiens"
+String chainOpt = opt.R, species = opt.S ?: "HomoSapiens"
 
-if (!chain) {
+if (!chainOpt) {
     println "[ERROR] Chain argument is required for CdrBlast"
     System.exit(-1)
 }
 
-if (!Util.isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
-    println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
-            "(include non-functional = $includeNonFuncitonal). " +
-            "Possible variants are:\n"
-    Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
-    System.exit(-1)
+def chains = chainOpt.split(",")
+
+chains.each { chain ->
+    if (!Util.isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
+        println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
+                "(include non-functional = $includeNonFuncitonal). " +
+                "Possible variants are:\n"
+        Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
+        System.exit(-1)
+    }
 }
 
 // SYSTEM
@@ -199,7 +204,6 @@ int qualThreshold = opt.q ? Integer.parseInt(opt.q) : (opt.a ? 30 : 25),
 /////////////////////////////////////////////////////////////
 // Stage 0: Pre-load segment information. Set up aligners //
 ///////////////////////////////////////////////////////////
-println "${timestamp()} Loading ${chain} Variable and Joining segment data"
 
 def segments = new HashMap<String, Segment>(), alleles = new HashMap<String, Allele>()
 def vAlleles = new ArrayList<Allele>(), jAlleles = new ArrayList<Allele>(),
@@ -208,91 +212,96 @@ def collapseAlleleMap = new HashMap<String, Allele>()
 
 def resFile = Util.getSegmentsFile(includeNonFuncitonal, includeAlleles)
 
-resFile.splitEachLine("\t") {
-    if (species.toUpperCase() == it[0].toUpperCase() &&
-            chain.toUpperCase() == it[1].toUpperCase()) { // Take only alleles of a given chain and species
-        def type = it[2].charAt(0).toUpperCase(), seq = it[5], refPoint = Integer.parseInt(it[4])
+chains.each { chain ->
+    println "${timestamp()} Loading ${chain} Variable and Joining segment data"
 
-        if (type == "D") {
-            // Simply store D alleles
-            dAlleles.add(new Allele(alleleId: it[3],
-                    segmentId: it[3].split("[*]")[0],
-                    seq: seq))
-            // note that D segment could have different strand
-            dAlleles.add(new Allele(alleleId: it[3],
-                    segmentId: it[3].split("[*]")[0],
-                    seq: Util.revCompl(seq)))
-        } else {
-            // More complex processing for V/J alleles
-            // Mask all except seed region
-            seq = seq.toLowerCase()
-            seq = seq.toCharArray()
-            int tailFrom = (type == "V" ? ALLELE_SEED_OUTER : ALLELE_SEED_INNER),
-                tailTo = (type == "V" ? ALLELE_SEED_INNER : ALLELE_SEED_OUTER)
-            for (int i = -tailFrom; i < tailTo; i++)
-                if (refPoint + i >= 0 && refPoint + i < seq.length)
-                    seq[refPoint + i] = seq[refPoint + i].toUpperCase()
-            seq = new String(seq)
+    resFile.splitEachLine("\t") {
+        if (species.toUpperCase() == it[0].toUpperCase() &&
+                chain.toUpperCase() == it[1].toUpperCase()) { // Take only alleles of a given chain and species
+            def type = it[2].charAt(0).toUpperCase(), seq = it[5], refPoint = Integer.parseInt(it[4])
 
-            // Trim extending tails of alleles which are not covered by read
-            if (type == "V") {
-                if (ALLELE_TAIL_V_MAX <= refPoint) {
-                    seq = seq.substring(refPoint - ALLELE_TAIL_V_MAX)
-                    refPoint = ALLELE_TAIL_V_MAX
+            if (type == "D") {
+                // Simply store D alleles
+                dAlleles.add(new Allele(alleleId: it[3],
+                        segmentId: it[3].split("[*]")[0],
+                        seq: seq))
+                // note that D segment could have different strand
+                dAlleles.add(new Allele(alleleId: it[3],
+                        segmentId: it[3].split("[*]")[0],
+                        seq: Util.revCompl(seq)))
+            } else {
+                // More complex processing for V/J alleles
+                // Mask all except seed region
+                seq = seq.toLowerCase()
+                seq = seq.toCharArray()
+                int tailFrom = (type == "V" ? ALLELE_SEED_OUTER : ALLELE_SEED_INNER),
+                        tailTo = (type == "V" ? ALLELE_SEED_INNER : ALLELE_SEED_OUTER)
+                for (int i = -tailFrom; i < tailTo; i++)
+                    if (refPoint + i >= 0 && refPoint + i < seq.length)
+                        seq[refPoint + i] = seq[refPoint + i].toUpperCase()
+                seq = new String(seq)
+
+                // Trim extending tails of alleles which are not covered by read
+                if (type == "V") {
+                    if (ALLELE_TAIL_V_MAX <= refPoint) {
+                        seq = seq.substring(refPoint - ALLELE_TAIL_V_MAX)
+                        refPoint = ALLELE_TAIL_V_MAX
+                    }
+                } else
+                    seq = seq.substring(0, Math.min(refPoint + ALLELE_TAIL_J_MAX + 1, seq.length()))
+
+                def allele = collapseAlleleMap[seq] // Collapse alleles with identical sequences
+                boolean newAllele = allele == null
+                if (newAllele) {
+                    // it[0] - species
+                    allele = new Allele(alleleId: it[3], segmentId: it[3].split("[*]")[0],
+                            refPoint: refPoint,
+                            seq: seq,
+                            type: type)
+                    collapseAlleleMap.put(seq, allele)
+                } else
+                    allele.alleleId += "," + it[3]
+
+                if (newAllele) {
+                    // V and J alleles separately - for alignment code simplicity
+                    if (allele.type == "V")
+                        vAlleles.add(allele)
+                    else
+                        jAlleles.add(allele)
+
+                    // Segment info - for allele frequencies
+                    def segment = segments[allele.segmentId]
+                    if (segment == null)
+                        segment = new Segment(id: allele.segmentId, type: allele.type)
+                    segment.alleles.add(allele)
+                    segments.put(segment.id, segment)
                 }
-            } else
-                seq = seq.substring(0, Math.min(refPoint + ALLELE_TAIL_J_MAX + 1, seq.length()))
-
-            def allele = collapseAlleleMap[seq] // Collapse alleles with identical sequences
-            boolean newAllele = allele == null
-            if (newAllele) {
-                // it[0] - species
-                allele = new Allele(alleleId: it[3], segmentId: it[3].split("[*]")[0],
-                        refPoint: refPoint,
-                        seq: seq,
-                        type: type)
-                collapseAlleleMap.put(seq, allele)
-            } else
-                allele.alleleId += "," + it[3]
-
-            if (newAllele) {
-                // V and J alleles separately - for alignment code simplicity
-                if (allele.type == "V")
-                    vAlleles.add(allele)
-                else
-                    jAlleles.add(allele)
-
-                // Segment info - for allele frequencies
-                def segment = segments[allele.segmentId]
-                if (segment == null)
-                    segment = new Segment(id: allele.segmentId, type: allele.type)
-                segment.alleles.add(allele)
-                segments.put(segment.id, segment)
             }
         }
     }
-}
 
-collapseAlleleMap.values().each {
-    alleles.put(it.alleleId, it)
+    collapseAlleleMap.values().each {
+        alleles.put(it.alleleId, it)
+    }
 }
 
 // Set up segment alignment
 // Make blast db
+def chainSign = chains.join("+")
 ["V", "J"].each { seg ->
-    println "${timestamp()} Generating BLAST database for $chain $seg"
-    new File("$TMP_FOLDER/${chain}_${seg}.fa").withPrintWriter { pw ->
+    println "${timestamp()} Generating BLAST database for $chainSign $seg"
+    new File("$TMP_FOLDER/${chainSign}_${seg}.fa").withPrintWriter { pw ->
         alleles.each { allele ->
             if (allele.value.type == seg)
                 pw.println(">$allele.key\n$allele.value.seq")
         }
     }
 
-    ("${blastPath}convert2blastmask -in $TMP_FOLDER/${chain}_${seg}.fa -out $TMP_FOLDER/${chain}_${seg}.msk " +
+    ("${blastPath}convert2blastmask -in $TMP_FOLDER/${chainSign}_${seg}.fa -out $TMP_FOLDER/${chainSign}_${seg}.msk " +
             "-masking_algorithm 'CDRBLAST' -masking_options 'NA'").execute().waitFor()
 
-    ("${blastPath}makeblastdb -in $TMP_FOLDER/${chain}_${seg}.fa -mask_data $TMP_FOLDER/${chain}_${seg}.msk " +
-            "-dbtype nucl -out $TMP_FOLDER/${chain}_${seg}").execute().waitFor()
+    ("${blastPath}makeblastdb -in $TMP_FOLDER/${chainSign}_${seg}.fa -mask_data $TMP_FOLDER/${chainSign}_${seg}.msk " +
+            "-dbtype nucl -out $TMP_FOLDER/${chainSign}_${seg}").execute().waitFor()
 }
 
 // D segment searcher
@@ -351,9 +360,9 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
 }
 
 ["V", "J"].each { seg -> // run blast for v and j segments separately
-    println "${timestamp()} Pre-aligning $chain $seg segment with BLAST <$THREADS threads>"
+    println "${timestamp()} Pre-aligning $chainSign $seg segment with BLAST <$THREADS threads>"
     def blastProcs = (0..(THREADS - 1)).collect { p ->
-        def blastOutFname = "${queryFilePrefix}_${chain}_${seg}_${p}.blast" // temp
+        def blastOutFname = "${queryFilePrefix}_${chainSign}_${seg}_${p}.blast" // temp
         //if (!DEBUG)
         //    new File(blastOutFname).deleteOnExit()
 
@@ -363,12 +372,12 @@ for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
                         BLAST_FLAGS.split(" "),
                         "-gapopen", "$GAP_OPEN", "-gapextend", "$GAP_EXTEND",
                         "-word_size", "$WORD_SIZE", "-reward", "$REWARD", "-penalty", "$PENALTY",
-                        "-db", "$TMP_FOLDER/${chain}_${seg}",
+                        "-db", "$TMP_FOLDER/${chainSign}_${seg}",
                         "-max_target_seqs", "$TOP_SEQS", "-out", "$blastOutFname"]
 
         blastCmd = [blastCmd, "-outfmt", "6 qseqid sseqid qstart qend sstart send qseq sseq nident"].flatten()
         blastCmd.execute()
-        //"bash $TMP_FOLDER/runblast.sh ${queryFilePrefix}_${p}.fa $TMP_FOLDER/${chain}_${seg} $blastOutFname".execute()
+        //"bash $TMP_FOLDER/runblast.sh ${queryFilePrefix}_${p}.fa $TMP_FOLDER/${chainSign}_${seg} $blastOutFname".execute()
     }
 
     blastProcs.each { it.waitFor() }  // This is the only way to parallelize blast
@@ -388,7 +397,7 @@ def vMappingData = new HashMap<Integer, BlastResult>(),
 println "${timestamp()} Reading in BLAST results"
 ["V", "J"].eachWithIndex { segment, ind -> // parse blast output
     (0..<THREADS).each { p ->
-        new File("${queryFilePrefix}_${chain}_${segment}_${p}.blast").splitEachLine("\t") { line ->
+        new File("${queryFilePrefix}_${chainSign}_${segment}_${p}.blast").splitEachLine("\t") { line ->
             int nIdent = Integer.parseInt(line[8])
             if (nIdent >= MIN_SEGMENT_IDENT) {
                 def id = Integer.parseInt(line[0])
