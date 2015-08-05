@@ -72,6 +72,8 @@ cli._(longOpt: "debug",
 cli._(longOpt: "cdr3-fastq-file", args: 1, argName: "file",
         "Store reads with extracted CDR3, appends CDR3 data in header. " +
                 "Needed for 'com.milaboratory.migec.post.GroupByCdr' script.")
+cli._(longOpt: "unmapped-fastq-file", args: 1, argName: "file",
+        "Store reads with unmapped CDR3.")
 cli._(longOpt: "cdr3-umi-table", args: 1, argName: "file",
         "Stores UMIs and their associated clonotypes. Only applicable with -a option.")
 cli._(longOpt: "log-file", args: 1, argName: "file",
@@ -191,7 +193,8 @@ boolean overwriteLog = opt.'log-overwrite'
 String sampleName = opt.'log-sample-name' ?: "N/A"
 
 // PARAMETERS
-def cdr3FastqFile = opt.'cdr3-fastq-file', cdr3UmiTable = opt.'cdr3-umi-table'
+def cdr3FastqFile = opt.'cdr3-fastq-file', cdr3UmiTable = opt.'cdr3-umi-table',
+    unmappedFastqFile = opt.'unmapped-fastq-file'
 
 boolean strictNcHandling = opt.'strict-nc-handling',
         assembledInput = opt.a,
@@ -214,7 +217,7 @@ chains.each { chain ->
     println "${timestamp()} Loading ${chain} Variable and Joining segment data"
 
     def resFile = Util.getSegmentsFile(includeNonFuncitonal, includeAlleles)
-    
+
     resFile.splitEachLine("\t") {
         if (species.toUpperCase() == it[0].toUpperCase() &&
                 chain.toUpperCase() == it[1].toUpperCase()) { // Take only alleles of a given chain and species
@@ -235,7 +238,7 @@ chains.each { chain ->
                 seq = seq.toLowerCase()
                 seq = seq.toCharArray()
                 int tailFrom = (type == "V" ? ALLELE_SEED_OUTER : ALLELE_SEED_INNER),
-                        tailTo = (type == "V" ? ALLELE_SEED_INNER : ALLELE_SEED_OUTER)
+                    tailTo = (type == "V" ? ALLELE_SEED_INNER : ALLELE_SEED_OUTER)
                 for (int i = -tailFrom; i < tailTo; i++)
                     if (refPoint + i >= 0 && refPoint + i < seq.length)
                         seq[refPoint + i] = seq[refPoint + i].toUpperCase()
@@ -610,6 +613,7 @@ if (!dAlleles.empty) {
 counter = 0
 int goodReads = 0, goodEvents = 0, mappedReads = 0, mappedEvents = 0, totalReads = 0, totalEvents = 0
 def writerCdr3Fastq = cdr3FastqFile ? Util.getWriter(cdr3FastqFile) : null,
+    writerUnmapped3Fastq = unmappedFastqFile ? Util.getWriter(unmappedFastqFile) : null,
     writerCdr3Umi = assembledInput && cdr3UmiTable ? Util.getWriter(cdr3UmiTable) : null
 
 if (writerCdr3Umi)
@@ -620,91 +624,92 @@ def usedUmis = new HashSet<String>()
 inputFileNames.each { inputFileName ->
     println "${timestamp()} Appending read data from $inputFileName"
     def reader = Util.getReader(inputFileName)
-    new File(TMP_FOLDER + "/bad_reads.txt").withPrintWriter { pw ->
-        while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
-            def seq = reader.readLine()
-            reader.readLine()
-            def qual = reader.readLine(), oldQual = qual
-            int id = seqMap[seq]  // get unique read sequence identifier
-            def clonotypeData = readId2ClonotypeData[id] // corresponding CDR3 extraction result
+    while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
+        def seq = reader.readLine()
+        reader.readLine()
+        def qual = reader.readLine(), oldQual = qual
+        int id = seqMap[seq]  // get unique read sequence identifier
+        def clonotypeData = readId2ClonotypeData[id] // corresponding CDR3 extraction result
 
-            int increment = 1
-            String umi
-            boolean duplicateUmi = false
+        int increment = 1
+        String umi
+        boolean duplicateUmi = false
 
-            if (assembledInput) {
-                def splitHeader = header.split("[@ ]")
-                def umiFields = splitHeader.find { it.startsWith("UMI") }.split(":")
-                umi = umiFields[1]
-                increment = Integer.parseInt(umiFields[2])
+        if (assembledInput) {
+            def splitHeader = header.split("[@ ]")
+            def umiFields = splitHeader.find { it.startsWith("UMI") }.split(":")
+            umi = umiFields[1]
+            increment = Integer.parseInt(umiFields[2])
+        }
+
+        // Has CDR3
+        if (clonotypeData != null) {
+            if (clonotypeData.rc) // found in RC
+                qual = qual.reverse()
+
+            qual = qual.substring(clonotypeData.cdrFrom, clonotypeData.cdrTo)
+
+            // Increment counters if quality is good
+            if (Util.minQual(qual) >= qualThreshold) {
+                if (assembledInput && sameSample) {
+                    def umiCdr = umi + "_" + clonotypeData.cdr3Seq
+                    duplicateUmi = usedUmis.contains(umi)
+                    if (!duplicateUmi)
+                        usedUmis.add(umiCdr)
+                }
+
+                if (!duplicateUmi) {
+                    // Protect from duplicate counting when UMI overlap
+                    clonotypeData.counts[0]++
+                }
+                goodEvents++
+
+                clonotypeData.counts[2] += increment
+                goodReads += increment
+
+                if (cdr3FastqFile)
+                    writerCdr3Fastq.writeLine(header + " CDR3:" + clonotypeData.cdr3Seq + ":" +
+                            clonotypeData.cdrFrom +
+                            " V:" + clonotypeData.vAllele.alleleId +
+                            " J:" + clonotypeData.jAllele.alleleId +
+                            " D:" + clonotypeData.dAllele +
+                            "\n" +
+                            seq + "\n+\n" + oldQual)
+
+                if (writerCdr3Umi)
+                    writerCdr3Umi.println([umi, increment,
+                                           clonotypeData.cdr3Seq,
+                                           clonotypeData.vAllele.alleleId,
+                                           clonotypeData.jAllele.alleleId,
+                                           clonotypeData.dAllele].join("\t"))
             }
 
-            // Has CDR3
-            if (clonotypeData != null) {
-                if (clonotypeData.rc) // found in RC
-                    qual = qual.reverse()
-
-                qual = qual.substring(clonotypeData.cdrFrom, clonotypeData.cdrTo)
-
-                // Increment counters if quality is good
-                if (Util.minQual(qual) >= qualThreshold) {
-                    if (assembledInput && sameSample) {
-                        def umiCdr = umi + "_" + clonotypeData.cdr3Seq
-                        duplicateUmi = usedUmis.contains(umi)
-                        if (!duplicateUmi)
-                            usedUmis.add(umiCdr)
-                    }
-
-                    if (!duplicateUmi) {
-                        // Protect from duplicate counting when UMI overlap
-                        clonotypeData.counts[0]++
-                    }
-                    goodEvents++
-
-                    clonotypeData.counts[2] += increment
-                    goodReads += increment
-
-                    if (cdr3FastqFile)
-                        writerCdr3Fastq.writeLine(header + " CDR3:" + clonotypeData.cdr3Seq + ":" +
-                                clonotypeData.cdrFrom +
-                                " V:" + clonotypeData.vAllele.alleleId +
-                                " J:" + clonotypeData.jAllele.alleleId +
-                                " D:" + clonotypeData.dAllele +
-                                "\n" +
-                                seq + "\n+\n" + oldQual)
-
-                    if (writerCdr3Umi)
-                        writerCdr3Umi.println([umi, increment,
-                                               clonotypeData.cdr3Seq,
-                                               clonotypeData.vAllele.alleleId,
-                                               clonotypeData.jAllele.alleleId,
-                                               clonotypeData.dAllele].join("\t"))
-                }
-
-                // Total (good+bad) for cases in which CDR3 was extracted
-                if (!duplicateUmi) {
-                    clonotypeData.counts[1]++
-                }
-                mappedEvents++
-                clonotypeData.counts[3] += increment
-                mappedReads += increment
-            } else if (DEBUG)
-                pw.println(header + "\n" + seq + "\n+\n" + qual)
-
-            // Total, including cases when CDR3 was not extracted
-            totalEvents++
-            totalReads += increment
-            counter++
-
-            if (counter % 1000000 == 0)
-                println "[${new Date()} $SCRIPT_NAME] $counter reads processed"
+            // Total (good+bad) for cases in which CDR3 was extracted
+            if (!duplicateUmi) {
+                clonotypeData.counts[1]++
+            }
+            mappedEvents++
+            clonotypeData.counts[3] += increment
+            mappedReads += increment
+        } else if (unmappedFastqFile) {
+            writerUnmapped3Fastq.println(header + "\n" + seq + "\n+\n" + qual)
         }
+
+        // Total, including cases when CDR3 was not extracted
+        totalEvents++
+        totalReads += increment
+        counter++
+
+        if (counter % 1000000 == 0)
+            println "[${new Date()} $SCRIPT_NAME] $counter reads processed"
     }
 }
 if (cdr3FastqFile)
     writerCdr3Fastq.close()
 if (writerCdr3Umi)
     writerCdr3Umi.close()
+if (unmappedFastqFile)
+    writerUnmapped3Fastq.close()
 
 println "${timestamp()} Done"
 println "EVENTS (good mapped total):\t$goodEvents\t$mappedEvents\t$totalEvents\t|\t" +
