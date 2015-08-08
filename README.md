@@ -12,7 +12,7 @@ Several modules of the pipeline, such as de-multiplexing and CDR3 extraction cou
 
 For more details please see the [paper](http://www.nature.com/nmeth/journal/v11/n6/abs/nmeth.2960.html) describing MiGEC.
 
-Full documentation is provided via [ReadTheDocs](http://migec.readthedocs.org/en/latest/index.html).
+Full documentation is provided via [ReadTheDocs](http://migec.readthedocs.org/en/latest/index.html). You might be also interested in taking the following [tutorial](http://repseq-tutorial.readthedocs.org/en/latest/).
 
 Please cite the tool as:
 
