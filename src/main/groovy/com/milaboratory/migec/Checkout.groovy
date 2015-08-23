@@ -24,7 +24,7 @@ import java.util.regex.Pattern
 
 import static com.milaboratory.migec.Util.BLANK_PATH
 
-def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10", omf = "5", oss = "5", oms = "10"
+def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10", omf = "50", oss = "5", oms = "10"
 def cli = new CliBuilder(usage:
         "Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or ${BLANK_PATH}] output_dir/'")
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
@@ -45,8 +45,6 @@ cli._(longOpt: 'overlap-seed-size', args: 1,
         "Number of perfectly matching nucleotides to perform overlap, should be. [default = $oss]")
 cli._(longOpt: 'overlap-match-size', args: 1,
         "Number of fuzzy matching nucleotides to perform overlap, should be. [default = $oms]")
-cli._(longOpt: 'overlap-allow-partial',
-        "Allow partial fuzzy overlap due to reaching end of one of reads.")
 cli._(longOpt: 'rc-barcodes', 'Also search for reverse-complement barcodes.')
 cli._(longOpt: 'skip-undef', 'Do not store reads that have no barcode match in separate file.')
 cli.m(args: 1,
@@ -72,7 +70,6 @@ int firstReadsToTake = (opt.'first' ?: "-1").toInteger()
 int maxOverlapOffset = (opt.'overlap-max-offset' ?: omf).toInteger(),
     overlapFuzzySize = (opt.'overlap-match-size' ?: oms).toInteger(),
     overlapSeedSize = (opt.'overlap-seed-size' ?: oss).toInteger()
-boolean allowPartialOverlap = opt.'overlap-allow-partial'
 def rcReadMask = (opt.r ?: rcm).split(":").collect { Integer.parseInt(it) > 0 }
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 def barcodesFileName = opt.arguments()[0],
@@ -234,83 +231,7 @@ def findMatch = { String barcode, Pattern seed, String seq, String qual, int bcI
 //  READ PROCESSING UTILS
 //========================
 // Overlap, select top quality nts for overlap zone
-int maxConsMms = 2
-double maxOverlapMismatchRatio = 0.1
-
-def overlapReads = { String r1, String r2, String q1, String q2 ->
-    String[] result = null
-
-    for (int i = 0; i < maxOverlapOffset; i++) {
-        if (i + overlapSeedSize > r2.length())
-            return null
-
-        def kmer = r2.substring(i, i + overlapSeedSize)
-        def pattern = Pattern.compile(kmer)
-        def matcher = pattern.matcher(r1)
-        // Find last match
-        int position
-        while (matcher.find()) {
-            position = matcher.start()
-            if (position >= 0) {
-                // Start fuzzy align
-                boolean alignedAll = true
-                int nConsMms = 0, nMms = 0, actualFuzzyOverlapSize = overlapFuzzySize
-
-                for (int j = 0; j < overlapFuzzySize; j++) {
-                    def posInR1 = position + overlapSeedSize + j, posInR2 = i + overlapSeedSize + j
-                    if (posInR1 + 1 > r1.length() || posInR2 + 1 > r2.length()) {
-                        actualFuzzyOverlapSize = j + 1
-                        alignedAll = false
-                        break     // went to end of r1
-                    }
-                    if (r1.charAt(posInR1) != r2.charAt(posInR2)) {
-                        nMms++
-                        if (++nConsMms >= maxConsMms)
-                            break  // several consequent mismatches
-                    } else {
-                        nConsMms = 0 // zero counter
-                    }
-                }
-
-                if (nConsMms < maxConsMms &&
-                        (allowPartialOverlap || alignedAll) &&
-                        (nMms / (double) actualFuzzyOverlapSize) <= maxOverlapMismatchRatio) {
-                    // take best qual nts
-                    def seq = new StringBuilder(r1.substring(0, position)),
-                        qual = new StringBuilder(q1.substring(0, position))
-
-                    int pos2 = i - 1
-                    for (int j = position; j < r1.length(); j++) {
-                        pos2++
-                        if (pos2 == r2.length())
-                            break // should not happen
-
-                        seq.append(Util.qualFromSymbol(q1.charAt(j)) > Util.qualFromSymbol(q2.charAt(pos2)) ?
-                                r1.charAt(j) : r2.charAt(pos2))
-
-                        qual.append(Util.qualFromSymbol(q1.charAt(j)) > Util.qualFromSymbol(q2.charAt(pos2)) ?
-                                q1.charAt(j) : q2.charAt(pos2))
-                    }
-                    for (int j = pos2 + 1; j < r2.length(); j++) {
-                        // fill the remainder
-                        seq.append(r2.charAt(j))
-
-                        qual.append(q2.charAt(j))
-                    }
-
-                    // report overlap
-                    result = new String[2]
-                    result[0] = seq.toString()
-                    result[1] = qual.toString()
-
-                    return result
-                }
-            }
-        }
-    }
-
-    result // failed
-}
+def readOverlapper = new ReadOverlapper(maxOverlapOffset, overlapSeedSize, overlapFuzzySize)
 
 def flip = { String[] x, int i, int j ->
     String tmp
@@ -359,7 +280,7 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
             counters.get(sampleId)[1].incrementAndGet()
 
             if (overlap) {
-                def overlapResult = overlapReads(readData[1], readData[4], readData[2], readData[5])
+                def overlapResult = readOverlapper.overlap(readData[1], readData[4], readData[2], readData[5])
 
                 if (overlapResult) {
                     overlapCounter.incrementAndGet()
