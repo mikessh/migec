@@ -428,13 +428,13 @@ def readThread = new Thread({  // Reading thread
     String header1
     while ((header1 = reader1.readLine()) != null) {
         def readData = new String[rDataSize]
-        readData[0] = header1
+        readData[0] = header1 + " R1 "
         readData[1] = reader1.readLine()
         reader1.readLine()
         readData[2] = reader1.readLine()
 
         if (paired) {
-            readData[3] = reader2.readLine()
+            readData[3] = reader2.readLine() + " R2 "
             readData[4] = reader2.readLine()
             reader2.readLine()
             readData[5] = reader2.readLine()
