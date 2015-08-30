@@ -245,10 +245,10 @@ def overlapCounter = new AtomicLong()
 def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, String sampleId, String masterSampleId,
                  boolean good ->
     String umiHeader = umiData[0].size() > 0 ? " UMI:${umiData[0].toString()}:${umiData[1].toString()}" : ""
-    readData[0] = readData[0] + " R1 " + umiHeader
+    readData[0] = readData[0] + umiHeader
 
     if (paired) {
-        readData[3] = readData[3] + " R2 " + umiHeader
+        readData[3] = readData[3] + umiHeader
 
         if (readIndex > 0) { // flip if master is R2
             flip(readData, 0, 3)
@@ -349,13 +349,13 @@ def readThread = new Thread({  // Reading thread
     String header1
     while ((header1 = reader1.readLine()) != null) {
         def readData = new String[rDataSize]
-        readData[0] = header1
+        readData[0] = header1 + " R1 "
         readData[1] = reader1.readLine()
         reader1.readLine()
         readData[2] = reader1.readLine()
 
         if (paired) {
-            readData[3] = reader2.readLine()
+            readData[3] = reader2.readLine() + " R2 "
             readData[4] = reader2.readLine()
             reader2.readLine()
             readData[5] = reader2.readLine()
