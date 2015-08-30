@@ -57,6 +57,10 @@ cli._(longOpt: 'assembly-mismatches', args: 1, argName: 'integer',
         'Assembly max mismatches. Default: 5')
 cli._(longOpt: 'assembly-anchor', args: 1, argName: 'integer',
         'Assembly anchor region half size. Default: 10')
+cli._(longOpt: 'only-first-read',
+        'Use only first read (as they were in raw FASTQ), ' +
+                'can improve assembly quality for non-oriented reads when' +
+                'second read quality is very poor.')
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
@@ -71,7 +75,8 @@ if (opt == null || opt.arguments().size() < 3) {
 def scriptName = getClass().canonicalName
 
 // Parameters
-boolean compressed = opt.c, filterCollisions = opt.'filter-collisions', overwriteLog = opt.'log-overwrite'
+boolean compressed = opt.c, filterCollisions = opt.'filter-collisions', overwriteLog = opt.'log-overwrite',
+        onlyFirstRead = opt.'only-first-read'
 String sampleName = opt.'log-sample-name' ?: "N/A", sampleType = opt.'log-sample-type' ?: "N/A"
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
@@ -140,17 +145,19 @@ def migData = new HashMap<String, Map<String, Integer>>[2]
 migData[0] = new HashMap<String, Map<String, Integer>>(1000000)
 if (assemblyIndices[0] && assemblyIndices[1])
     migData[1] = new HashMap<String, Map<String, Integer>>(1000000)
-def putData = { int readId, String umi, String seq ->
-    def seqCountMap = migData[readId].get(umi)
-    if (seqCountMap == null)
-        migData[readId].put(umi, seqCountMap = new HashMap<String, Integer>())
-    seqCountMap.put(seq, (seqCountMap.get(seq) ?: 0) + 1)
+def putData = { int readId, String umi, String header, String seq ->
+    if (!onlyFirstRead || header.contains(" R1 ")) {
+        def seqCountMap = migData[readId].get(umi)
+        if (seqCountMap == null)
+            migData[readId].put(umi, seqCountMap = new HashMap<String, Integer>())
+        seqCountMap.put(seq, (seqCountMap.get(seq) ?: 0) + 1)
+    }
 }
 
 int nReads = 0, nGoodReads = 0
 println "[${new Date()} $scriptName] Pre-loading data for $inputFileName1, $inputFileName2.."
 def reader1 = Util.getReader(inputFileName1), reader2 = paired ? Util.getReader(inputFileName2) : null
-String header1, seq1
+String header1, header2, seq1
 String seq2 = ""
 int MIN_READ_SZ = 2 * (anchorRegion + offsetRange + 1)
 while ((header1 = reader1.readLine()) != null) {
@@ -159,7 +166,7 @@ while ((header1 = reader1.readLine()) != null) {
     reader1.readLine()
 
     if (paired) {
-        reader2.readLine() // Skip header of read 2
+        header2 = reader2.readLine()
         seq2 = reader2.readLine()
         reader2.readLine()
         reader2.readLine()
@@ -170,11 +177,11 @@ while ((header1 = reader1.readLine()) != null) {
 
         if (umi != null && seq1.length() > 0) {
             if (assemblyIndices[0])
-                putData(0, umi, seq1)
+                putData(0, umi, header1, seq1)
             if (bothReads)
-                putData(1, umi, seq2)
+                putData(1, umi, header2, seq2)
             else if (assemblyIndices[1])
-                putData(0, umi, seq2) // put all to 1st file if mask=0,1
+                putData(0, umi, header2, seq2) // put all to 1st file if mask=0,1
             nGoodReads++
         }
         if (++nReads % 500000 == 0)
@@ -230,7 +237,7 @@ def writeThread = new Thread({  // Writing thread, listening to queue
 writeThread.start()
 
 def nMigs = new AtomicInteger(),
-        nReadsInMigs = new AtomicInteger(), nDroppedReads = new AtomicInteger(),
+    nReadsInMigs = new AtomicInteger(), nDroppedReads = new AtomicInteger(),
     nCollisions = new AtomicInteger()
 def nGoodMigs = new AtomicInteger[3], nReadsInGoodMigs = new AtomicInteger[3]
 nGoodMigs[0] = new AtomicInteger()

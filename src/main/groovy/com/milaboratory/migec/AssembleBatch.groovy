@@ -32,6 +32,10 @@ cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
                 "Allowed values are\n1:0 (R1 assembled), 0:1 (R2 assembled) and 1:1 (both reads assembled, [default])")
 cli._(longOpt: 'force-collision-filter', "Forced collision filtering for all samples.")
 cli._(longOpt: 'force-overseq', args: 1, argName: 'int', "Forced minimal MIG size for all samples.")
+cli._(longOpt: 'only-first-read',
+        'Use only first read (as they were in raw FASTQ), ' +
+                'can improve assembly quality for non-oriented reads when' +
+                'second read quality is very poor.')
 cli.c("compressed output")
 
 def scriptName = getClass().canonicalName
@@ -111,6 +115,8 @@ if (sampleFilterFileName) {
 def baseArgs = []
 if (opt.c)
     baseArgs.add(['-c'])
+if (opt.'only-first-read')
+    baseArgs.add(['--only-first-read'])
 if (opt.p)
     baseArgs.add(['-p', opt.p])
 
