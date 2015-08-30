@@ -152,7 +152,7 @@ println "[${new Date()} $scriptName] Pre-loading data for $inputFileName1, $inpu
 def reader1 = Util.getReader(inputFileName1), reader2 = paired ? Util.getReader(inputFileName2) : null
 String header1, seq1
 String seq2 = ""
-int MIN_READ_SZ = 2 * anchorRegion + 1 + offsetRange
+int MIN_READ_SZ = 2 * (anchorRegion + offsetRange + 1)
 while ((header1 = reader1.readLine()) != null) {
     seq1 = reader1.readLine()
     reader1.readLine()
@@ -165,7 +165,7 @@ while ((header1 = reader1.readLine()) != null) {
         reader2.readLine()
     }
 
-    if (seq1.length() > MIN_READ_SZ && (!paired || seq2.length() > MIN_READ_SZ)) {
+    if (seq1.length() >= MIN_READ_SZ && (!paired || seq2.length() >= MIN_READ_SZ)) {
         def umi = Util.getUmi(header1, umiQualThreshold)
 
         if (umi != null && seq1.length() > 0) {
