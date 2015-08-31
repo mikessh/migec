@@ -149,10 +149,10 @@ if (assemblyIndices[0] && assemblyIndices[1])
 int nReads = 0, nGoodReads = 0
 
 def putData = { int readId, String umi, String header, String seq ->
+    def seqCountMap = migData[readId].get(umi)
+    if (seqCountMap == null)
+        migData[readId].put(umi, seqCountMap = new HashMap<String, Integer>())
     if (!onlyFirstRead || header.contains(" R1 ")) {
-        def seqCountMap = migData[readId].get(umi)
-        if (seqCountMap == null)
-            migData[readId].put(umi, seqCountMap = new HashMap<String, Integer>())
         seqCountMap.put(seq, (seqCountMap.get(seq) ?: 0) + 1)
         nGoodReads++
     }
@@ -254,20 +254,31 @@ def getCoreSeq = { String seq, int offset ->
     seq.substring(mid - anchorRegion - offset, mid + anchorRegion + 1 - offset)
 }
 
+def sum = { Collection c ->
+    c.size() > 0 ? (int) c.sum() : 0i
+}
+
 GParsPool.withPool THREADS, {
     migData[0].eachParallel { migEntry ->
         String umi = migEntry.key
         Map<String, Integer> reads1 = migEntry.value
-        int count = (int) reads1.values().sum()
+        def counts = [sum(reads1.values())]
+        int avgCount = counts[0]
 
         def migsToAssemble = [reads1]
-        if (bothReads) // only for 1,1
-            migsToAssemble.add(migData[1].get(umi))
+        if (bothReads) { // only for 1,1
+            def reads2 = migData[1].get(umi)
+            migsToAssemble.add(reads2)
+            counts.add(sum(reads2.values()))
+            avgCount += counts[1]
+            avgCount /= 2
+        }
         def assembledReads = new String[4]
+
 
         int nMigsCurrent = nMigs.incrementAndGet()
         int nCollisionsCurrent = nCollisions.get()
-        int nReadsInMigsCurrent = nReadsInMigs.addAndGet(count)
+        int nReadsInMigsCurrent = nReadsInMigs.addAndGet(avgCount)
         int[] nGoodMigsCurrent = new int[3], nReadsInGoodMigsCurrent = new int[3]
         nGoodMigsCurrent[0] = nGoodMigs[0].get()
         nReadsInGoodMigsCurrent[0] = nReadsInGoodMigs[0].get()
@@ -291,9 +302,14 @@ GParsPool.withPool THREADS, {
                         String otherUmi = new String(umiCharArray)
 
                         Map<String, Integer> otherReads1 = migData[0].get(otherUmi)
+
                         if (otherReads1 != null) {
-                            int otherCount = (int) otherReads1.values().sum()
-                            if (count / (double) otherCount < collisionRatioThreshold) {
+                            int otherCount = sum(otherReads1.values())
+                            if (bothReads) { // only for 1,1
+                                otherCount += sum(migData[1].get(otherUmi).values())
+                                otherCount /= 2
+                            }
+                            if (avgCount / (double) otherCount < collisionRatioThreshold) {
                                 noCollision = false
                                 nCollisionsCurrent = nCollisions.incrementAndGet()
                                 break
@@ -306,10 +322,11 @@ GParsPool.withPool THREADS, {
         }
 
         // Do assembly
-        if (noCollision && count >= minMigSize) {
+        if (noCollision && !counts.any { it < minMigSize }) {
             migsToAssemble.eachWithIndex { Map<String, Integer> mig, int ind ->
                 // Step 1: collect core regions with different offsets to determine most frequent one
                 def coreSeqMap = new HashMap<String, int[]>()
+                int count = counts[ind]
                 mig.each { Map.Entry<String, Integer> read ->
                     for (int offset = -offsetRange; offset <= offsetRange; offset++) {
                         String coreSeq = getCoreSeq(read.key, offset)
@@ -430,7 +447,7 @@ GParsPool.withPool THREADS, {
                 (!(assemblyIndices[0] && assemblyIndices[1]) || assembledReads[1] != null)) {
             writeQueue.put(assembledReads)
             nGoodMigsCurrent[2] = nGoodMigs[2].incrementAndGet()
-            nReadsInGoodMigsCurrent[2] = nReadsInGoodMigs[2].addAndGet(count)
+            nReadsInGoodMigsCurrent[2] = nReadsInGoodMigs[2].addAndGet(avgCount)
         }
 
 
