@@ -18,7 +18,8 @@ import static com.milaboratory.migec.Util.BLANK_FIELD
  limitations under the License.
  */
 
-def DEFAULT_ASSEMBLE_MASK = "1:1"
+def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_PARENT_CHILD_RATIO = "0.1",
+    DEFAULT_ASSEMBLY_OFFSET = "5", DEFAULT_ASSEMBLY_MISMATCHES = "5", DEFAULT_ASSEMBLY_ANCHOR = "10"
 def cli = new CliBuilder(usage: 'AssembleBatch [options] checkout_dir/ histogram_dir/ output_dir/')
 cli.p(args: 1, 'number of threads to use')
 cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-metadata")
@@ -32,6 +33,14 @@ cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
                 "Allowed values are\n1:0 (R1 assembled), 0:1 (R2 assembled) and 1:1 (both reads assembled, [default])")
 cli._(longOpt: 'force-collision-filter', "Forced collision filtering for all samples.")
 cli._(longOpt: 'force-overseq', args: 1, argName: 'int', "Forced minimal MIG size for all samples.")
+cli._(longOpt: "collision-ratio", args: 1, argName: "double, < 1.0",
+        "Min parent-to-child MIG size ratio for collision filtering. Default value: $DEFAULT_PARENT_CHILD_RATIO")
+cli._(longOpt: "assembly-offset", args: 1, argName: "integer",
+        "Assembly offset range. Default: $DEFAULT_ASSEMBLY_OFFSET")
+cli._(longOpt: "assembly-mismatches", args: 1, argName: "integer",
+        "Assembly max mismatches. Default: $DEFAULT_ASSEMBLY_MISMATCHES")
+cli._(longOpt: "assembly-anchor", args: 1, argName: "integer",
+        "Assembly anchor region half size. Default: $DEFAULT_ASSEMBLY_ANCHOR")
 cli._(longOpt: 'only-first-read',
         'Use only first read (as they were in raw FASTQ), ' +
                 'can improve assembly quality for non-oriented reads when' +
@@ -119,6 +128,14 @@ if (opt.'only-first-read')
     baseArgs.add(['--only-first-read'])
 if (opt.p)
     baseArgs.add(['-p', opt.p])
+if (opt.'collision-ratio')
+    baseArgs.add(['--collision-ratio', opt.'collision-ratio'])
+if (opt.'assembly-offset')
+    baseArgs.add(['--assembly-offset', opt.'assembly-offset'])
+if (opt.'assembly-mismatches')
+    baseArgs.add(['--assembly-mismatches', opt.'assembly-mismatches'])
+if (opt.'assembly-anchor')
+    baseArgs.add(['--assembly-anchor', opt.'assembly-anchor'])
 
 double collisionFactorThreshold = 0.05
 
