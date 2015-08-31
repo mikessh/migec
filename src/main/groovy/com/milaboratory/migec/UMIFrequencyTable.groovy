@@ -25,7 +25,7 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
 }
 def inputFileName = opt.arguments()[0],
     outputFileName = opt.arguments()[1]
@@ -43,7 +43,7 @@ def getUmiEntry = { String header ->
     def umiEntry = splitHeader.find { it.startsWith("UMI:") }
     if (umiEntry == null) {
         println "[${new Date()} $scriptName] Error: no UMI header in input. Terminating"
-        System.exit(-1)
+        System.exit(2)
     }
     umiEntry.split(":")
 }
@@ -59,7 +59,7 @@ def n = 0
 while ((header = reader.readLine()) != null) {
     if (!header.startsWith("@")) {
         println "[${new Date()} $scriptName] Not a FASTQ!"
-        System.exit(-1)
+        System.exit(2)
     }
 
     def umi = getUmiEntry(header)[1]

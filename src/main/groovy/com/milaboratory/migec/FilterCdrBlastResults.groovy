@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 def R_A_T = "1.0", S_F_R = "20.0"
 def cli = new CliBuilder(usage:
         'FilterCdrBlastResults [options] inputAssembledResult inputRawResult outputResult')
+cli.h("usage")
 cli.r(args: 1, argName: 'read accumulation threshold', "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
 cli.s(longOpt: "singleton-filter",
@@ -39,10 +40,16 @@ cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
 cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
 
 def opt = cli.parse(args)
+
 if (opt == null || opt.arguments().size() < 3) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 // SYSTEM

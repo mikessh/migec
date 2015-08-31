@@ -333,7 +333,7 @@ class Util {
         def umiEntry = splitHeader.find { it.startsWith("UMI:") }
         if (umiEntry == null) {
             println "[ERROR] no UMI header in input ($header). Terminating"
-            System.exit(-1)
+            System.exit(2)
         }
         String umi = umiEntry.split(":")[1] // quality can contain :
         for (int i = umiEntry.length() - umi.length(); i < umiEntry.length(); i++) {

@@ -24,6 +24,7 @@ def scriptName = getClass().canonicalName
 def cli = new CliBuilder(usage: "$scriptName [options] " +
         "[checkout_dir/ or ${BLANK_PATH}] [assemble_dir/ or ${BLANK_PATH}] output_dir/\n" +
         "Either --sample-metadata or -R argument is required.")
+cli.h("usage")
 cli.p(args: 1, "Number of threads to use")
 cli._(longOpt: "sample-metadata", args: 1, argName: "file",
         "An optional tab-delimited file indicating which samples to process and containing 6 columns:\n" +
@@ -63,7 +64,12 @@ def opt = cli.parse(args)
 if (opt == null) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 // SEGMENTS
@@ -77,7 +83,7 @@ if (opt.'print-library') {
 if (opt.arguments().size() < 3) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
 }
 
 def blastPath = opt.'blast-path' ?: null
@@ -88,13 +94,13 @@ String sampleInfoFileName = opt.'sample-metadata' ?: null, checkoutDir = opt.arg
 
 if (!sampleInfoFileName && !opt.R) {
     println "[ERROR] Either --sample-metadata or --default-gene options should be provided"
-    System.exit(-1)
+    System.exit(2)
 }
 
 boolean processRaw = checkoutDir != BLANK_PATH, processAssembled = assembleDir != BLANK_PATH
 if (!processRaw && !processAssembled) {
     println "[ERROR] At least one of assembled or raw (checkout) data directories should be specified"
-    System.exit(-1)
+    System.exit(2)
 }
 boolean processBoth = processRaw && processAssembled
 
@@ -104,7 +110,7 @@ if (processRaw) {
     def checkoutSampleListFile = new File(checkoutDir + "/checkout.filelist.txt")
     if (!checkoutSampleListFile.exists()) {
         println "[ERROR] Sample list (checkout.filelist.txt) absent in Checkout folder $checkoutDir"
-        System.exit(-1)
+        System.exit(2)
     }
 
     rawSamplesMap = checkoutSampleListFile.readLines().findAll {
@@ -121,7 +127,7 @@ if (processAssembled) {
     def assembleSampleListFile = new File(assembleDir + "/assemble.log.txt")
     if (!assembleSampleListFile.exists()) {
         println "[ERROR] Assemble output (assemble.log.txt) absent in Assemble folder $assembleDir"
-        System.exit(-1)
+        System.exit(2)
     }
 
     assembledSampleMap = assembleSampleListFile.readLines().findAll {
@@ -148,7 +154,7 @@ if (sampleInfoFileName) {
 
     if (!chainsFile.exists()) {
         println "[ERROR] Sample metadata file not found"
-        System.exit(-1)
+        System.exit(2)
     }
 
     sampleInfoLines = chainsFile.readLines()
@@ -169,7 +175,7 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
 
     if (splitLine.length < 3) {
         println "[ERROR] Bad metadata line $line. Missing required fields."
-        System.exit(-1)
+        System.exit(2)
     }
 
     def sampleId = splitLine[0],
@@ -192,14 +198,14 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     }*/
     if (!Util.MASKS.any { mask == it }) {
         println "[ERROR] Bad mask $mask on line $line. Supported masks are ${Util.MASKS.join(", ")}"
-        System.exit(-1)
+        System.exit(2)
     }
     mask.split(",").collect { it == "1" }
     fileTypes = fileTypes.split(",")
     fileTypes.each { fileType ->
         if (!Util.FILE_TYPES.any { fileType == it }) {
             println "[ERROR] Bad file type $fileType in line $line. Supported file types are ${Util.FILE_TYPES.join(", ")}"
-            System.exit(-1)
+            System.exit(2)
         }
     }
 
@@ -214,7 +220,7 @@ sampleInfoLines.findAll { !it.startsWith("#") }.each { line ->
     }
     if (!exists) {
         println "[ERROR] Sample $sampleId with file types ${fileTypes.join(",")} does not exist in checkout/assembled sample lists"
-        System.exit(-1)
+        System.exit(2)
     }
 
     sampleInfoMap.put(sampleId, [species, chain, fileTypes, mask, qualityThreshold])
@@ -279,7 +285,7 @@ logFile.withPrintWriter { pw ->
                                 println "[ERROR] Sample $sampleId with mask ${mask.collect { it ? 1 : 0 }} " +
                                         "does not have any corresponding assembled files, " +
                                         "of ${correspondingFiles[1]}"
-                                System.exit(-1)
+                                System.exit(2)
                             }
                         }
                     } else {

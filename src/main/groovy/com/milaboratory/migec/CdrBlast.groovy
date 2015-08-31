@@ -85,14 +85,13 @@ cli._(longOpt: "log-sample-name",
 
 def opt = cli.parse(args)
 
-if (opt == null) {
+if (opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
 }
 
 if (opt.h) {
-    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(0)
 }
@@ -108,14 +107,14 @@ if (opt.'print-library') {
 if (!opt.R) {
     println "[ERROR] Receptor gene not provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
 }
 
 String chainOpt = opt.R, species = opt.S ?: "HomoSapiens"
 
 if (!chainOpt) {
     println "[ERROR] Chain argument is required for CdrBlast"
-    System.exit(-1)
+    System.exit(2)
 }
 
 def chains = chainOpt.split(",")
@@ -126,7 +125,7 @@ chains.each { chain ->
                 "(include non-functional = $includeNonFuncitonal). " +
                 "Possible variants are:\n"
         Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
-        System.exit(-1)
+        System.exit(2)
     }
 }
 
@@ -147,14 +146,14 @@ try {
     ["${blastPath}convert2blastmask", "${blastPath}makeblastdb", "${blastPath}blastn"].each { it.execute().waitFor() }
 } catch (IOException e) {
     println "[ERROR] Problems with BLAST installation. " + e.message
-    System.exit(-1)
+    System.exit(2)
 }
 
 // INPUT, OUTPUT AND TEMPORARY FILES
 if (opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
 }
 
 def inputFileNames = opt.arguments()[0..-2].collect { it.toString() },
@@ -325,11 +324,11 @@ inputFileNames.each { inputFileName ->
         if (assembledInput) {
             if (!header.contains("UMI:")) {
                 println "[ERROR] Assembled input specified, but no UMI field in header"
-                System.exit(-1)
+                System.exit(2)
             } else if (!header.split("[@ ]").find { it.startsWith("UMI") }.split(":")[2].isInteger()) {
                 println "[ERROR] Assembled input specified, but UMI field in header does not contain count, " +
                         "maybe you're running on raw checkout output?"
-                System.exit(-1)
+                System.exit(2)
             }
         }
 

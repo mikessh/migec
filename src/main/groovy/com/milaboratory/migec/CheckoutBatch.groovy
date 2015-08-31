@@ -20,12 +20,19 @@ import static com.milaboratory.migec.Util.BLANK_PATH
 
 def cli = new CliBuilder(usage:
         "CheckoutBatch [options, see Checkout] barcode_file output_dir/")
+cli.h("usage")
 
 def opt = cli.parse(args)
+
 if (opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 def options = args.size() > 2 ? args[0..-3] : [], barcodesFileName = args[-2], outputDir = args[-1]
@@ -53,7 +60,7 @@ new File(barcodesFileName).splitEachLine("\t") { splitLine ->
 
 if (anyMissing) {
     println "[ERROR] There were some missing FASTQ files.. Terminating"
-    System.exit(-1)
+    System.exit(2)
 }
 
 def fileList = filesHash.collect().sort()

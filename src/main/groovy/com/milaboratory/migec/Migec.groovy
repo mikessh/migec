@@ -83,14 +83,14 @@ def getScript = { String scriptName ->
         case "HELP":
             printHelp()
             println ""
-            System.exit(-1)
+            System.exit(0)
             break
 
         default:
             printHelp()
             println ""
             println "Unknown MAIN PIPELINE script $scriptName"
-            System.exit(-1)
+            System.exit(2)
     }
 }
 
@@ -116,6 +116,6 @@ else {
             writer.println("[StackTrace-Full]")
             e.printStackTrace(new PrintWriter(writer))
         }
-        System.exit(-1)
+        System.exit(1)
     }
 }

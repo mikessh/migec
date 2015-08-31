@@ -21,6 +21,7 @@ import static com.milaboratory.migec.Util.BLANK_FIELD
 def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_PARENT_CHILD_RATIO = "0.1",
     DEFAULT_ASSEMBLY_OFFSET = "5", DEFAULT_ASSEMBLY_MISMATCHES = "5", DEFAULT_ASSEMBLY_ANCHOR = "10"
 def cli = new CliBuilder(usage: 'AssembleBatch [options] checkout_dir/ histogram_dir/ output_dir/')
+cli.h("usage")
 cli.p(args: 1, 'number of threads to use')
 cli._(longOpt: 'default-mask', args: 1, "Mask, default for all samples, see --sample-metadata")
 cli._(longOpt: 'sample-metadata', args: 1, argName: 'file name',
@@ -53,7 +54,11 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 def checkoutDir = opt.arguments()[0], histogramDir = opt.arguments()[1],
@@ -66,12 +71,12 @@ def defaultMask = opt.'default-mask' ?: DEFAULT_ASSEMBLE_MASK,
 def checkoutSampleListFile = new File(checkoutDir + "/checkout.filelist.txt")
 if (!checkoutSampleListFile.exists()) {
     println "[ERROR] Sample list (checkout.filelist.txt) absent in Checkout folder $checkoutDir"
-    System.exit(-1)
+    System.exit(2)
 }
 def histogramEstimatesFile = new File(histogramDir + "/estimates.txt")
 if (!histogramEstimatesFile.exists()) {
     println "[ERROR] Histogram output (estimates.txt) absent in Histogram folder $histogramDir"
-    System.exit(-1)
+    System.exit(2)
 }
 
 new File(outputPath).mkdirs()
@@ -99,13 +104,13 @@ if (sampleFilterFileName) {
 
             if (!Util.FILE_TYPES.any { sampleType == it }) {
                 println "[ERROR] Bad sample type $sampleType"
-                System.exit(-1)
+                System.exit(2)
             }
 
             if (!sampleFileNamesMap.containsKey(sampleKey)) {
                 println "[ERROR] Sample list is inconsistent between Checkout log and filter: " +
                         "$sampleKey not present in Checkout log"
-                System.exit(-1)
+                System.exit(2)
             }
 
             def sampleMask = splitLine.size() > 2 ? splitLine[2] : defaultMask
@@ -183,7 +188,7 @@ logFile.withPrintWriter { pw ->
                 if (!sampleFileNames) {
                     println "[ERROR] Sample list is inconsistent between Checkout log and Histogram output: " +
                             "$sampleKey not present in Checkout log"
-                    System.exit(-1)
+                    System.exit(2)
                 }
 
                 assembleArgs.add(sampleFileNames)

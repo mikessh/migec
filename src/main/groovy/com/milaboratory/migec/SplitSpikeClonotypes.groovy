@@ -21,7 +21,7 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
 }
 def spikeFileName = opt.arguments()[0], inputFileName = opt.arguments()[1], outputFilePrefix = opt.arguments()[2]
 

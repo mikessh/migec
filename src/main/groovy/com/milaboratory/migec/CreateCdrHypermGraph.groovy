@@ -24,13 +24,20 @@ import static com.milaboratory.migec.Util.BLANK_FIELD
 
 def T = "10000"
 def cli = new CliBuilder(usage: 'CreateCdrHypermGraph file_with_cdrs path/to/output/dir')
+cli.h("usage")
 cli.p(args: 1, 'Number of threads. Default: all available processors.')
 cli.t(args: 1, "Clonotype size ratio threshold to record a hypermutation. Default: $T.")
 def opt = cli.parse(args)
+
 if (opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()

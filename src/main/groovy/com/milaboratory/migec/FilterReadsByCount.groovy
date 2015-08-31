@@ -22,6 +22,7 @@ def DEFAULT_THRESHOLD = "10"
 
 def cli = new CliBuilder(usage:
         'FilterReadsByCount [options] input.fastq[.gz] output.fastq[.gz]\n[for benchmarking purposes]')
+cli.h("usage")
 cli.t(args: 1, "Count threshold. $DEFAULT_THRESHOLD")
 cli.g("Grouped output: reads collapsed, quality average, count in header.")
 
@@ -31,7 +32,12 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 int threshold = (opt.t ?: DEFAULT_THRESHOLD).toInteger()

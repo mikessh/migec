@@ -27,6 +27,7 @@ import static com.milaboratory.migec.Util.BLANK_PATH
 def mm = "15:0.2:0.05", rcm = "0:1", mtrim = "10", omf = "5", oss = "5", oms = "10"
 def cli = new CliBuilder(usage:
         "Checkout [options] barcode_file R1.fastq[.gz] [R2.fastq[.gz] or ${BLANK_PATH}] output_dir/'")
+cli.h("usage")
 cli.o('Oriented reads, so master barcode has to be in R1. ' +
         'Default: scans both reads (if pair-end) for master barcode')
 cli.u('Save UMI region specified by capital N\'s in barcode sequence to the header')
@@ -60,7 +61,12 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 4) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 def scriptName = getClass().canonicalName
@@ -83,8 +89,8 @@ def mmData = (opt.m ?: mm).split(":").collect { Double.parseDouble(it) }
 def paired = inputFileName2 != BLANK_PATH
 
 if (overlap && !paired) {
-    println "ERROR Overlap requested for unpaired reads"
-    System.exit(-1)
+    println "[ERROR] Overlap requested for unpaired reads"
+    System.exit(2)
 }
 
 //========================
@@ -175,7 +181,7 @@ new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
                     addBarcode(Util.revComplExt(sl[1]), 0)
             } else {
                 println "[ERROR] Bad barcode ${sl[1]}. Terminating"
-                System.exit(-1)
+                System.exit(2)
             }
             if (sl[2] != null && (sl[2] = sl[2].trim()).length() > 0 &&
                     sl[2].toCharArray().every { complements.keySet().contains((String) it) }) {

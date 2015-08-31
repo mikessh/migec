@@ -19,6 +19,7 @@ package com.milaboratory.migec
 def R_A_T = "1.0", S_F_R = "20.0"
 def scriptName = getClass().canonicalName
 def cli = new CliBuilder(usage: "$scriptName [options] cdrblast_dir/ output_dir/")
+cli.h("usage")
 cli.r(args: 1, argName: 'read accumulation threshold',
         "Only clonotypes that have a ratio of (reads after correction) / " +
         "(uncorrected reads) greater than that threshold are retained. Default: $R_A_T")
@@ -36,7 +37,12 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 def baseArgs = [["-r", opt.r ?: R_A_T]]
@@ -58,7 +64,7 @@ String inputDir = opt.arguments()[0], outputDir = opt.arguments()[1]
 def cdrBlastBatchFile = new File("$inputDir/cdrblast.log.txt")
 if (!cdrBlastBatchFile.exists()) {
     println "[ERROR] CdrBlast log file (cdrblast.log.txt) not found in input dir"
-    System.exit(-1)
+    System.exit(2)
 }
 
 new File(outputDir).mkdirs()
@@ -74,12 +80,12 @@ cdrBlastBatchFile.splitEachLine("\t") { splitLine ->
             rawSampleMap.put(splitLine[0], splitLine[2])
         } else {
             println "[ERROR] Unknown sample type ${splitLine[1]}. Either \'raw\' or \'asm\' expected"
-            System.exit(-1)
+            System.exit(2)
         }
 
         if (!new File(splitLine[2]).exists()) {
             println "[ERROR] File not found for sample ${splitLine[0..2]}."
-            System.exit(-1)
+            System.exit(2)
         }
     }
 }
@@ -98,7 +104,7 @@ if (onlyInAssembled.size() > 0) {
 
 if (onlyInRaw.size() == rawSampleMap.size()) {
     println "[ERROR] No samples have both raw and assembled data analyzed by CdrBlast. Terminating"
-    System.exit(-1)
+    System.exit(2)
 }
 
 println "[${new Date()} $scriptName] Running batch hot-spot error filtering for CdrBlast results.."

@@ -21,7 +21,7 @@ import java.util.zip.GZIPInputStream
 if (args.length < 5) {
     println "[ERROR] Too few arguments provided"
     println "Usage: HistQ inputFastqFile output from(e.g. 0) to(e.g. read length, 100)"
-    System.exit(-1)
+    System.exit(2)
 }
 
 def infiles = args[0].split(","), ofile = args[1]

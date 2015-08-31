@@ -30,6 +30,7 @@ def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_MIN_COUNT = "5", DEFAULT_PARENT_CHILD
     DEFAULT_ASSEMBLY_OFFSET = "5", DEFAULT_ASSEMBLY_MISMATCHES = "5", DEFAULT_ASSEMBLY_ANCHOR = "10"
 def cli = new CliBuilder(usage:
         "Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or ${BLANK_PATH}] output_dir/")
+cli.h("usage")
 cli.q(args: 1, argName: "read quality (phred)",
         "barcode region quality threshold. Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli._(longOpt: "mask", args: 1, argName: "X:Y, X=0/1, Y=0/1",
@@ -67,7 +68,11 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
+}
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
 }
 
 //========================
@@ -94,7 +99,7 @@ String logFileName = opt.'log-file' ?: null
 
 if (!(inputFileName1.endsWith(".fastq") || inputFileName1.endsWith(".fastq.gz"))) {
     println "[ERROR] Bad file extension $inputFileName1. Either .fastq or .fastq.gz should be provided as R1 file."
-    System.exit(-1)
+    System.exit(2)
 } else {
     outputFilePrefix1 = Util.getFastqPrefix(inputFileName1) + ".t" + minMigSize + (filterCollisions ? ".cf" : "")
 }
@@ -102,7 +107,7 @@ if (!(inputFileName1.endsWith(".fastq") || inputFileName1.endsWith(".fastq.gz"))
 if (inputFileName2 != BLANK_PATH) {
     if (!(inputFileName2.endsWith(".fastq") || inputFileName2.endsWith(".fastq.gz"))) {
         println "[ERROR] Bad file extension $inputFileName2. Either .fastq, .fastq.gz or $BLANK_PATH should be provided as R2 file."
-        System.exit(-1)
+        System.exit(2)
     } else {
         outputFilePrefix2 = Util.getFastqPrefix(inputFileName2) + ".t" + minMigSize + (filterCollisions ? ".cf" : "")
     }
@@ -121,7 +126,7 @@ if (paired) {
     def assemblyMask = (opt.'mask' ?: DEFAULT_ASSEMBLE_MASK).toString()
     if (!Util.MASKS.any { it == assemblyMask }) {
         println "[ERROR] Bad mask $assemblyMask. Allowed masks for paired-end mode are ${Util.MASKS.join(", ")}"
-        System.exit(-1)
+        System.exit(2)
     }
     if (assemblyMask == "0:0") {
         println "[WARNING] Blank mask specified for paired-end data, skipping"

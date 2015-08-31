@@ -1,9 +1,9 @@
 package com.milaboratory.migec
 
 def cli = new CliBuilder(usage: "Report [options] output_path'")
-
+cli.h("usage")
 cli.c(longOpt: "checkout-path", args: 1, argName: "path", "Path to Checkout directory.")
-cli.h(longOpt: "histogram-path", args: 1, argName: "path", "Path to Histogram directory.")
+cli.i(longOpt: "histogram-path", args: 1, argName: "path", "Path to Histogram directory.")
 cli.a(longOpt: "assemble-path", args: 1, argName: "path", "Path to Assemble directory.")
 cli.b(longOpt: "cdrblast-path", args: 1, argName: "path", "Path to CdrBlast directory.")
 cli.f(longOpt: "cdrfinal-path", args: 1, argName: "path", "Path to FilterCdrBlastResults directory.")
@@ -13,16 +13,15 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 1) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
 }
 
 if (opt.h) {
-    println "[ERROR] Too few arguments provided"
     cli.usage()
     System.exit(0)
 }
 
-def checkoutPath = opt.c ?: "checkout/", histogramPath = opt.h ?: "histogram/",
+def checkoutPath = opt.c ?: "checkout/", histogramPath = opt.i ?: "histogram/",
     assemblePath = opt.a ?: "assemble/", cdrBlastPath = opt.b ?: "cdrblast/",
     cdrFinalPath = opt.f ?: "cdrfinal/", outputPath = opt.arguments()[0]
 

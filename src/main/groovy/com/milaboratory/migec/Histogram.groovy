@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
 
 def cli = new CliBuilder(usage: 'Histogram [options] checkout_dir/ output_dir/')
+cli.h("usage")
 cli.q(args: 1, argName: 'read quality (phred)', "barcode region quality threshold. " +
         "Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli.p(args: 1, 'number of threads to use')
@@ -34,8 +35,14 @@ def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
     cli.usage()
-    System.exit(-1)
+    System.exit(2)
 }
+
+if (opt.h) {
+    cli.usage()
+    System.exit(0)
+}
+
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
 def inputDir = opt.arguments()[0]
@@ -111,8 +118,8 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                         if (umiSz < 0)
                                             umiSz = umi.length()
                                         else if (umiSz != umi.length()) {
-                                            println "ERROR UMIs of various sizes are not supported in the same sample"
-                                            System.exit(-1)
+                                            println "[ERROR] UMIs of various sizes are not supported in the same sample"
+                                            System.exit(2)
                                         }
                                     }
 
