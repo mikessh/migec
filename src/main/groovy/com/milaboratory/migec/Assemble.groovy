@@ -26,41 +26,42 @@ import static com.milaboratory.migec.Util.BLANK_PATH
 //========================
 //          CLI
 //========================
-def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_MIN_COUNT = "5", DEFAULT_PARENT_CHILD_RATIO = "0.1"
+def DEFAULT_ASSEMBLE_MASK = "1:1", DEFAULT_MIN_COUNT = "5", DEFAULT_PARENT_CHILD_RATIO = "0.1",
+    DEFAULT_ASSEMBLY_OFFSET = "5", DEFAULT_ASSEMBLY_MISMATCHES = "5", DEFAULT_ASSEMBLY_ANCHOR = "10"
 def cli = new CliBuilder(usage:
         "Assemble [options] R1.fastq[.gz] [R2.fastq[.gz] or ${BLANK_PATH}] output_dir/")
-cli.q(args: 1, argName: 'read quality (phred)',
+cli.q(args: 1, argName: "read quality (phred)",
         "barcode region quality threshold. Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
-cli._(longOpt: 'mask', args: 1, argName: 'X:Y, X=0/1, Y=0/1',
+cli._(longOpt: "mask", args: 1, argName: "X:Y, X=0/1, Y=0/1",
         "Mask for read(s) in pair that should be assembled. Default: \"$DEFAULT_ASSEMBLE_MASK\".")
 cli.p(args: 1,
         "number of threads to use. Default: all available processors")
 cli.c("compressed output")
-cli._(longOpt: 'log-file', args: 1, argName: 'fileName', "File to output assembly log")
-cli._(longOpt: 'log-overwrite', "Overwrites provided log file")
-cli._(longOpt: 'log-sample-name', "Sample name to use in log [default = N/A]")
-cli._(longOpt: 'log-sample-type', "Sample type to use in log, i.e. unpaired, paired and overlapped [default = N/A]")
-cli._(longOpt: 'alignment-details',
+cli._(longOpt: "log-file", args: 1, argName: "fileName", "File to output assembly log")
+cli._(longOpt: "log-overwrite", "Overwrites provided log file")
+cli._(longOpt: "log-sample-name", "Sample name to use in log [default = N/A]")
+cli._(longOpt: "log-sample-type", "Sample type to use in log, i.e. unpaired, paired and overlapped [default = N/A]")
+cli._(longOpt: "alignment-details",
         "Output multiple alignments generated during assembly as .asm files, " +
                 "for \"BacktrackSequence\"")
-cli.m(longOpt: 'min-count', args: 1, argName: 'integer',
-        "Minimal number of reads in MIG. Should be set according to 'Histogram.groovy' output. " +
+cli.m(longOpt: "min-count", args: 1, argName: "integer",
+        "Minimal number of reads in MIG. Should be set according to \"Histogram.groovy\" output. " +
                 "Default: $DEFAULT_MIN_COUNT")
-cli._(longOpt: 'filter-collisions',
+cli._(longOpt: "filter-collisions",
         "Collision filtering. Should be set if collisions (1-mismatch erroneous UMI sequence variants) " +
-                "are observed in 'Histogram.groovy' output")
-cli._(longOpt: 'collision-ratio', args: 1, argName: 'double, < 1.0',
+                "are observed in \"Histogram.groovy\" output")
+cli._(longOpt: "collision-ratio", args: 1, argName: "double, < 1.0",
         "Min parent-to-child MIG size ratio for collision filtering. Default value: $DEFAULT_PARENT_CHILD_RATIO")
-cli._(longOpt: 'assembly-offset', args: 1, argName: 'integer',
-        'Assembly offset range. Default: 3')
-cli._(longOpt: 'assembly-mismatches', args: 1, argName: 'integer',
-        'Assembly max mismatches. Default: 5')
-cli._(longOpt: 'assembly-anchor', args: 1, argName: 'integer',
-        'Assembly anchor region half size. Default: 10')
-cli._(longOpt: 'only-first-read',
-        'Use only first read (as they were in raw FASTQ), ' +
-                'can improve assembly quality for non-oriented reads when' +
-                'second read quality is very poor.')
+cli._(longOpt: "assembly-offset", args: 1, argName: "integer",
+        "Assembly offset range. Default: $DEFAULT_ASSEMBLY_OFFSET")
+cli._(longOpt: "assembly-mismatches", args: 1, argName: "integer",
+        "Assembly max mismatches. Default: $DEFAULT_ASSEMBLY_MISMATCHES")
+cli._(longOpt: "assembly-anchor", args: 1, argName: "integer",
+        "Assembly anchor region half size. Default: $DEFAULT_ASSEMBLY_ANCHOR")
+cli._(longOpt: "only-first-read",
+        "Use only first read (as they were in raw FASTQ), " +
+                "can improve assembly quality for non-oriented reads when" +
+                "second read quality is very poor.")
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 3) {
@@ -108,9 +109,9 @@ if (inputFileName2 != BLANK_PATH) {
 }
 
 // Assembly parameters
-def offsetRange = Integer.parseInt(opt.'assembly-offset' ?: '5'),
-    maxMMs = Integer.parseInt(opt.'assembly-mismatches' ?: '5'),
-    anchorRegion = Integer.parseInt(opt.'assembly-anchor' ?: '10')
+def offsetRange = (opt.'assembly-offset' ?: DEFAULT_ASSEMBLY_OFFSET).toInteger(),
+    maxMMs = (opt.'assembly-mismatches' ?: DEFAULT_ASSEMBLY_MISMATCHES).toInteger(),
+    anchorRegion = (opt.'assembly-anchor' ?: DEFAULT_ASSEMBLY_ANCHOR).toInteger()
 
 // I/O parameters
 boolean paired = inputFileName2 != BLANK_PATH
