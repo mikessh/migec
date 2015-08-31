@@ -145,16 +145,19 @@ def migData = new HashMap<String, Map<String, Integer>>[2]
 migData[0] = new HashMap<String, Map<String, Integer>>(1000000)
 if (assemblyIndices[0] && assemblyIndices[1])
     migData[1] = new HashMap<String, Map<String, Integer>>(1000000)
+
+int nReads = 0, nGoodReads = 0
+
 def putData = { int readId, String umi, String header, String seq ->
     if (!onlyFirstRead || header.contains(" R1 ")) {
         def seqCountMap = migData[readId].get(umi)
         if (seqCountMap == null)
             migData[readId].put(umi, seqCountMap = new HashMap<String, Integer>())
         seqCountMap.put(seq, (seqCountMap.get(seq) ?: 0) + 1)
+        nGoodReads++
     }
 }
 
-int nReads = 0, nGoodReads = 0
 println "[${new Date()} $scriptName] Pre-loading data for $inputFileName1, $inputFileName2.."
 def reader1 = Util.getReader(inputFileName1), reader2 = paired ? Util.getReader(inputFileName2) : null
 String header1, header2, seq1
@@ -182,7 +185,6 @@ while ((header1 = reader1.readLine()) != null) {
                 putData(1, umi, header2, seq2)
             else if (assemblyIndices[1])
                 putData(0, umi, header2, seq2) // put all to 1st file if mask=0,1
-            nGoodReads++
         }
         if (++nReads % 500000 == 0)
             println "[${new Date()} $scriptName] Processed $nReads reads, " +

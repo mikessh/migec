@@ -25,6 +25,11 @@ def cli = new CliBuilder(usage: 'Histogram [options] checkout_dir/ output_dir/')
 cli.q(args: 1, argName: 'read quality (phred)', "barcode region quality threshold. " +
         "Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli.p(args: 1, 'number of threads to use')
+cli._(longOpt: 'only-first-read',
+        'Use only first read (as they were in raw FASTQ), ' +
+                'can improve assembly quality for non-oriented reads when' +
+                'second read quality is very poor.')
+
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
     println "[ERROR] Too few arguments provided"
@@ -34,6 +39,7 @@ if (opt == null || opt.arguments().size() < 2) {
 int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availableProcessors()
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
 def inputDir = opt.arguments()[0]
+boolean onlyFirstRead = opt.'only-first-read'
 
 def scriptName = getClass().canonicalName
 int nBins = 17
@@ -99,7 +105,7 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                 while ((header = reader.readLine()) != null) {
                                     def umi = Util.getUmi(header, umiQualThreshold)
 
-                                    if (umi != null) {
+                                    if (umi != null && (!onlyFirstRead || header.contains(" R1 "))) {
                                         umiCountMap.put(umi, (umiCountMap.get(umi) ?: 0) + 1)
 
                                         if (umiSz < 0)
