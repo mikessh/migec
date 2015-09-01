@@ -34,7 +34,7 @@ cli.h("usage")
 cli.q(args: 1, argName: "read quality (phred)",
         "barcode region quality threshold. Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli._(longOpt: "mask", args: 1, argName: "X:Y, X=0/1, Y=0/1",
-        "Mask for read(s) in pair that should be assembled. Default: \"$DEFAULT_ASSEMBLE_MASK\".")
+        "Mask for read(s) in pair that should be assembled. Default: $DEFAULT_ASSEMBLE_MASK.")
 cli.p(args: 1,
         "number of threads to use. Default: all available processors")
 cli.c("compressed output")
