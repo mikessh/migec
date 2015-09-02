@@ -60,3 +60,23 @@ installed, run all 5 stages of the pipeline using the following command:
     
     As dot (`.`) is reserved by MIGEC to specify empty metadata fields and 
     unused arguments, use `./` in case you want to point to current directory.
+    
+
+Full-length immunoglobulin data analysis
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+MIGEC can be used as pre-processing tool to assemble full-length consensuses 
+for further post-analysis with `HIgBlast <https://github.com/mikessh/higblast>`__ 
+tool. Note that due to typically poor quality of MiSEQ 300+300bp reads, the 
+``--overlap`` mode of Checkout routine is not guaranteed to perform well. Instead, we recommend 
+to assemble consensuses first and then perform overlapping using 
+external tools. For example, `MiTools <https://github.com/milaboratory/mitools>`__ 
+``merge`` action can be used with the ``--same-strand`` option specified, the latter is 
+critical as assembled consensuses are on the same strand in output in contrast to 
+normal orientation of Illumina reads.
+
+Consensus quality and overlap efficiency can be greatly improved using 
+the ``--only-first-read`` option of Histogram and Assemble routines. If set, 
+this option instructs routines to use only the first read that typically has higher quality 
+than the second one. This applies to non-oriented reads and works better for 
+asymmetric sequencing design, e.g. 400+200bp reads.

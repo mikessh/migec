@@ -38,3 +38,9 @@ should be considered.
 A simple plotting routine written in R can facilitate visualization of
 MIG size distributions, available
 `here <https://github.com/mikessh/migec/tree/master/util>`__.
+
+.. important::
+    
+    The ``--only-first-read`` option should be used if it is also 
+    specified in Assemble routine for consensus coverage estimates 
+    to be concordant.

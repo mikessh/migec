@@ -132,3 +132,11 @@ over-sequenced MIGs and erroneous MIGs that cluster around MIG size of
     interfere with real MIGs when over-sequencing is relatively low. In this
     case collisions could be filtered during MIG consensus assembly using
     ``--filter-collisions`` option.
+    
+.. important::
+    
+    The ``--only-first-read`` option can greatly improve assembly quality 
+    in case of poor second read quality and allows consensus assembly for 
+    asymmetric reads (e.g. 400+200bp sequencing design). If using this option, 
+    don't forget to set ``--only-first-read`` in Histogram util to correctly 
+    calculate MIG size threshold.

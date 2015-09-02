@@ -169,3 +169,8 @@ drive space.
     When there is a huge number of unassigned/unused reads ``--skip-undef`` option 
     greatly speeds up de-multiplexing. However, take care to carefully investigate 
     the reasons behind low barcode extraction rate if it is a case.
+
+.. important::
+    
+    The ``--overlap`` option may not perform well for poor quality reads, which is 
+    a typical situation for 300+300bp MiSEQ sequencing.
