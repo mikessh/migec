@@ -173,4 +173,5 @@ drive space.
 .. important::
     
     The ``--overlap`` option may not perform well for poor quality reads, which is 
-    a typical situation for 300+300bp MiSEQ sequencing.
+    a typical situation for 300+300bp MiSEQ sequencing. In this case, merging reads 
+    using external software after Assemble stage is recommended.
