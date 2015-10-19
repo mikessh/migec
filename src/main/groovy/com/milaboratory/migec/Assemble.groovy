@@ -192,6 +192,11 @@ while ((header1 = reader1.readLine()) != null) {
         seq2 = reader2.readLine()
         reader2.readLine()
         reader2.readLine()
+        
+        if (header2 == null){
+            println "[ERROR] R1 file has more reads than R2"
+            System.exit(1)
+        }
     }
 
     if (seq1.length() >= MIN_READ_SZ && (!paired || seq2.length() >= MIN_READ_SZ)) {
@@ -210,6 +215,16 @@ while ((header1 = reader1.readLine()) != null) {
                     "unique UMIs so far ${migData[0].size()}"
     }
 }
+
+if (paired) {
+    header2 = reader2.readLine()
+
+    if (header2 != null){
+        println "[ERROR] R2 file has more reads than R1"
+        System.exit(1)
+    }
+}
+
 println "[${new Date()} $scriptName] Processed $nReads reads, " +
         "unique UMIs ${migData[0].size()}"
 
