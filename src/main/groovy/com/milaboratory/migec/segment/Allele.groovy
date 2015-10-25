@@ -30,6 +30,7 @@
 package com.milaboratory.migec.segment
 
 class Allele {
-    String alleleId, segmentId, seq, type
+    String alleleId, segmentId, seq, type, chain
+    boolean hasD
     int refPoint
 }

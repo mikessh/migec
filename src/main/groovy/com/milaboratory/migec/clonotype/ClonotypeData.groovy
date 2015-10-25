@@ -80,11 +80,13 @@ class ClonotypeData {
     }
 
     void appendDInfo(SegmentSearcher dSegmentSearcher) {
-        def result = dSegmentSearcher.scan(cdr3Seq, vEndRel, jStartRel)
-        if (result) {
-            dStartRel = result.segmentStart
-            dEndRel = result.segmentEnd
-            dAlleles = result.alleles as Allele[]
+        if (vAllele.hasD) {
+            def result = dSegmentSearcher.scan(cdr3Seq, vEndRel, jStartRel)
+            if (result) {
+                dStartRel = result.segmentStart
+                dEndRel = result.segmentEnd
+                dAlleles = result.alleles as Allele[]
+            }
         }
     }
 

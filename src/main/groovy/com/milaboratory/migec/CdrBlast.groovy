@@ -40,7 +40,7 @@ import org.codehaus.groovy.runtime.ResourceGroovyMethods
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-import static com.milaboratory.migec.Util.BLANK_PATH
+import static com.milaboratory.migec.Util.*
 
 //////////////
 //   CLI   //
@@ -66,6 +66,8 @@ cli.N(args: 1,
         "Number of reads to take. For downsampling purposes")
 cli._(longOpt: "no-sort",
         "Do not sort output by clonotype count, can save some time")
+cli._(longOpt: "allow-chimeric",
+        "Allow V-J combinations coming from different genes")
 cli._(longOpt: "blast-path", args: 1, argName: "directory",
         "Path to blast executable.")
 cli._(longOpt: "same-sample", "Assembled data only (-a). Input files come from the same sample so " +
@@ -110,10 +112,11 @@ if (opt.h) {
 }
 
 // SEGMENTS STUFF
-boolean includeNonFuncitonal = opt.'all-segments', includeAlleles = opt.'all-alleles'
+boolean includeNonFuncitonal = opt.'all-segments', includeAlleles = opt.'all-alleles',
+        allowChimeric = opt.'allow-chimeric'
 if (opt.'print-library') {
     println "CDR3 extraction is possible for the following data (segments include non-functional = $includeNonFuncitonal):"
-    Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
+    listAvailableSegments(includeNonFuncitonal, includeAlleles)
     System.exit(0)
 }
 
@@ -132,14 +135,15 @@ if (!chainOpt) {
 
 def chains = chainOpt.split(",")
 
-chains.each { chain ->
-    if (!Util.isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
+def hasD = chains.collect { chain ->
+    if (!isAvailable(species, chain, includeNonFuncitonal, includeAlleles)) {
         println "[ERROR] Sorry, no analysis could be performed for $species gene $chain " +
                 "(include non-functional = $includeNonFuncitonal). " +
                 "Possible variants are:\n"
-        Util.listAvailableSegments(includeNonFuncitonal, includeAlleles)
+        listAvailableSegments(includeNonFuncitonal, includeAlleles)
         System.exit(2)
     }
+    hasD(species, chain, includeNonFuncitonal, includeAlleles)
 }
 
 // SYSTEM
@@ -225,10 +229,10 @@ def vAlleles = new ArrayList<Allele>(), jAlleles = new ArrayList<Allele>(),
     dAlleles = new ArrayList<Allele>()
 def collapseAlleleMap = new HashMap<String, Allele>()
 
-chains.each { chain ->
+chains.eachWithIndex { String chain, int ind ->
     println "${timestamp()} Loading ${chain} Variable and Joining segment data"
 
-    def resFile = Util.getSegmentsFile(includeNonFuncitonal, includeAlleles)
+    def resFile = getSegmentsFile(includeNonFuncitonal, includeAlleles)
 
     resFile.splitEachLine("\t") {
         if (species.toUpperCase() == it[0].toUpperCase() &&
@@ -243,7 +247,7 @@ chains.each { chain ->
                 // note that D segment could have different strand
                 dAlleles.add(new Allele(alleleId: it[3],
                         segmentId: it[3].split("[*]")[0],
-                        seq: Util.revCompl(seq)))
+                        seq: revCompl(seq)))
             } else {
                 // More complex processing for V/J alleles
                 // Mask all except seed region
@@ -272,7 +276,9 @@ chains.each { chain ->
                     allele = new Allele(alleleId: it[3], segmentId: it[3].split("[*]")[0],
                             refPoint: refPoint,
                             seq: seq,
-                            type: type)
+                            type: type,
+                            chain: chain,
+                            hasD: hasD[ind])
                     collapseAlleleMap.put(seq, allele)
                 } else
                     allele.alleleId += "," + it[3]
@@ -331,7 +337,7 @@ def seqMap = new HashMap<String, Integer>(),
 int counter = 0, uniqueCounter = 0
 inputFileNames.each { inputFileName ->
     println "${timestamp()} Reading $inputFileName and generating list of unique sequences to map V and J genes"
-    def reader = Util.getReader(inputFileName)
+    def reader = getReader(inputFileName)
     String header
     while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
         if (assembledInput) {
@@ -360,7 +366,7 @@ inputFileNames.each { inputFileName ->
     }
 }
 
-def queryFilePrefix = TMP_FOLDER + "/" + Util.getFastqPrefix(inputFileNames[0])
+def queryFilePrefix = TMP_FOLDER + "/" + getFastqPrefix(inputFileNames[0])
 println "[${new Date()} $SCRIPT_NAME] Making a temporary FASTA file for BLAST queries"
 int chunk_sz = seqList.size() / THREADS
 for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
@@ -454,7 +460,8 @@ GParsPool.withPool THREADS, {
         String seq = entry.key
         int id = entry.value
         def vMapping = vMappingData[id], jMapping = jMappingData[id]
-        if (vMapping != null && jMapping != null) {
+        if (vMapping != null && jMapping != null &&
+                (allowChimeric || vMapping.allele.chain == jMapping.allele.chain)) {
             Allele vAllele = vMapping.allele,
                    jAllele = jMapping.allele
             boolean vRC = vMapping.aFrom > vMapping.aTo, jRC = jMapping.aFrom > jMapping.aTo
@@ -485,7 +492,7 @@ GParsPool.withPool THREADS, {
             if (vRefInAlign && jRefInAlign && vRC == jRC) {
                 if (vRC) { // after that step RC is same to non-RC
                     reverseFound.get()
-                    seq = Util.revCompl(seq)
+                    seq = revCompl(seq)
 
                     int temp = vMapping.qTo
                     vMapping.qTo = seq.length() - vMapping.qFrom - 1
@@ -553,16 +560,16 @@ GParsPool.withPool THREADS, {
 
             if (DEBUG) {
                 if (bad && badExamples.get() < DEBUG_MAX_MESSAGES) {
-                    def message = ((vRC == jRC && vRC) ? Util.revCompl(seq) : seq) + "\n"
+                    def message = ((vRC == jRC && vRC) ? revCompl(seq) : seq) + "\n"
 
                     if (!vRefInAlign)
                         message += vAllele.alleleId + "\t" +
-                                (vRC ? Util.revCompl(vAllele.seq.toUpperCase()) : vAllele.seq.toUpperCase()) + "\t" +
+                                (vRC ? revCompl(vAllele.seq.toUpperCase()) : vAllele.seq.toUpperCase()) + "\t" +
                                 "aFrom=$vMapping.aFrom aTo=$vMapping.aTo ref=$vRef\n"
 
                     if (!jRefInAlign)
                         message += jAllele.alleleId + "\t" +
-                                (vRC ? Util.revCompl(jAllele.seq.toUpperCase()) : jAllele.seq.toUpperCase()) + "\t" +
+                                (vRC ? revCompl(jAllele.seq.toUpperCase()) : jAllele.seq.toUpperCase()) + "\t" +
                                 "aFrom=$jMapping.aFrom aTo=$jMapping.aTo ref=$jRef\n"
 
                     debugMessagesBad.add(message)
@@ -577,7 +584,7 @@ GParsPool.withPool THREADS, {
                             vAllele.seq.toUpperCase() + "\t" +
                             "qTo=$vMapping.qTo qFrom=$vMapping.qFrom aTo=$vMapping.aTo aFrom=$vMapping.aFrom ref=$vRef\n"
 
-                    message += jAllele.alleleId + "\t" + Util.revCompl(jAllele.seq.toUpperCase()) + "\t" +
+                    message += jAllele.alleleId + "\t" + revCompl(jAllele.seq.toUpperCase()) + "\t" +
                             "qTo=$jMapping.qTo qFrom=$jMapping.qFrom aTo=$jMapping.aTo aFrom=$jMapping.aFrom ref=$jRef\n"
 
                     debugMessagesGood.add(message)
@@ -624,9 +631,9 @@ if (!dAlleles.empty) {
 ////////////////////////////////
 counter = 0
 int goodReads = 0, goodEvents = 0, mappedReads = 0, mappedEvents = 0, totalReads = 0, totalEvents = 0
-def writerCdr3Fastq = cdr3FastqFile ? Util.getWriter(cdr3FastqFile) : null,
-    writerUnmapped3Fastq = unmappedFastqFile ? Util.getWriter(unmappedFastqFile) : null,
-    writerCdr3Umi = assembledInput && cdr3UmiTable ? Util.getWriter(cdr3UmiTable) : null
+def writerCdr3Fastq = cdr3FastqFile ? getWriter(cdr3FastqFile) : null,
+    writerUnmapped3Fastq = unmappedFastqFile ? getWriter(unmappedFastqFile) : null,
+    writerCdr3Umi = assembledInput && cdr3UmiTable ? getWriter(cdr3UmiTable) : null
 
 if (writerCdr3Umi)
     writerCdr3Umi.println("#umi\tmig_sz\tcdr3nt\tv\tj\td")
@@ -635,7 +642,7 @@ def usedUmis = new HashSet<String>()
 
 inputFileNames.each { inputFileName ->
     println "${timestamp()} Appending read data from $inputFileName"
-    def reader = Util.getReader(inputFileName)
+    def reader = getReader(inputFileName)
     while (((header = reader.readLine()) != null) && (nReads < 0 || counter < nReads)) {
         def seq = reader.readLine()
         reader.readLine()
@@ -662,7 +669,7 @@ inputFileNames.each { inputFileName ->
             qual = qual.substring(clonotypeData.cdrFrom, clonotypeData.cdrTo)
 
             // Increment counters if quality is good
-            if (Util.minQual(qual) >= qualThreshold) {
+            if (minQual(qual) >= qualThreshold) {
                 if (assembledInput && sameSample) {
                     def umiCdr = umi + "_" + clonotypeData.cdr3Seq
                     duplicateUmi = usedUmis.contains(umi)
@@ -812,7 +819,7 @@ if (logFileName) {
     } else {
         logFile.absoluteFile.parentFile.mkdirs()
         logFile.withPrintWriter { pw ->
-            pw.println(Util.CDRBLAST_LOG_HEADER)
+            pw.println(CDRBLAST_LOG_HEADER)
         }
     }
 
