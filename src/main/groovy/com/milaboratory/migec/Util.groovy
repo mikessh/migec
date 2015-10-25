@@ -82,24 +82,26 @@ class Util {
     }
 
     static boolean isAvailable(String species, String gene, boolean includeNonFunctional, boolean includeAllAlleles) {
+        def result = false
         getSegmentMetadataFile(includeNonFunctional, includeAllAlleles).splitEachLine("\t") { splitLine ->
             if (!splitLine[0].startsWith("#") && splitLine[-1] == "1" &&
                     splitLine[0].toUpperCase() == species.toUpperCase() &&
                     splitLine[1].toUpperCase() == gene.toUpperCase())
-                return true
+                result = true
         }
-        false
+        result
     }
 
     static boolean hasD(String species, String gene, boolean includeNonFunctional, boolean includeAllAlleles) {
+        def result = false
         getSegmentMetadataFile(includeNonFunctional, includeAllAlleles).splitEachLine("\t") { splitLine ->
-            if (!splitLine[0].startsWith("#") && 
+            if (!splitLine[0].startsWith("#") &&
                     splitLine[0].toUpperCase() == species.toUpperCase() &&
                     splitLine[1].toUpperCase() == gene.toUpperCase() &&
                     splitLine[3].toUpperCase() == "1")
-                return true
+                result = true
         }
-        false
+        result
     }
 
     private static getResourceAsStream(String resourceName) {
