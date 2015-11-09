@@ -29,6 +29,7 @@
 
 package com.milaboratory.migec.dalign;
 
+import com.milaboratory.migec.Util;
 import com.milaboratory.migec.segment.Allele;
 
 import java.util.HashSet;
@@ -44,6 +45,7 @@ public class HitTracker {
             for (int j = 0; j < allele.getSeq().length() - i; j++) {
                 String kmer = allele.getSeq().substring(j, j + i);
                 kmers.add(kmer);
+                kmers.add(Util.revCompl(kmer));
             }
         }
     }
