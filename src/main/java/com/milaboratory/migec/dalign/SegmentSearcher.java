@@ -31,6 +31,7 @@ package com.milaboratory.migec.dalign;
 
 import com.milaboratory.migec.segment.Allele;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -54,8 +55,8 @@ public class SegmentSearcher {
         if (jStartRel - vEndRel - 1 < minHitSize)
             return null;
 
-        final String subSeq = cdr3seq.substring(vEndRel + 1, jStartRel);
-        final List<Allele> hitAlleles = new LinkedList<>();
+        String subSeq = cdr3seq.substring(vEndRel + 1, jStartRel);
+        List<Allele> hitAlleles = new ArrayList<>();
 
         // iterate from largest window to smallest one
         for (int i = subSeq.length(); i >= minHitSize; i--) {
