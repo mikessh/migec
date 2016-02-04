@@ -1,6 +1,9 @@
 MIGEC: Molecular Identifier Guided Error Correction pipeline
 =================================================================
 
+.. figure:: _static/images/splash.png
+    :align: center
+
 FEATURES
 ~~~~~~~~
 
