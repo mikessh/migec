@@ -1,5 +1,4 @@
 [![Build Status](https://travis-ci.org/mikessh/migec.svg?branch=master)](https://travis-ci.org/mikessh/migec)
-[![RepSeq](http://statsarray.com/wp-content/uploads/2014/03/omictools-logo.png)](http://omictools.com/migec-s5023.html)
 
 # MiGEC: Molecular Identifier Guided Error Correction pipeline  
 
@@ -8,6 +7,14 @@ This pipeline provides several useful tools for analysis of immune repertoire se
 This pipeline was designed for libraries sequenced using Illumina MiSeq and HiSeq and the main requirement for sequencing reads is that they should contain the entire CDR3 region of immune receptor gene. Sequencing libraries with high over-sequencing, i.e. ones that have 5+ reads per starting molecule (unique UMI tag), should be used for optimal error elimination.
 
 Several modules of the pipeline, such as de-multiplexing and CDR3 extraction could be utilized for a wider range of datasets.
+
+Compiled binaries are available from [here](https://github.com/mikessh/migec/releases/latest).
+The software is cross-platform and requires Java v1.8 to run.
+Easy installation on MacOS/Linux via [Homebrew](http://brew.sh/) or [Linuxbrew](http://linuxbrew.sh/):
+```bash
+brew tap mikessh/repseq
+brew install migec
+```
 
 For more details please see the [paper](http://www.nature.com/nmeth/journal/v11/n6/abs/nmeth.2960.html) describing MiGEC.
 
