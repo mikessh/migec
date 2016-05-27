@@ -86,7 +86,7 @@ do
             shift
             ;;
         *)
-            migecArgs+=(${key})
+            migecArgs+=("${key}")
             ;;
     esac
 done
