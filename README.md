@@ -14,6 +14,7 @@ Easy installation on MacOS/Linux via [Homebrew](http://brew.sh/) or [Linuxbrew](
 ```bash
 brew tap mikessh/repseq
 brew install migec
+migec Checkout ...
 ```
 
 For more details please see the [paper](http://www.nature.com/nmeth/journal/v11/n6/abs/nmeth.2960.html) describing MiGEC.

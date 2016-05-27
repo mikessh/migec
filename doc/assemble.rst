@@ -131,7 +131,11 @@ over-sequenced MIGs and erroneous MIGs that cluster around MIG size of
     see "collisions" output of Histogram script. Such collision events could
     interfere with real MIGs when over-sequencing is relatively low. In this
     case collisions could be filtered during MIG consensus assembly using
-    ``--filter-collisions`` option.
+    ``--filter-collisions`` option in **AssembleBatch** routine. When using 
+    **Assemble** routine use ``--force-collision-filter`` command to 
+    turn collision filter on. The child-to-parent ratio for collision filtering
+    (size of larger and smaller UMIs that differ by a single mismatch) is 
+    controlled by the ``--collision-ratio`` parameter (default is ``--collision-ratio 0.1``).
     
 .. important::
     
