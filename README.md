@@ -35,12 +35,12 @@ A detailed description of the study and protocol used could be found in our [Nat
 
 A software pipeline that allows analysis of immune repertoire sequencing data (for both T- and B-cells) prepared using our protocol is available at GitHub. Here are the links to readme and a package containing the executable Jar. The pipeline is written using Java/Groovy and has moderate system requirements for large datasets: it will analyze a HiSeq lane in 4-5 hours on a commodity server with 8 core Intel Xeon and 36 Gb RAM.
 
-Raw datasets used in the study are deposed in SRA under accessions [SRP040329](http://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?study=SRP040329). The barcode sequences that are necessary for de-multiplexing and UMI extraction with Checkout utility are available [here](https://github.com/mikessh/migec/blob/master/misc/barcodes.txt). RNA for immunoglobulin heavy chain (IGH) from more than 600,000 B-cells from blood of a healthy individual was sequenced, yielding a repertoire of more than 100,000 clonotypes.
+Raw datasets used in the study are deposed in SRA under accessions [SRP040329](http://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?study=SRP040329). The barcode sequences that are necessary for de-multiplexing and UMI extraction with Checkout utility are available [here](https://github.com/mikessh/migec/blob/master/misc/barcodes.txt?raw=true). RNA for immunoglobulin heavy chain (IGH) from more than 600,000 B-cells from blood of a healthy individual was sequenced, yielding a repertoire of more than 100,000 clonotypes.
 
 A set of spike-ins EHEB, EHEB-V1 (with one mismatch difference from EHEB-V0) and EHEB-V2 (with two mismatches) were added in order to monitor the efficiency of error filtration.
 
 Have a glance at the analyzed data (done with legacy MIGEC version):
 
-* The spreadsheet demonstrating efficient error elimination for spike-in clonotypes with known sequences [[Download](https://github.com/mikessh/migec/blob/master/misc/Exp2-spikein-table.xlsx)]
-* The spreadsheet with whole repertoire [[Download](https://github.com/mikessh/migec/blob/master/misc/Exp2-all-cdr-migec.xlsx)]
-* An interactive network of B-cell clonal trees (created using [Cytoscape](http://cytoscape.org/)) [[Download](https://github.com/mikessh/migec/blob/master/misc/Exp2-all-cdr-migec.cys)]
+* The spreadsheet demonstrating efficient error elimination for spike-in clonotypes with known sequences [[Download](https://github.com/mikessh/migec/blob/master/misc/Exp2-spikein-table.xlsx?raw=true)]
+* The spreadsheet with whole repertoire [[Download](https://github.com/mikessh/migec/blob/master/misc/Exp2-all-cdr-migec.xlsx?raw=true)]
+* An interactive network of B-cell clonal trees (created using [Cytoscape](http://cytoscape.org/)) [[Download](https://github.com/mikessh/migec/blob/master/misc/Exp2-all-cdr-migec.cys?raw=true)]
