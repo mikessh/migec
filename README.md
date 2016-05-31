@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/mikessh/migec.svg?branch=master)](https://travis-ci.org/mikessh/migec)
 
-# MiGEC: Molecular Identifier Guided Error Correction pipeline  
+## MiGEC: Molecular Identifier Guided Error Correction pipeline  
 
 This pipeline provides several useful tools for analysis of immune repertoire sequencing data. Its main feature is the ability to use information from unique nucleotide tags (UMIs, see this [paper](http://www.nature.com/nmeth/journal/v9/n1/full/nmeth.1778.html) for details), which are attached to molecules before sequencing library preparation and allow to backtrack the original sequence of molecule. UMIs make it possible to computationally filter nearly all experimental errors from resulting immune receptor sequences. 
 
@@ -24,3 +24,23 @@ Full documentation is provided via [ReadTheDocs](http://migec.readthedocs.org/en
 Please cite the tool as:
 
 > Shugay M *et al.* Towards error-free profiling of immune repertoires. Nature Methods **11**, 653–655 (2014)
+
+### Some notes on MiGEC study
+
+The basic idea behind this project is to incorporate unique molecular identifier tags to trace individual cDNA molecules during library preparation and sequencing in order to eliminate experimental errors. This is especially crucial for B-cell studies as it is necessary to tell real hypermutations from hot-spot PCR and sequencing errors.
+
+Here we provide a modified protocol for performing nearly error-free high-throughput sequencing of TCR and antibody repertoires, as well as a novel error-correction algorithm that successfully handles hot-spot PCR errors.
+
+A detailed description of the study and protocol used could be found in our [Nature Methods paper](http://www.nature.com/nmeth/journal/vaop/ncurrent/full/nmeth.2960.html).
+
+A software pipeline that allows analysis of immune repertoire sequencing data (for both T- and B-cells) prepared using our protocol is available at GitHub. Here are the links to readme and a package containing the executable Jar. The pipeline is written using Java/Groovy and has moderate system requirements for large datasets: it will analyze a HiSeq lane in 4-5 hours on a commodity server with 8 core Intel Xeon and 36 Gb RAM.
+
+Raw datasets used in the study are deposed in SRA under accessions [SRP040329](http://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?study=SRP040329). The barcode sequences that are necessary for de-multiplexing and UMI extraction with Checkout utility are available [here](https://s3.amazonaws.com/files.milaboratory.com/migec/barcodes.txt). RNA for immunoglobulin heavy chain (IGH) from more than 600,000 B-cells from blood of a healthy individual was sequenced, yielding a repertoire of more than 100,000 clonotypes.
+
+A set of spike-ins EHEB, EHEB-V1 (with one mismatch difference from EHEB-V0) and EHEB-V2 (with two mismatches) were added in order to monitor the efficiency of error filtration.
+
+Have a glance at the analyzed data (done with legacy MIGEC version):
+
+* The spreadsheet demonstrating efficient error elimination for spike-in clonotypes with known sequences [[Download](https://s3.amazonaws.com/files.milaboratory.com/migec/Exp2-spikein-table.xlsx)]
+* The spreadsheet with whole repertoire [[Download](https://s3.amazonaws.com/files.milaboratory.com/migec/Exp2-all-cdr-migec.xlsx)]
+* An interactive network of B-cell clonal trees (created using [Cytoscape](http://cytoscape.org/)) [[Download](https://s3.amazonaws.com/files.milaboratory.com/migec/Exp2-all-cdr-migec.cys)]
