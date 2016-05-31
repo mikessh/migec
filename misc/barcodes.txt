@@ -1,0 +1,4 @@
+S1	aaACTcagtggtatcaacgcagagtNNNNtNNNNtNNNN
+S2	aaAGAcagtggtatcaacgcagagtNNNNtNNNNtNNNN
+S3	aaGCCcagtggtatcaacgcagagtNNNNtNNNNtNNNN
+S4	aaGGTcagtggtatcaacgcagagtNNNNtNNNNtNNNN
