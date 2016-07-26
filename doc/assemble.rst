@@ -144,3 +144,13 @@ over-sequenced MIGs and erroneous MIGs that cluster around MIG size of
     asymmetric reads (e.g. 400+200bp sequencing design). If using this option, 
     don't forget to set ``--only-first-read`` in Histogram util to correctly 
     calculate MIG size threshold.
+
+Summary statistics
+~~~~~~~~~~~~~~~~~~
+
+Contig assembly efficiency is reported in ``assemble.log.txt`` file. Reads can be dropped for several 
+reasons:
+- First, in case there is an insufficient UMI coverage, all reads associated with a given UMI are dropped. Therefore the ``READS_TOTAL`` counter is less then the original number of reads. This counter reflects the number of reads that enter the assembly under certain UMI coverage threshold.
+- Next, reads tagged with the same UMI will be dropped in case they don't match the consensus sequence that is associated with a given UMI. This is applied to both read#1 and read#2.
+- The number of ``READS_DROPPED_WITHIN_MIG`` is the number of reads pairs (for paired-end sequencing) in which either read#1 and read#2 is dropped due to high number of mismatches in respect to consensus sequence.
+- Number of MIGs that are successfully assembled for read#1 and read#2 is denoted as ``MIGS_GOOD_FASTQ1`` and ``MIGS_GOOD_FASTQ2``. Note that the total number of successfully assembled MIGs is ``MIGS_GOOD_TOTAL`` which counts only MIGs in which both 1st read part and 2nd read part is assembled. Therefore this counter can be less then both ``MIGS_GOOD_FASTQ1`` and ``MIGS_GOOD_FASTQ2``.
