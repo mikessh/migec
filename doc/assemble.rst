@@ -150,6 +150,7 @@ Summary statistics
 
 Contig assembly efficiency is reported in ``assemble.log.txt`` file. Reads can be dropped for several 
 reasons:
+
 - First, in case there is an insufficient UMI coverage, all reads associated with a given UMI are dropped. Therefore the ``READS_TOTAL`` counter is less then the original number of reads. This counter reflects the number of reads that enter the assembly under certain UMI coverage threshold.
 - Next, reads tagged with the same UMI will be dropped in case they don't match the consensus sequence that is associated with a given UMI. This is applied to both read#1 and read#2.
 - The number of ``READS_DROPPED_WITHIN_MIG`` is the number of reads pairs (for paired-end sequencing) in which either read#1 and read#2 is dropped due to high number of mismatches in respect to consensus sequence.
