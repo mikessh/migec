@@ -148,10 +148,13 @@ over-sequenced MIGs and erroneous MIGs that cluster around MIG size of
 Summary statistics
 ~~~~~~~~~~~~~~~~~~
 
-Contig assembly efficiency is reported in ``assemble.log.txt`` file. Reads can be dropped for several 
-reasons:
+MIG consensus assembly report will be stored in the ``assemble.log.txt`` file which contains basic information such as the fraction of assembled reads and the final number of assembled consensuses. It summarizes both filtering based on MIG size and the consistency of read sequence within the same MIG:
 
-- First, in case there is an insufficient UMI coverage, all reads associated with a given UMI are dropped. Therefore the ``READS_TOTAL`` counter is less then the original number of reads. This counter reflects the number of reads that enter the assembly under certain UMI coverage threshold.
-- Next, reads tagged with the same UMI will be dropped in case they don't match the consensus sequence that is associated with a given UMI. This is applied to both read#1 and read#2.
-- The number of ``READS_DROPPED_WITHIN_MIG`` is the number of reads pairs (for paired-end sequencing) in which either read#1 and read#2 is dropped due to high number of mismatches in respect to consensus sequence.
-- Number of MIGs that are successfully assembled for read#1 and read#2 is denoted as ``MIGS_GOOD_FASTQ1`` and ``MIGS_GOOD_FASTQ2``. Note that the total number of successfully assembled MIGs is ``MIGS_GOOD_TOTAL`` which counts only MIGs in which both 1st read part and 2nd read part is assembled. Therefore this counter can be less then both ``MIGS_GOOD_FASTQ1`` and ``MIGS_GOOD_FASTQ2``.
+- The ``MIGS_*`` counters show the number of MIGs that were processed (``MIGS_TOTAL``) and were successfully assigned with consensus sequences (``MIGS_GOOD_*``).
+- In case of paired-end sequencing separate statistic is provided for both R1 and R2 (``MIGS_GOOD_FASTQ1`` and ``MIGS_GOOD_FASTQ2``). The total counter (``MIGS_GOOD_TOTAL``) reflects number of UMI tags for which both R1 and R2 MIGs were successfully assembled.
+- The total number of reads in assembled MIGs and all MIGs is provided in ``READS_GOOD_*`` and ``READS_TOTAL`` columns respectively.
+  
+Note that not all MIGs will be assembled for the following reasons:
+
+- MIGs with a size less then the specified size threshold value will be dropped (see ``--force-overseq`` and ``-m`` options), as well as MIGs that correpsond to erroneous UMI variants (see ``--filter-collisions`` option).
+- Reads that have too many mismatches when compared to the consensus sequence will be dropped, which is reflected by ``READS_DROPPED_WITHIN_MIG`` statistic. In case a high percentage of reads within MIG is dropped/final MIG size is less than the threshold the entire MIG will be dropped for the analysis.
