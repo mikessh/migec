@@ -154,7 +154,11 @@ MIG consensus assembly report will be stored in the ``assemble.log.txt`` file wh
 - In case of paired-end sequencing separate statistic is provided for both R1 and R2 (``MIGS_GOOD_FASTQ1`` and ``MIGS_GOOD_FASTQ2``). The total counter (``MIGS_GOOD_TOTAL``) reflects number of UMI tags for which both R1 and R2 MIGs were successfully assembled.
 - The total number of reads in assembled MIGs and all MIGs is provided in ``READS_GOOD_*`` and ``READS_TOTAL`` columns respectively.
   
-Note that not all MIGs will be assembled for the following reasons:
+MIGs can be dropped from the assembly and marked as bad ones for the following reasons:
 
 - MIGs with a size less then the specified size threshold value will be dropped (see ``--force-overseq`` and ``-m`` options), as well as MIGs that correpsond to erroneous UMI variants (see ``--filter-collisions`` option).
 - Reads that have too many mismatches when compared to the consensus sequence will be dropped, which is reflected by ``READS_DROPPED_WITHIN_MIG`` statistic. In case a high percentage of reads within MIG is dropped/final MIG size is less than the threshold the entire MIG will be dropped for the analysis.
+
+.. note::
+    
+    Additional pre-filtering of UMI tags identified by **Checkout** utility is performed by removing UMI tag sequences with a minimum Phred quality score below the one specified by the ``-q`` parameter (default is ``15``). Thus, the ``READS_TOTAL`` can be somewhat smaller than the total number of reads for a given sample in the ``checkout.log.txt``
