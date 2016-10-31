@@ -177,35 +177,37 @@ def addBarcode = { String barcode, int slave ->
 
 // Load barcode data from file
 new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
-    sl = sl.collect { it.length() == 0 ? BLANK_PATH : it}
-    // filter by input file name
-    if (
-    (inputFileName2 == BLANK_PATH && (sl.size() < 4 || sl[3] == BLANK_PATH || (inputFileName1 == sl[3]))) ||
-            (sl.size() < 5 ||
-                    ((sl[3] == BLANK_PATH || inputFileName1 == sl[3]) && (sl[4] == BLANK_PATH || inputFileName2 == sl[4])))
-    ) {
-        if (!sl[0].startsWith("#")) {
-            sampleIds.add(sl[0])
-            if (addRevComplBc)
+    if (sl.size() > 0) {
+        sl = sl.collect { it.length() == 0 ? BLANK_PATH : it }
+        // filter by input file name
+        if (
+        (inputFileName2 == BLANK_PATH && (sl.size() < 4 || sl[3] == BLANK_PATH || (inputFileName1 == sl[3]))) ||
+                (sl.size() < 5 ||
+                        ((sl[3] == BLANK_PATH || inputFileName1 == sl[3]) && (sl[4] == BLANK_PATH || inputFileName2 == sl[4])))
+        ) {
+            if (!sl[0].startsWith("#")) {
                 sampleIds.add(sl[0])
-            if (sl[1] != null && (sl[1] = sl[1].trim()).length() > 0 &&
-                    sl[1].toCharArray().every { complements.keySet().contains((String) it) }) {
-                addBarcode(sl[1], 0)
                 if (addRevComplBc)
-                    addBarcode(Util.revComplExt(sl[1]), 0)
-            } else {
-                println "[ERROR] Bad barcode ${sl[1]}. Terminating"
-                System.exit(2)
-            }
-            if (sl[2] != null && (sl[2] = sl[2].trim()).length() > 0 &&
-                    sl[2].toCharArray().every { complements.keySet().contains((String) it) }) {
-                addBarcode(sl[2], 1)
-                if (addRevComplBc)
-                    addBarcode(Util.revComplExt(sl[2]), 1)
-            } else {
-                addBarcode('n', 1)
-                if (addRevComplBc)
+                    sampleIds.add(sl[0])
+                if (sl[1] != null && (sl[1] = sl[1].trim()).length() > 0 &&
+                        sl[1].toCharArray().every { complements.keySet().contains((String) it) }) {
+                    addBarcode(sl[1], 0)
+                    if (addRevComplBc)
+                        addBarcode(Util.revComplExt(sl[1]), 0)
+                } else {
+                    println "[ERROR] Bad barcode ${sl[1]}. Terminating"
+                    System.exit(2)
+                }
+                if (sl[2] != null && (sl[2] = sl[2].trim()).length() > 0 &&
+                        sl[2].toCharArray().every { complements.keySet().contains((String) it) }) {
+                    addBarcode(sl[2], 1)
+                    if (addRevComplBc)
+                        addBarcode(Util.revComplExt(sl[2]), 1)
+                } else {
                     addBarcode('n', 1)
+                    if (addRevComplBc)
+                        addBarcode('n', 1)
+                }
             }
         }
     }

@@ -58,7 +58,8 @@ if (!options.contains("--append"))
 boolean anyMissing = false
 def filesHash = new HashSet<String>()
 new File(barcodesFileName).splitEachLine("\t") { splitLine ->
-    if (!splitLine[0].startsWith("#") && splitLine.size() > 3 && splitLine[3] != BLANK_PATH) {
+    if (splitLine.size() > 0 &&
+            !splitLine[0].startsWith("#") && splitLine.size() > 3 && splitLine[3] != BLANK_PATH) {
         def fastq1 = splitLine[3], fastq2 = splitLine.size() > 4 ? splitLine[4] : BLANK_PATH
         filesHash.add([fastq1, fastq2].join(" "))
 
