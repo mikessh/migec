@@ -177,6 +177,7 @@ def addBarcode = { String barcode, int slave ->
 
 // Load barcode data from file
 new File(barcodesFileName).splitEachLine("[\t ]") { sl ->
+    sl = sl.collect { it.length() == 0 ? BLANK_PATH : it}
     // filter by input file name
     if (
     (inputFileName2 == BLANK_PATH && (sl.size() < 4 || sl[3] == BLANK_PATH || (inputFileName1 == sl[3]))) ||
