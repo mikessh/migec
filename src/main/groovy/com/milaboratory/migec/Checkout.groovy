@@ -481,7 +481,7 @@ readThread.start()
 def pool = Executors.newFixedThreadPool(THREADS)
 def futures = new ArrayList<Future>()
 
-def tgPattern = /^T{0,3}G{3,7}/, gtPattern = /G{3,7}T{0,3}$/
+def tgPattern = /^T{0,3}G{3,7}/, caPattern = /C{3,7}A{0,3}$/
 
 for (int k = 0; k < nProcessors; k++) {
     futures.add(pool.submit(new Runnable() { // Processors
@@ -576,7 +576,7 @@ for (int k = 0; k < nProcessors; k++) {
                                     if (removeTS) {
                                         seq = readData[4 - readIndex]
                                         qual = readData[5 - readIndex]
-                                        def tsHit = (seq =~ gtPattern)
+                                        def tsHit = (seq =~ caPattern)
                                         if (tsHit) {
                                             readData[readIndex + 1] = seq.substring(0, tsHit.start())
                                             readData[readIndex + 2] = qual.substring(0, tsHit.start())
