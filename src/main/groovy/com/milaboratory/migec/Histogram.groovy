@@ -34,15 +34,18 @@ import groovyx.gpars.GParsPool
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicIntegerArray
 
+def DEFAULT_PARENT_CHILD_RATIO = "1"
+
 def cli = new CliBuilder(usage: 'Histogram [options] checkout_dir/ output_dir/')
 cli.h("usage")
 cli.q(args: 1, argName: 'read quality (phred)', "barcode region quality threshold. " +
         "Default: $Util.DEFAULT_UMI_QUAL_THRESHOLD")
 cli.p(args: 1, 'number of threads to use')
 cli._(longOpt: 'only-first-read',
-        'Use only first read (as they were in raw FASTQ), ' +
-                'can improve assembly quality for non-oriented reads when' +
-                'second read quality is very poor.')
+        'Use only first read (as they were in raw FASTQ) ' +
+                'which typically has higher quality to compute statistics.')
+cli._(longOpt: "collision-ratio", args: 1, argName: "double, <= 1.0",
+        "Min parent-to-child MIG size ratio to count collision events. Default value: $DEFAULT_PARENT_CHILD_RATIO")
 
 def opt = cli.parse(args)
 if (opt == null || opt.arguments().size() < 2) {
@@ -60,6 +63,7 @@ int THREADS = opt.p ? Integer.parseInt(opt.p) : Runtime.getRuntime().availablePr
 byte umiQualThreshold = opt.q ? Byte.parseByte(opt.q) : Util.DEFAULT_UMI_QUAL_THRESHOLD
 def inputDir = opt.arguments()[0]
 boolean onlyFirstRead = opt.'only-first-read'
+double collisionRatioThreshold = Double.parseDouble(opt.'collision-ratio' ?: DEFAULT_PARENT_CHILD_RATIO)
 
 def scriptName = getClass().canonicalName
 int nBins = 17
@@ -173,12 +177,13 @@ new File("$outputDir/overseq.txt").withPrintWriter { oWriter ->
                                                 if (prevChar != nt) {
                                                     umi[i] = nt
                                                     def otherCount = umiCountMap.get(new String(umi))
-                                                    if (otherCount != null && thisCount < otherCount) {
+                                                    if (otherCount != null &&
+                                                            thisCount < collisionRatioThreshold * otherCount) {
                                                         collisionHist.addAndGet(bin, thisCount)
                                                         collisionHistUnits.incrementAndGet(bin)
                                                         good = false
                                                         break
-                                                        //break loops // let's not over-count collisions
+                                                        //break loops, let's not over-count collisions
                                                     }
                                                 }
                                             }
