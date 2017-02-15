@@ -1,0 +1,2 @@
+S2-1-beta	AAAGAcagtggtatcaacgcagagtNNNNtNNNNtNNNNtctt
+S2-2-beta	ATGTGcagtggtatcaacgcagagtNNNNtNNNNtNNNNtctt

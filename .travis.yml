@@ -1,1 +1,17 @@
 language: groovy
+
+before_build:
+  - wget ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.2.30/ncbi-blast-2.2.30+-x64-linux.tar.gz
+  - tar -zxvf ncbi-blast-2.2.30+-x64-linux.tar.gz | tail
+  - export PATH="${TRAVIS_BUILD_DIR}/ncbi-blast-2.2.30+/bin:$PATH"
+
+install:
+  - curl -OL https://raw.githubusercontent.com/metacran/r-builder/master/pkg-build.sh
+  - chmod 755 pkg-build.sh
+  - ./pkg-build.sh bootstrap
+  - export PATH="$PATH:`./pkg-build.sh r_path`"
+
+script:
+  - mvn clean install -q
+  - cd test/
+  - bash run.sh
