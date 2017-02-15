@@ -1,4 +1,8 @@
-language: groovy
+language: java
+
+sudo: required
+
+jdk: oraclejdk8
 
 before_build:
   - wget ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.2.30/ncbi-blast-2.2.30+-x64-linux.tar.gz
