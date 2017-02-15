@@ -414,10 +414,10 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
 def readQueue = new LinkedBlockingQueue<String[]>(4096)  // SINGLE: h1 r1 q1 ''       PAIRED: h1 r1 q1 h2 r2 q2 ''       ''
 def writeQueue = new LinkedBlockingQueue<String[]>(4096) // SINGLE: h1 r1 q1 sampleId PAIRED: h1 r1 q1 h2 r2 q2 sampleId overlapped
 
-if (!File.exists(inputFileName1)) {
+if (!(new File(inputFileName1).exists())) {
     inputFileName1 = new File(barcodesFileName).parentFile.absolutePath + "/" + inputFileName1
 }
-if (inputFileName2 != BLANK_PATH && !File.exists(inputFileName2)) {
+if (inputFileName2 != BLANK_PATH && !(new File(inputFileName2).exists())) {
     inputFileName2 = new File(barcodesFileName).parentFile.absolutePath + "/" + inputFileName2
 }
 

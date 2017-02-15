@@ -6,3 +6,7 @@ $MIGEC AssembleBatch --force-overseq 5 --force-collision-filter --default-mask 0
 $MIGEC CdrBlastBatch -R TRB checkout/ assemble/ cdrblast/
 $MIGEC FilterCdrBlastResultsBatch cdrblast/ cdrfinal/
 $MIGEC Report .
+
+if [[ -s _migec_error.log ]]
+   then cat _migec_error.log; exit 1
+fi
