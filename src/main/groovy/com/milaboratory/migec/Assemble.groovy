@@ -293,7 +293,7 @@ def sum = { Collection c ->
 }
 
 GParsPool.withPool THREADS, {
-    migData[0].eachParallel { migEntry ->
+    migData[0].eachWithIndexParallel { migEntry, gInd ->
         String umi = migEntry.key
         Map<String, Integer> reads1 = migEntry.value
         def counts = [sum(reads1.values())]
@@ -465,7 +465,7 @@ GParsPool.withPool THREADS, {
                         consensus.append(Util.code2nt(mostFreqLetter))
                         qual.append(Util.symbolFromQual(Math.max(2, (int) ((maxLetterFreq / count - 0.25) / 0.75 * 40.0))))
                     }
-                    assembledReads[ind] = "@MIG UMI:$umi:$count\n${consensus.toString()}\n+\n${qual.toString()}".toString()
+                    assembledReads[ind] = "@MIG.${gInd} R${ind} UMI:$umi:$count\n${consensus.toString()}\n+\n${qual.toString()}".toString()
 
                     if (alignmentDetails)
                         assembledReads[ind + 2] = detailInfo
