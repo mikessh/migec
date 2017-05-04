@@ -14,7 +14,7 @@ FEATURES
    preparation by grouping reads with identical molecular identifiers
 
 -  Mapping of V, D and J segments, extraction of CDR3 regions and
-   clonotype assembly for all human and mouse immune receptors 
+   clonotype assembly for all human and mouse immune receptors
    (TRA/TRB/TRG/TRD and IGH/IGL/IGK)
 
 -  Additional filtering of hot-spot errors in CDR3 sequence

@@ -50,6 +50,23 @@ The following rules apply:
 
 Same as in manual version of Checkout, see below.
 
+**Output format**
+
+The Checkout routine produces files in the FASTQ format that have a specific
+``UMI`` field added to the header. Each read successfully matched by Checkout
+will be output as follows:
+
+.. code::
+
+    @ILLUMINA_HEADER UMI:NNNN:QQQQ
+    ATAGATTATGAGTATG
+    +
+    ##II#IIIIIIIIIII
+
+The original read header (``ILLUMINA_HEADER`` here) is preserved, the
+appended ``UMI:NNNN:QQQQ`` contains the sequence of the UMI tag (``NNNN`` bases)
+and its quality string (``QQQQ``).
+
 .. _checkoutmanual:
 
 Checkout-manual
@@ -162,16 +179,16 @@ slave adapter so that output reads will be on master strand.
 complement. Use it if unsure of your library structure.
 
 ``--skip-undef`` will not store reads that miss adapter sequence to save
-drive space. 
+drive space.
 
 .. note::
 
-    When there is a huge number of unassigned/unused reads ``--skip-undef`` option 
-    greatly speeds up de-multiplexing. However, take care to carefully investigate 
+    When there is a huge number of unassigned/unused reads ``--skip-undef`` option
+    greatly speeds up de-multiplexing. However, take care to carefully investigate
     the reasons behind low barcode extraction rate if it is a case.
 
 .. important::
-    
-    The ``--overlap`` option may not perform well for poor quality reads, which is 
-    a typical situation for 300+300bp MiSEQ sequencing. In this case, merging reads 
+
+    The ``--overlap`` option may not perform well for poor quality reads, which is
+    a typical situation for 300+300bp MiSEQ sequencing. In this case, merging reads
     using external software after Assemble stage is recommended.

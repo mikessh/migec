@@ -58,11 +58,30 @@ samples being processed.
 
 .. warning::
 
-    In most cases, the automatic MIG size threshold selected by Histogram routine is ok. 
-    However we strongly recommend manual inspection of Histogram output files and considering 
+    In most cases, the automatic MIG size threshold selected by Histogram routine is ok.
+    However we strongly recommend manual inspection of Histogram output files and considering
     to manually specify an appropriate MIG size threshold for input samples. Our experience
     also shows that it is a good practice to set an identical size threshold for all samples
     in a batch.
+
+**Output format**
+
+The assembled consensuses are also stored in FASTQ format, however the read
+quality is now proportional to the relative frequency of the most frequent base
+at a given position. I.e. if 100% of bases in the position 5 are ``A`` the quality
+score will be Phred40 (``I``), while if only 27.1% of the bases are ``A`` and other
+bases have a frequency of 24.3% the quality will be Phred2 (``#``):
+
+.. code::
+
+    @MIG UMI:NNNN:X
+    ATAGATTATGAGTATG
+    +
+    ##II#IIIIIIIIIII
+
+The UMI tag is also added to the header, the number ``X`` in the UMI tag field
+is the total number of reads that were assembled into a given consensus.
+
 
 .. _assemblemanual:
 
@@ -126,23 +145,23 @@ over-sequenced MIGs and erroneous MIGs that cluster around MIG size of
 1.
 
 .. note::
-    
+
     To inspect the effect of such single-mismatch erroneous UMI sub-variants
     see "collisions" output of Histogram script. Such collision events could
     interfere with real MIGs when over-sequencing is relatively low. In this
     case collisions could be filtered during MIG consensus assembly using
-    ``--filter-collisions`` option in **AssembleBatch** routine. When using 
-    **Assemble** routine use ``--force-collision-filter`` command to 
+    ``--filter-collisions`` option in **AssembleBatch** routine. When using
+    **Assemble** routine use ``--force-collision-filter`` command to
     turn collision filter on. The child-to-parent ratio for collision filtering
-    (size of larger and smaller UMIs that differ by a single mismatch) is 
+    (size of larger and smaller UMIs that differ by a single mismatch) is
     controlled by the ``--collision-ratio`` parameter (default is ``--collision-ratio 0.1``).
-    
+
 .. important::
-    
-    The ``--only-first-read`` option can greatly improve assembly quality 
-    in case of poor second read quality and allows consensus assembly for 
-    asymmetric reads (e.g. 400+200bp sequencing design). If using this option, 
-    don't forget to set ``--only-first-read`` in Histogram util to correctly 
+
+    The ``--only-first-read`` option can greatly improve assembly quality
+    in case of poor second read quality and allows consensus assembly for
+    asymmetric reads (e.g. 400+200bp sequencing design). If using this option,
+    don't forget to set ``--only-first-read`` in Histogram util to correctly
     calculate MIG size threshold.
 
 Summary statistics
@@ -153,12 +172,12 @@ MIG consensus assembly report will be stored in the ``assemble.log.txt`` file wh
 - The ``MIGS_*`` counters show the number of MIGs that were processed (``MIGS_TOTAL``) and were successfully assigned with consensus sequences (``MIGS_GOOD_*``).
 - In case of paired-end sequencing separate statistic is provided for both R1 and R2 (``MIGS_GOOD_FASTQ1`` and ``MIGS_GOOD_FASTQ2``). The total counter (``MIGS_GOOD_TOTAL``) reflects number of UMI tags for which both R1 and R2 MIGs were successfully assembled.
 - The total number of reads in assembled MIGs and all MIGs is provided in ``READS_GOOD_*`` and ``READS_TOTAL`` columns respectively.
-  
+
 MIGs can be dropped from the assembly and marked as bad ones for the following reasons:
 
 - MIGs with a size less then the specified size threshold value will be dropped (see ``--force-overseq`` and ``-m`` options), as well as MIGs that correpsond to erroneous UMI variants (see ``--filter-collisions`` option).
 - Reads that have too many mismatches when compared to the consensus sequence will be dropped, which is reflected by ``READS_DROPPED_WITHIN_MIG`` statistic. In case a high percentage of reads within MIG is dropped/final MIG size is less than the threshold the entire MIG will be dropped for the analysis.
 
 .. note::
-    
+
     Additional pre-filtering of UMI tags identified by **Checkout** utility is performed by removing UMI tag sequences with a minimum Phred quality score below the one specified by the ``-q`` parameter (default is ``15``). Thus, the ``READS_TOTAL`` can be somewhat smaller than the total number of reads for a given sample in the ``checkout.log.txt``

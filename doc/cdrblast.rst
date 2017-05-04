@@ -8,7 +8,7 @@ CdrBlast-batch
 
 **Description**
 
-A script to extract CDR3 sequences. Will properly combine reads coming from 
+A script to extract CDR3 sequences. Will properly combine reads coming from
 paired and overlapped data and perform analysis for both raw and assembled data.
 
 Performs CDR3 extraction and V/J segment determination for both raw
@@ -68,6 +68,28 @@ structure:
 
 See section below for more details.
 
+**Output format**
+
+The output of V-D-J mapping routines of MIGEC is a standard tab-delimited
+clonotype table with some information on the number of reads and UMI tags
+that correspond to a given clonotype.
+
+Each clonotype is specified by count, fraction, V, D and J segment
+identifier list, CDR3 nucleotide and amino acid sequence.
+
+The positions of last V nucleotide, first and last D nucleotide, and first
+J nucleotide specify the germline region markup within the hypervariable CDR3
+sequence, they are given in 0-based coordinates where 0 marks the first base of
+CDR3.
+
+The ``total reads`` and ``good reads`` fields contain the number of reads
+supporting a given clonotype prior to and after the quality filtering.
+
+The ``total events`` and ``good events`` fields contain the number of UMI tags
+supporting a given clonotype prior to and after the quality filtering. For raw
+(unassembled) data these are equal to ``total reads`` and ``good reads``
+respectively.
+
 .. _cdrblastmanual:
 
 CdrBlast-manual
@@ -83,7 +105,7 @@ General:
 
 .. code:: bash
 
-    java -jar migec.jar CdrBlast [options] -R gene file1.fastq[.gz] [file2.fastq[.gz] ...] output_file 
+    java -jar migec.jar CdrBlast [options] -R gene file1.fastq[.gz] [file2.fastq[.gz] ...] output_file
 
 Standard, assuming an example of a library containing T-cell Receptor
 Alpha Chain sequences
@@ -92,7 +114,7 @@ in case of MIG-assembled data:
 
 .. code:: bash
 
-    java -jar migec.jar CdrBlast -a -R TRA assembly/S1_R2.fastq.gz cdrblast/S1_asm.cdrblast.txt 
+    java -jar migec.jar CdrBlast -a -R TRA assembly/S1_R2.fastq.gz cdrblast/S1_asm.cdrblast.txt
 
 for raw data:
 
@@ -107,7 +129,7 @@ to concatenate and process two or more FASTQ files at once:
     java -jar migec.jar CdrBlast -R TRA checkout/S1_R2.fastq.gz checkout/S2_R2.fastq.gz cdrblast/S12_raw.cdrblast.txt
 
 Gene parameter ``-R`` is required, supported genes are *TRA*, *TRB*,
-*TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Several chains can be specified, 
+*TRG*, *TRD*, *IGH*, *IGK* and *IGL*. Several chains can be specified,
 for example ``-R TRA,TRB`` or ``-R IGH,IGL``. Species could be provided with
 ``-S`` parameter, by default uses *HomoSapiens*, supported species are
 *HomoSapiens*, *MusMusculus* and others. Assembled data should be passed
@@ -122,5 +144,5 @@ assembled data should be processed to apply the last step of filtration.
 .. note::
 
     In order to use all alleles, not just the major (*01 ones), use the
-    ``--all-alleles`` option. To include non-coding segments (V segment 
+    ``--all-alleles`` option. To include non-coding segments (V segment
     pseudogenes) use the ``--all-segments`` option.
