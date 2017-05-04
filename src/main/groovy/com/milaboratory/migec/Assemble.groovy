@@ -192,7 +192,7 @@ while ((header1 = reader1.readLine()) != null) {
         seq2 = reader2.readLine()
         reader2.readLine()
         reader2.readLine()
-        
+
         if (header2 == null){
             println "[ERROR] R1 file has more reads than R2"
             System.exit(1)
@@ -465,7 +465,7 @@ GParsPool.withPool THREADS, {
                         consensus.append(Util.code2nt(mostFreqLetter))
                         qual.append(Util.symbolFromQual(Math.max(2, (int) ((maxLetterFreq / count - 0.25) / 0.75 * 40.0))))
                     }
-                    assembledReads[ind] = "@MIG.${gInd} R${ind} UMI:$umi:$count\n${consensus.toString()}\n+\n${qual.toString()}".toString()
+                    assembledReads[ind] = "@MIG.${gInd} R${ind+1} UMI:$umi:$count\n${consensus.toString()}\n+\n${qual.toString()}".toString()
 
                     if (alignmentDetails)
                         assembledReads[ind + 2] = detailInfo
