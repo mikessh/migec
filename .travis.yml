@@ -1,5 +1,4 @@
-#language: java
-
+language: java
 sudo: required
 
 jdk: oraclejdk9 # JDK 9+175 or newer
