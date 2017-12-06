@@ -16,7 +16,7 @@ java -jar migec.jar ...
 
 Make sure that you've specified the full/correct path to jar file. In case of Java Heap Space exception, you can increase the JVM memory limit by adding ``-Xmx20G`` (for extra 20G) after the ``-jar`` argument.
 
-The software is cross-platform and requires Java v1.7+ to run.
+The software is cross-platform and requires Java v1.8+ to run.
 
 Easy installation on MacOS/Linux via [Homebrew](http://brew.sh/) or [Linuxbrew](http://linuxbrew.sh/):
 ```bash
