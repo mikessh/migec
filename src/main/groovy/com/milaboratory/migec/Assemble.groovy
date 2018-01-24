@@ -33,6 +33,7 @@ import groovyx.gpars.GParsPool
 
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 import static com.milaboratory.migec.Util.BLANK_PATH
 
@@ -193,7 +194,7 @@ while ((header1 = reader1.readLine()) != null) {
         reader2.readLine()
         reader2.readLine()
 
-        if (header2 == null){
+        if (header2 == null) {
             println "[ERROR] R1 file has more reads than R2"
             System.exit(1)
         }
@@ -219,7 +220,7 @@ while ((header1 = reader1.readLine()) != null) {
 if (paired) {
     header2 = reader2.readLine()
 
-    if (header2 != null){
+    if (header2 != null) {
         println "[ERROR] R2 file has more reads than R1"
         System.exit(1)
     }
@@ -239,7 +240,10 @@ def detailsWriter1 = alignmentDetails ? Util.getWriter(outputDir + "/" + outputF
     detailsWriter2 = bothReads && alignmentDetails ? Util.getWriter(outputDir + "/" + outputFileNameNoExt2 + ".asm", compressed) : null
 
 println "[${new Date()} $scriptName] Starting assembly.."
-def writeThread = new Thread({  // Writing thread, listening to queue
+
+// Writing thread, listening to queue
+
+def writeThread = new Thread({
     String[] result
     while (true) {
         result = writeQueue.take()
@@ -272,16 +276,37 @@ def writeThread = new Thread({  // Writing thread, listening to queue
 } as Runnable)
 writeThread.start()
 
+/// Counters
+
 def nMigs = new AtomicInteger(),
-    nReadsInMigs = new AtomicInteger(), nDroppedReads = new AtomicInteger(),
     nCollisions = new AtomicInteger()
-def nGoodMigs = new AtomicInteger[3], nReadsInGoodMigs = new AtomicInteger[3]
+
+def nReadsInMigs = new AtomicLong(), nDroppedReads = new AtomicLong()
+
+def nGoodMigs = new AtomicInteger[3]
 nGoodMigs[0] = new AtomicInteger()
 nGoodMigs[1] = new AtomicInteger()
 nGoodMigs[2] = new AtomicInteger()
-nReadsInGoodMigs[0] = new AtomicInteger()
-nReadsInGoodMigs[1] = new AtomicInteger()
-nReadsInGoodMigs[2] = new AtomicInteger()
+def nReadsInGoodMigs = new AtomicLong[3]
+nReadsInGoodMigs[0] = new AtomicLong()
+nReadsInGoodMigs[1] = new AtomicLong()
+nReadsInGoodMigs[2] = new AtomicLong()
+
+def nCollisionMigs = new AtomicInteger[2]
+nCollisionMigs[0] = new AtomicInteger()
+nCollisionMigs[1] = new AtomicInteger()
+def nCollisionReads = new AtomicLong[2]
+nCollisionReads[0] = new AtomicLong()
+nCollisionReads[1] = new AtomicLong()
+
+def nOverseqMigs = new AtomicInteger[2]
+nOverseqMigs[0] = new AtomicInteger()
+nOverseqMigs[1] = new AtomicInteger()
+def nOverseqReads = new AtomicLong[2]
+nOverseqReads[0] = new AtomicLong()
+nOverseqReads[1] = new AtomicLong()
+
+/// Aux functions
 
 def getCoreSeq = { String seq, int offset ->
     int mid = seq.length() / 2
@@ -291,6 +316,8 @@ def getCoreSeq = { String seq, int offset ->
 def sum = { Collection c ->
     c.size() > 0 ? (int) c.sum() : 0i
 }
+
+// Process in parallel
 
 GParsPool.withPool THREADS, {
     migData[0].eachWithIndexParallel { migEntry, gInd ->
@@ -465,7 +492,7 @@ GParsPool.withPool THREADS, {
                         consensus.append(Util.code2nt(mostFreqLetter))
                         qual.append(Util.symbolFromQual(Math.max(2, (int) ((maxLetterFreq / count - 0.25) / 0.75 * 40.0))))
                     }
-                    assembledReads[ind] = "@MIG.${gInd} R${ind+1} UMI:$umi:$count\n${consensus.toString()}\n+\n${qual.toString()}".toString()
+                    assembledReads[ind] = "@MIG.${gInd} R${ind + 1} UMI:$umi:$count\n${consensus.toString()}\n+\n${qual.toString()}".toString()
 
                     if (alignmentDetails)
                         assembledReads[ind + 2] = detailInfo
@@ -474,8 +501,23 @@ GParsPool.withPool THREADS, {
                     nReadsInGoodMigsCurrent[ind] = nReadsInGoodMigs[ind].addAndGet(count)
                 }
             }
+        } else {
+            if (!noCollision) {
+                counts.eachWithIndex { int count, int i ->
+                    nCollisionMigs[i].incrementAndGet()
+                    nCollisionReads[i].addAndGet(count)
+                }
+            } else {
+                counts.eachWithIndex { int count, int i ->
+                    if (count < minMigSize) {
+                        nOverseqMigs[i].incrementAndGet()
+                        nOverseqReads[i].addAndGet(count)
+                    }
+                }
+            }
         }
 
+        // Send to writer
         if ((!assemblyIndices[0] || assembledReads[0] != null) &&
                 (!assemblyIndices[1] || assembledReads[0] != null) &&
                 (!(assemblyIndices[0] && assemblyIndices[1]) || assembledReads[1] != null)) {
@@ -484,7 +526,7 @@ GParsPool.withPool THREADS, {
             nReadsInGoodMigsCurrent[2] = nReadsInGoodMigs[2].addAndGet(avgCount)
         }
 
-
+        // Report
         if (nMigsCurrent % 10000 == 0)
             println "[${new Date()} $scriptName] Processed $nMigsCurrent MIGs, $nReadsInMigsCurrent reads total, " +
                     "$nCollisionsCurrent collisions detected, assembled so far: " +
@@ -517,8 +559,16 @@ def logLine = [assemblyIndices[0] ? new File(inputFileName1).absolutePath : BLAN
 
                nGoodMigs[0].get(), nGoodMigs[1].get(), nGoodMigs[2].get(), nMigs.get(),
 
-               nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(), nReadsInMigs.get(),
-               nDroppedReads.get()].join("\t")
+               nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(),
+
+               nReadsInMigs.get(), nDroppedReads.get(),
+        
+               nOverseqMigs[0].get(), nOverseqMigs[1].get(),
+               nOverseqReads[0].get(), nOverseqReads[1].get(),
+
+               nCollisionMigs[0].get(), nCollisionMigs[1].get(),
+               nCollisionReads[0].get(), nCollisionReads[1].get()
+].join("\t")
 
 
 if (logFileName) {

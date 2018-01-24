@@ -403,7 +403,7 @@ def wrapRead = { String[] readData, StringBuilder[] umiData, int readIndex, Stri
         println "[${new Date()} $scriptName] Processed $nReads, " +
                 "identified $nGoodReads (${((int) (10000 * (double) nGoodReads / (double) nReads)) / 100}%), " +
                 (overlap ? "overlapped ${((int) (10000 * (double) overlapCount / (double) nGoodReads)) / 100}% of them, " : "") +
-                "assymetry (master first): $nMasterFirst (${((int) (10000 * (double) nMasterFirst / (double) nGoodReads)) / 100}%)"
+                "asymmetry (master first): $nMasterFirst (${((int) (10000 * (double) nMasterFirst / (double) nGoodReads)) / 100}%)"
 
     readData
 }
