@@ -502,7 +502,7 @@ GParsPool.withPool THREADS, {
                 }
             }
         } else {
-            if (!noCollision) {
+            if (noCollision) {
                 counts.eachWithIndex { int count, int i ->
                     nCollisionMigs[i].incrementAndGet()
                     nCollisionReads[i].addAndGet(count)
