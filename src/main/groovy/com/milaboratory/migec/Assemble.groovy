@@ -66,7 +66,7 @@ cli._(longOpt: "filter-collisions",
         "Collision filtering. Should be set if collisions (1-mismatch erroneous UMI sequence variants) " +
                 "are observed in \"Histogram.groovy\" output")
 cli._(longOpt: "collision-ratio", args: 1, argName: "double, < 1.0",
-        "Min parent-to-child MIG size ratio for collision filtering. Default value: $DEFAULT_PARENT_CHILD_RATIO")
+        "Max child-to-parent MIG size ratio for collision filtering. Default value: $DEFAULT_PARENT_CHILD_RATIO")
 cli._(longOpt: "assembly-offset", args: 1, argName: "integer",
         "Assembly offset range. Default: $DEFAULT_ASSEMBLY_OFFSET")
 cli._(longOpt: "assembly-mismatches", args: 1, argName: "integer",
@@ -562,7 +562,7 @@ def logLine = [assemblyIndices[0] ? new File(inputFileName1).absolutePath : BLAN
                nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(),
 
                nReadsInMigs.get(), nDroppedReads.get(),
-        
+
                nOverseqMigs[0].get(), nOverseqMigs[1].get(),
                nOverseqReads[0].get(), nOverseqReads[1].get(),
 

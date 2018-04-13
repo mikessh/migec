@@ -153,7 +153,7 @@ over-sequenced MIGs and erroneous MIGs that cluster around MIG size of
     ``--filter-collisions`` option in **AssembleBatch** routine. When using
     **Assemble** routine use ``--force-collision-filter`` command to
     turn collision filter on. The child-to-parent ratio for collision filtering
-    (size of larger and smaller UMIs that differ by a single mismatch) is
+    (max allowed size of larger and smaller UMIs that differ by a single mismatch) is
     controlled by the ``--collision-ratio`` parameter (default is ``--collision-ratio 0.1``).
 
 .. important::
@@ -175,7 +175,7 @@ MIG consensus assembly report will be stored in the ``assemble.log.txt`` file wh
 
 MIGs can be dropped from the assembly and marked as bad ones for the following reasons:
 
-- MIGs with a size less then the specified size threshold value will be dropped (see ``--force-overseq`` and ``-m`` options), as well as MIGs that correpsond to erroneous UMI variants (see ``--filter-collisions`` option).
+- MIGs with a size less then the specified size threshold value will be dropped (see ``--force-overseq`` and ``-m`` options), as well as MIGs that correspond to erroneous UMI variants (see ``--filter-collisions`` option).
 - Reads that have too many mismatches when compared to the consensus sequence will be dropped, which is reflected by ``READS_DROPPED_WITHIN_MIG`` statistic. In case a high percentage of reads within MIG is dropped/final MIG size is less than the threshold the entire MIG will be dropped for the analysis.
 
 .. note::
