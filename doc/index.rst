@@ -64,5 +64,6 @@ Table of contents:
    assemble
    cdrblast
    cdrfinal
+   logs
    report
    post

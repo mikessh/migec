@@ -368,11 +368,14 @@ inputFileNames.each { inputFileName ->
 
 def queryFilePrefix = TMP_FOLDER + "/" + getFastqPrefix(inputFileNames[0])
 println "[${new Date()} $SCRIPT_NAME] Making a temporary FASTA file for BLAST queries"
+THREADS = Math.min(THREADS, seqList.size())
 int chunk_sz = seqList.size() / THREADS
 for (int p = 0; p < THREADS; p++) { // split fasta for blast parallelizaiton
     def file = new File(queryFilePrefix + "_${p}.fa")
+    int end = p == THREADS - 1 ? seqList.size() : (p + 1) * chunk_sz
+    end = Math.min(end, seqList.size())
     file.withPrintWriter { pw ->
-        for (int i = p * chunk_sz; i < Math.min(seqList.size(), (p + 1) * chunk_sz); i++) {
+        for (int i = p * chunk_sz; i < end; i++) {
             pw.println(">$i\n${seqList[i]}")
         }
     }
