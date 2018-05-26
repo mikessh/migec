@@ -166,7 +166,7 @@ migData[0] = new HashMap<String, Map<String, Integer>>(1000000)
 if (assemblyIndices[0] && assemblyIndices[1])
     migData[1] = new HashMap<String, Map<String, Integer>>(1000000)
 
-int nReads = 0, nGoodReads = 0
+int nReads = 0
 
 def putData = { int readId, String umi, String header, String seq ->
     def seqCountMap = migData[readId].get(umi)
@@ -174,7 +174,6 @@ def putData = { int readId, String umi, String header, String seq ->
         migData[readId].put(umi, seqCountMap = new HashMap<String, Integer>())
     if (!onlyFirstRead || header.contains(" R1 ")) {
         seqCountMap.put(seq, (seqCountMap.get(seq) ?: 0) + 1)
-        nGoodReads++
     }
 }
 
@@ -281,20 +280,26 @@ writeThread.start()
 def nMigs = new AtomicInteger(),
     nCollisions = new AtomicInteger()
 
-def nReadsInMigs = new AtomicLong(), nDroppedReads = new AtomicLong()
+def nReadsInMigs = new AtomicLong()
 
 def nGoodMigs = new AtomicInteger[3]
 nGoodMigs[0] = new AtomicInteger()
 nGoodMigs[1] = new AtomicInteger()
 nGoodMigs[2] = new AtomicInteger()
+
 def nReadsInGoodMigs = new AtomicLong[3]
 nReadsInGoodMigs[0] = new AtomicLong()
 nReadsInGoodMigs[1] = new AtomicLong()
 nReadsInGoodMigs[2] = new AtomicLong()
 
+def nDroppedReads = new AtomicLong[2]
+nDroppedReads[0] = new AtomicLong()
+nDroppedReads[1] = new AtomicLong()
+
 def nCollisionMigs = new AtomicInteger[2]
 nCollisionMigs[0] = new AtomicInteger()
 nCollisionMigs[1] = new AtomicInteger()
+
 def nCollisionReads = new AtomicLong[2]
 nCollisionReads[0] = new AtomicLong()
 nCollisionReads[1] = new AtomicLong()
@@ -302,6 +307,7 @@ nCollisionReads[1] = new AtomicLong()
 def nOverseqMigs = new AtomicInteger[2]
 nOverseqMigs[0] = new AtomicInteger()
 nOverseqMigs[1] = new AtomicInteger()
+
 def nOverseqReads = new AtomicLong[2]
 nOverseqReads[0] = new AtomicLong()
 nOverseqReads[1] = new AtomicLong()
@@ -451,7 +457,7 @@ GParsPool.withPool THREADS, {
                         migAlignmentData.put(read.key, data)
                     } else {
                         count -= read.value // drop it
-                        nDroppedReads.incrementAndGet()
+                        nDroppedReads[ind].incrementAndGet()
                     }
                 }
 
@@ -559,9 +565,9 @@ def logLine = [assemblyIndices[0] ? new File(inputFileName1).absolutePath : BLAN
 
                nGoodMigs[0].get(), nGoodMigs[1].get(), nGoodMigs[2].get(), nMigs.get(),
 
-               nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(),
+               nReadsInGoodMigs[0].get(), nReadsInGoodMigs[1].get(), nReadsInGoodMigs[2].get(), nReadsInMigs.get(),
 
-               nReadsInMigs.get(), nDroppedReads.get(),
+               nDroppedReads[0].get(), nDroppedReads[1].get(),
 
                nOverseqMigs[0].get(), nOverseqMigs[1].get(),
                nOverseqReads[0].get(), nOverseqReads[1].get(),
