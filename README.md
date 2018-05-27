@@ -35,6 +35,8 @@ Please cite the tool as:
 
 > Shugay M *et al.* Towards error-free profiling of immune repertoires. Nature Methods **11**, 653–655 (2014)
 
+You may be also interested in the following [Nature Protocol](https://www.nature.com/articles/nprot.2016.093) describing MIGEC applications for full-length immunoglobulin sequencing.
+
 ### Some notes on MiGEC study
 
 The basic idea behind this project is to incorporate unique molecular identifier tags to trace individual cDNA molecules during library preparation and sequencing in order to eliminate experimental errors. This is especially crucial for B-cell studies as it is necessary to tell real hypermutations from hot-spot PCR and sequencing errors.
