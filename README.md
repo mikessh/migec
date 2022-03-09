@@ -1,3 +1,5 @@
+> MIGEC is free for academic use. For commercial use and support refer to [MiLaboratories](https://milaboratories.com/)
+
 [![Build Status](https://travis-ci.org/mikessh/migec.svg?branch=master)](https://travis-ci.org/mikessh/migec)
 
 ## MiGEC: Molecular Identifier Guided Error Correction pipeline  
