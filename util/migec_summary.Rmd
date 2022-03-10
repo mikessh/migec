@@ -166,7 +166,7 @@ colnames(df) <- c("sample", "sample.type", "threshold", "peak", "mig.size", "cou
 # summarize by sample type, normalize within sample
 df <- aggregate(count ~ sample + mig.size + threshold + peak, data=df, FUN=sum)
 df.n <- ddply(df,.(sample),transform,count=count/sum(count))
-df.n$sample <-factor(df.n$sample, levels=df.n[order(df.n$peak), "sample"])
+df.n$sample <-factor(df.n$sample, levels=unique(df.n[order(df.n$peak), "sample"]))
 
 # plotting
 
@@ -206,6 +206,7 @@ require(scales)
 
 if (!is.null(assemble_path)) {
 df <- read.table(paste(assemble_path, "/assemble.log.txt", sep = "/"), header=T, comment ="")
+df$READS_DROPPED_WITHIN_MIG = df$READS_DROPPED_WITHIN_MIG_1 + df$READS_DROPPED_WITHIN_MIG_2
 df <- data.frame(sample <- df$X.SAMPLE_ID, 
                  migs.assembled <- df$MIGS_GOOD_TOTAL,
                  umi.fraction.assembled <- df$MIGS_GOOD_TOTAL / df$MIGS_TOTAL,
@@ -242,7 +243,7 @@ plotAsm.2 <- function(dd) {
 
 Below is a plot showing the total number of assembled MIGs per sample. The number of MIGs should be interpreted as the total number of starting molecules that have been successfully recovered.
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p<-"Nothing to plot"
 if (!is.null(assemble_path)) {
 df.1 <- subset(df, variable == "migs.assembled")
@@ -357,7 +358,7 @@ plotCdr.2 <- function(dd) {
 
 The plot below shows the total number of MIGs that contain good-quality CDR3 region in the consensus sequence
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrblast_path)) {
 df.s <- subset(df, variable == "final.count" & type == "asm" & metric == "mig")
@@ -370,7 +371,7 @@ p
 
 Total number of reads that contain good-quality CDR3 region in raw reads
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrblast_path)) {
 df.s <- subset(df, variable == "final.count" & type == "asm" & metric == "read")
@@ -385,7 +386,7 @@ Mapping rate, the fraction of reads/MIGs that contain a CDR3 region
 
 > Panels show assembled (**asm**) and unprocessed (**raw**) data. Values are given in number of molecules (**mig**, assembled samples only) and the corresponding read count (**read**)
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrblast_path)) {
 df.s <- subset(df, variable == "map.rate")
@@ -400,7 +401,7 @@ Good-quality CDR3 sequence rate, the fraction of CDR3-containing reads/MIGs that
 
 > Note that while raw data is being filtered based on Phred quality score, consensus quality score (CQS, the ratio of major variant) is used for assembled data
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrblast_path)) {
 df.s <- subset(df, variable == "qual.rate")
@@ -470,7 +471,7 @@ plotCdrFinal.2 <- function(dd) {
 
 Below is the plot of sample diversity, i.e. the number of clonotypes in a given sample
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrfinal_path)) {
 df.1 <- data.frame(sample = df$sample, value = df$clones.count)
@@ -483,7 +484,7 @@ p
 
 Total number of molecules (MIGs) in final clonotype tables
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrfinal_path)) {
 df.1 <- data.frame(sample = df$sample, value = df$migs.count)
@@ -498,7 +499,7 @@ Rate of hot-spot and singleton error filtering, in terms of clonotypes (**clone*
 
 > As clonotypes represented by a single MIG (singletons) have insufficient info to apply MiGEC-style error filtering, a simple frequency-based filtering is used for them.
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrfinal_path)) {
 df.2 <- data.frame(sample = df$sample, mig = df$migs.filter.rate, clone = df$clones.filter.rate)
@@ -512,7 +513,7 @@ p
 
 Rate of non-coding CDR3 sequences, in terms of clonotypes (**clone** panel) and MIGs (**mig** panel)
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 p <- "Nothing to plot"
 if (!is.null(cdrfinal_path)) {
 df.2 <- data.frame(sample = df$sample, mig = df$migs.nc.rate, clone = df$clones.nc.rate)
