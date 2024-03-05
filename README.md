@@ -1,4 +1,4 @@
-> MIGEC is free for academic use. This is a legacy version, the software was acquired by [MiLaboratories](https://milaboratories.com/) and is now a part of their products.
+> MIGEC is free for academic use. This is a legacy version, the software is no longer supported, if you need similar software solutions please visit [MiLaboratory](https://milaboratory.ru/).
 
 [![Build Status](https://travis-ci.org/mikessh/migec.svg?branch=master)](https://travis-ci.org/mikessh/migec)
 
