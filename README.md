@@ -1,5 +1,6 @@
 > MIGEC is free for academic use. This is a legacy version, the software is no longer supported, if you need similar software solutions please visit [MiLaboratory](https://milaboratory.ru/).
 
+[![JitPack](https://jitpack.io/v/mikessh/migec.svg)](https://jitpack.io/#mikessh/migec)
 
 ## MiGEC: Molecular Identifier Guided Error Correction pipeline  
 
